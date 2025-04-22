@@ -23,7 +23,8 @@ int i2c_eeprom_read(unsigned char *buf, unsigned long from, unsigned long len)
 	memset(ebuf, 0, sizeof(ebuf));
 	pbuf = ebuf;
 
-	if (ch341readEEPROM(pbuf, eepromsize, &eeprom_info) < 0) {
+	if (ch341readEEPROM(pbuf, eepromsize, &eeprom_info) < 0)
+	{
 		fprintf(stderr, "Couldn't read [%d] bytes from [%s] EEPROM address 0x%08lu\n", (int)len, eepromname, from); // Use stderr
 		return -1;
 	}
@@ -47,15 +48,18 @@ int i2c_eeprom_erase(unsigned long offs, unsigned long len)
 	memset(ebuf, 0xff, sizeof(ebuf));
 	pbuf = ebuf;
 
-	if (offs || len < eepromsize) {
-		if (ch341readEEPROM(pbuf, eepromsize, &eeprom_info) < 0) {
+	if (offs || len < eepromsize)
+	{
+		if (ch341readEEPROM(pbuf, eepromsize, &eeprom_info) < 0)
+		{
 			fprintf(stderr, "Couldn't read [%d] bytes from [%s] EEPROM\n", eepromsize, eepromname); // Use stderr
 			return -1;
 		}
 		memset(pbuf + offs, 0xff, len);
 	}
 
-	if(ch341writeEEPROM(pbuf, eepromsize, &eeprom_info) < 0) {
+	if (ch341writeEEPROM(pbuf, eepromsize, &eeprom_info) < 0)
+	{
 		fprintf(stderr, "Failed to erase [%d] bytes of [%s] EEPROM address 0x%08lu\n", (int)len, eepromname, offs); // Use stderr
 		return -1;
 	}
@@ -77,15 +81,18 @@ int i2c_eeprom_write(unsigned char *buf, unsigned long to, unsigned long len)
 	memset(ebuf, 0xff, sizeof(ebuf));
 	pbuf = ebuf;
 
-	if (to || len < eepromsize) {
-		if (ch341readEEPROM(pbuf, eepromsize, &eeprom_info) < 0) {
+	if (to || len < eepromsize)
+	{
+		if (ch341readEEPROM(pbuf, eepromsize, &eeprom_info) < 0)
+		{
 			fprintf(stderr, "Couldn't read [%d] bytes from [%s] EEPROM\n", (int)len, eepromname); // Use stderr
 			return -1;
 		}
 	}
 	memcpy(pbuf + to, buf, len);
 
-	if(ch341writeEEPROM(pbuf, eepromsize, &eeprom_info) < 0) {
+	if (ch341writeEEPROM(pbuf, eepromsize, &eeprom_info) < 0)
+	{
 		fprintf(stderr, "Failed to write [%d] bytes of [%s] EEPROM address 0x%08lu\n", (int)len, eepromname, to); // Use stderr
 		return -1;
 	}
@@ -101,8 +108,9 @@ long i2c_init(void)
 	if (config_stream(CH341_I2C_STANDARD_SPEED) < 0)
 		return -1;
 
-	if (eepromsize <= 0) {
-		fprintf(stderr, "I2C EEPROM Not Detected!\n"); // Use stderr
+	if (eepromsize <= 0)
+	{
+		fprintf(stderr, "I2C EEPROM Not Detected!\n");
 		return -1;
 	}
 
@@ -118,7 +126,7 @@ void support_i2c_eeprom_list(void)
 	int i;
 
 	printf("I2C EEPROM Support List:\n");
-	for ( i = 0; i < (sizeof(eepromlist)/sizeof(struct EEPROM)); i++)
+	for (i = 0; i < (sizeof(eepromlist) / sizeof(struct EEPROM)); i++)
 	{
 		if (!eepromlist[i].size)
 			break;

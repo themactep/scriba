@@ -9,101 +9,101 @@
 
 #include <stdint.h>
 
-#define MAX_EEPROM_SIZE			131072 /* For 24c1024*/
+#define MAX_EEPROM_SIZE 131072 /* For 24c1024*/
 
-#define EEPROM_I2C_BUS_ADDRESS		0x50
+#define EEPROM_I2C_BUS_ADDRESS 0x50
 
-#define BULK_WRITE_ENDPOINT		0x02   /* bEndpointAddress 0x02  EP 2 OUT (Bulk)*/
-#define BULK_READ_ENDPOINT		0x82   /* bEndpointAddress 0x82  EP 2 IN  (Bulk)*/
-#define DEFAULT_INTERFACE		0x00
+#define BULK_WRITE_ENDPOINT 0x02 /* bEndpointAddress 0x02  EP 2 OUT (Bulk)*/
+#define BULK_READ_ENDPOINT 0x82  /* bEndpointAddress 0x82  EP 2 IN  (Bulk)*/
+#define DEFAULT_INTERFACE 0x00
 
-#define DEFAULT_CONFIGURATION		0x01
-#define DEFAULT_TIMEOUT			300    // 300mS for USB timeouts
+#define DEFAULT_CONFIGURATION 0x01
+#define DEFAULT_TIMEOUT 300 // 300mS for USB timeouts
 
-#define IN_BUF_SZ			0x100
-#define EEPROM_WRITE_BUF_SZ		0x2b   // only for 24c64 / 24c32 ??
-#define EEPROM_READ_BULKIN_BUF_SZ	0x20
-#define EEPROM_READ_BULKOUT_BUF_SZ	0x65
+#define IN_BUF_SZ 0x100
+#define EEPROM_WRITE_BUF_SZ 0x2b // only for 24c64 / 24c32 ??
+#define EEPROM_READ_BULKIN_BUF_SZ 0x20
+#define EEPROM_READ_BULKOUT_BUF_SZ 0x65
 
 /* Based on (closed-source) DLL V1.9 for USB by WinChipHead (c) 2005.
    Supports USB chips: CH341, CH341A
    This can be a problem for copyright, sure asbokid can't release this part on any GPL licence*/
 
-#define mCH341_PACKET_LENGTH		32    /* wMaxPacketSize 0x0020  1x 32 bytes, Unused */
-#define mCH341_PKT_LEN_SHORT		8     /* wMaxPacketSize 0x0008  1x 8 bytes, Unused */
+#define mCH341_PACKET_LENGTH 32 /* wMaxPacketSize 0x0020  1x 32 bytes, Unused */
+#define mCH341_PKT_LEN_SHORT 8  /* wMaxPacketSize 0x0008  1x 8 bytes, Unused */
 
-#define mCH341_ENDP_INTER_UP		0x81  /* bEndpointAddress 0x81  EP 1 IN (Interrupt), Unused */
-#define mCH341_ENDP_INTER_DOWN		0x01  /* This endpoint is not listed in my lsusb -v output, Unused */
-#define mCH341_ENDP_DATA_UP		0x82  /* ==BULK_READ_ENDPOINT  Why repeat it? */
-#define mCH341_ENDP_DATA_DOWN		0x02  /* ==BULK_WRITE_ENDPOINT Why repeat it? */
+#define mCH341_ENDP_INTER_UP 0x81   /* bEndpointAddress 0x81  EP 1 IN (Interrupt), Unused */
+#define mCH341_ENDP_INTER_DOWN 0x01 /* This endpoint is not listed in my lsusb -v output, Unused */
+#define mCH341_ENDP_DATA_UP 0x82    /* ==BULK_READ_ENDPOINT  Why repeat it? */
+#define mCH341_ENDP_DATA_DOWN 0x02  /* ==BULK_WRITE_ENDPOINT Why repeat it? */
 
-#define mCH341_VENDOR_READ		0xC0  /* Unused */
-#define mCH341_VENDOR_WRITE		0x40  /* Unused */
+#define mCH341_VENDOR_READ 0xC0  /* Unused */
+#define mCH341_VENDOR_WRITE 0x40 /* Unused */
 
-#define mCH341_PARA_INIT		0xB1  /* Unused */
-#define mCH341_I2C_STATUS		0x52  /* Unused */
-#define mCH341_I2C_COMMAND		0x53  /* Unused */
+#define mCH341_PARA_INIT 0xB1   /* Unused */
+#define mCH341_I2C_STATUS 0x52  /* Unused */
+#define mCH341_I2C_COMMAND 0x53 /* Unused */
 
-#define mCH341_PARA_CMD_R0		0xAC  /* Unused */
-#define mCH341_PARA_CMD_R1		0xAD  /* Unused */
-#define mCH341_PARA_CMD_W0		0xA6  /* Unused */
-#define mCH341_PARA_CMD_W1		0xA7  /* Unused */
-#define mCH341_PARA_CMD_STS		0xA0  /* Unused */
+#define mCH341_PARA_CMD_R0 0xAC  /* Unused */
+#define mCH341_PARA_CMD_R1 0xAD  /* Unused */
+#define mCH341_PARA_CMD_W0 0xA6  /* Unused */
+#define mCH341_PARA_CMD_W1 0xA7  /* Unused */
+#define mCH341_PARA_CMD_STS 0xA0 /* Unused */
 
-#define mCH341A_CMD_SET_OUTPUT		0xA1  /* Unused */
-#define mCH341A_CMD_IO_ADDR		0xA2  /* Unused */
-#define mCH341A_CMD_PRINT_OUT		0xA3  /* Unused */
-#define mCH341A_CMD_SPI_STREAM		0xA8  /* Unused */
-#define mCH341A_CMD_SIO_STREAM		0xA9  /* Unused */
-#define mCH341A_CMD_I2C_STREAM		0xAA
-#define mCH341A_CMD_UIO_STREAM		0xAB  /* Unused */
+#define mCH341A_CMD_SET_OUTPUT 0xA1 /* Unused */
+#define mCH341A_CMD_IO_ADDR 0xA2    /* Unused */
+#define mCH341A_CMD_PRINT_OUT 0xA3  /* Unused */
+#define mCH341A_CMD_SPI_STREAM 0xA8 /* Unused */
+#define mCH341A_CMD_SIO_STREAM 0xA9 /* Unused */
+#define mCH341A_CMD_I2C_STREAM 0xAA
+#define mCH341A_CMD_UIO_STREAM 0xAB /* Unused */
 
-#define mCH341A_BUF_CLEAR		0xB2  /* Unused */
-#define mCH341A_I2C_CMD_X		0x54  /* Unused */
-#define mCH341A_DELAY_MS		0x5E  /* Unused */
-#define mCH341A_GET_VER			0x5F  /* Unused */
+#define mCH341A_BUF_CLEAR 0xB2 /* Unused */
+#define mCH341A_I2C_CMD_X 0x54 /* Unused */
+#define mCH341A_DELAY_MS 0x5E  /* Unused */
+#define mCH341A_GET_VER 0x5F   /* Unused */
 
-#define mCH341_EPP_IO_MAX		( mCH341_PACKET_LENGTH - 1 )  /* Unused */
-#define mCH341A_EPP_IO_MAX		0xFF  /* Unused */
+#define mCH341_EPP_IO_MAX (mCH341_PACKET_LENGTH - 1) /* Unused */
+#define mCH341A_EPP_IO_MAX 0xFF                      /* Unused */
 
-#define mCH341A_CMD_IO_ADDR_W		0x00  /* Unused */
-#define mCH341A_CMD_IO_ADDR_R		0x80  /* Unused */
+#define mCH341A_CMD_IO_ADDR_W 0x00 /* Unused */
+#define mCH341A_CMD_IO_ADDR_R 0x80 /* Unused */
 
-#define mCH341A_CMD_I2C_STM_STA		0x74
-#define mCH341A_CMD_I2C_STM_STO		0x75
-#define mCH341A_CMD_I2C_STM_OUT		0x80
-#define mCH341A_CMD_I2C_STM_IN		0xC0
-#define mCH341A_CMD_I2C_STM_MAX		( min( 0x3F, mCH341_PACKET_LENGTH ) )  /* Unused */
-#define mCH341A_CMD_I2C_STM_SET		0x60
-#define mCH341A_CMD_I2C_STM_US		0x40  /* Unused */
-#define mCH341A_CMD_I2C_STM_MS		0x50  /* Unused */
-#define mCH341A_CMD_I2C_STM_DLY		0x0F  /* Unused */
-#define mCH341A_CMD_I2C_STM_END		0x00
+#define mCH341A_CMD_I2C_STM_STA 0x74
+#define mCH341A_CMD_I2C_STM_STO 0x75
+#define mCH341A_CMD_I2C_STM_OUT 0x80
+#define mCH341A_CMD_I2C_STM_IN 0xC0
+#define mCH341A_CMD_I2C_STM_MAX (min(0x3F, mCH341_PACKET_LENGTH)) /* Unused */
+#define mCH341A_CMD_I2C_STM_SET 0x60
+#define mCH341A_CMD_I2C_STM_US 0x40  /* Unused */
+#define mCH341A_CMD_I2C_STM_MS 0x50  /* Unused */
+#define mCH341A_CMD_I2C_STM_DLY 0x0F /* Unused */
+#define mCH341A_CMD_I2C_STM_END 0x00
 
-#define mCH341A_CMD_UIO_STM_IN		0x00  /* Unused */
-#define mCH341A_CMD_UIO_STM_DIR		0x40  /* Unused */
-#define mCH341A_CMD_UIO_STM_OUT		0x80  /* Unused */
-#define mCH341A_CMD_UIO_STM_US		0xC0  /* Unused */
-#define mCH341A_CMD_UIO_STM_END		0x20  /* Unused */
+#define mCH341A_CMD_UIO_STM_IN 0x00  /* Unused */
+#define mCH341A_CMD_UIO_STM_DIR 0x40 /* Unused */
+#define mCH341A_CMD_UIO_STM_OUT 0x80 /* Unused */
+#define mCH341A_CMD_UIO_STM_US 0xC0  /* Unused */
+#define mCH341A_CMD_UIO_STM_END 0x20 /* Unused */
 
-#define mCH341_PARA_MODE_EPP		0x00  /* Unused */
-#define mCH341_PARA_MODE_EPP17		0x00  /* Unused */
-#define mCH341_PARA_MODE_EPP19		0x01  /* Unused */
-#define mCH341_PARA_MODE_MEM		0x02  /* Unused */
+#define mCH341_PARA_MODE_EPP 0x00   /* Unused */
+#define mCH341_PARA_MODE_EPP17 0x00 /* Unused */
+#define mCH341_PARA_MODE_EPP19 0x01 /* Unused */
+#define mCH341_PARA_MODE_MEM 0x02   /* Unused */
 
 /* End of the part based on close-sourced DLL V1.9 for USB by WinChipHead (c) 2005.
    Since it is largely unused we can replace it. */
 
-#define CH341_I2C_LOW_SPEED		0 // 20kHz
-#define CH341_I2C_STANDARD_SPEED	1 // 100kHz
-#define CH341_I2C_FAST_SPEED		2 // 400kHz
-#define CH341_I2C_HIGH_SPEED		3 // 750kHz
+#define CH341_I2C_LOW_SPEED 0      // 20kHz
+#define CH341_I2C_STANDARD_SPEED 1 // 100kHz
+#define CH341_I2C_FAST_SPEED 2     // 400kHz
+#define CH341_I2C_HIGH_SPEED 3     // 750kHz
 
-#define CH341_EEPROM_READ_CMD_SZ	0x65 /* Same size for all 24cXX read setup and next packets*/
+#define CH341_EEPROM_READ_CMD_SZ 0x65 /* Same size for all 24cXX read setup and next packets*/
 
 /* CH341a READ EEPROM setup packet for the 24c01 */
 // TODO: make this into a struct for faster access to individual elements
-#define CH341_EEPROM_24c01_READ_SETUP_CMD \
+#define CH341_EEPROM_24c01_READ_SETUP_CMD                             \
    "\xaa\x74\x82\xa0\x00\x74\x81\xa1\xe0\x00\x0f\x00\x06\x04\x00\x00" \
    "\x00\x00\x00\x00\x01\x00\x00\x00\x11\x4d\x40\x77\xcd\xab\xba\xdc" \
    "\xaa\xe0\x00\x00\xc4\xf1\x12\x00\x11\x4d\x40\x77\xf0\xf1\x12\x00" \
@@ -112,8 +112,8 @@
    "\xe8\xf3\x12\x00\x14\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00" \
    "\xaa\xdf\xc0\x75\x00"
 
-   /* please see file /wiresharkusbsniffing/sniffed.txt
-   this is the read setup packet for 24c01
+/* please see file /wiresharkusbsniffing/sniffed.txt
+this is the read setup packet for 24c01
 
 0040  aa 74 82 a0 00 74 81 a1  e0 00 0f 00 06 04 00 00   .t...t.. ........
 0050  00 00 00 00 01 00 00 00  11 4d 40 77 cd ab ba dc   ........ .M@w....
@@ -128,7 +128,7 @@
 
 /* CH341a READ EEPROM setup packet for the 24c02 */
 // TODO: make this into a struct for faster access to individual elements
-#define CH341_EEPROM_24c02_READ_SETUP_CMD \
+#define CH341_EEPROM_24c02_READ_SETUP_CMD                             \
    "\xaa\x74\x82\xa0\x00\x74\x81\xa1\xe0\x00\x10\x00\x06\x04\x00\x00" \
    "\x00\x00\x00\x00\x02\x00\x00\x00\x11\x4d\x40\x77\xcd\xab\xba\xdc" \
    "\xaa\xe0\x00\x00\xc4\xf1\x12\x00\x11\x4d\x40\x77\xf0\xf1\x12\x00" \
@@ -137,8 +137,8 @@
    "\xe8\xf3\x12\x00\x14\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00" \
    "\xaa\xdf\xc0\x75\x00"
 
-   /* please see file /wiresharkusbsniffing/sniffed.txt
-   this is the read setup packet for 24c02
+/* please see file /wiresharkusbsniffing/sniffed.txt
+this is the read setup packet for 24c02
 
 0040  aa 74 82 a0 00 74 81 a1  e0 00 10 00 06 04 00 00   .t...t.. ........
 0050  00 00 00 00 02 00 00 00  11 4d 40 77 cd ab ba dc   ........ .M@w....
@@ -150,7 +150,7 @@
 */
 
 /* CH341a READ EEPROM next packet for 24c02 (one packet)*/
-#define CH341_EEPROM_24c02_READ_NEXT_CMD \
+#define CH341_EEPROM_24c02_READ_NEXT_CMD                              \
    "\xaa\x74\x82\xa0\x80\x74\x81\xa1\xe0\x00\x00\x00\x10\x00\x00\x00" \
    "\x00\x00\x00\x00\x8c\xf1\x12\x00\x01\x00\x00\x00\x00\x00\x00\x00" \
    "\xaa\xe0\x00\x00\x4c\xf1\x12\x00\x5d\x22\xd7\x5a\xdc\xf1\x12\x00" \
@@ -159,8 +159,8 @@
    "\x0f\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x8c\xe8\x67\x00" \
    "\xaa\xdf\xc0\x75\x00"
 
-   /* please see file /wiresharkusbsniffing/sniffed.txt
-   this is the read next packet for 24c02  (one packet)
+/* please see file /wiresharkusbsniffing/sniffed.txt
+this is the read next packet for 24c02  (one packet)
 
 0040  aa 74 82 a0 80 74 81 a1  e0 00 00 00 10 00 00 00   .t...t.. ........
 0050  00 00 00 00 8c f1 12 00  01 00 00 00 00 00 00 00   ........ ........
@@ -172,7 +172,7 @@
 */
 
 /* CH341a READ EEPROM setup packet for the 24c04 */
-#define CH341_EEPROM_24c04_READ_SETUP_CMD \
+#define CH341_EEPROM_24c04_READ_SETUP_CMD                             \
    "\xaa\x74\x82\xa0\x00\x74\x81\xa1\xe0\x00\x11\x00\x06\x04\x00\x00" \
    "\x00\x00\x00\x00\x04\x00\x00\x00\x11\x4d\x40\x77\xcd\xab\xba\xdc" \
    "\xaa\xe0\x00\x00\xc4\xf1\x12\x00\x11\x4d\x40\x77\xf0\xf1\x12\x00" \
@@ -181,8 +181,8 @@
    "\xe8\xf3\x12\x00\x14\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00" \
    "\xaa\xdf\xc0\x75\x00"
 
-   /* please see file /wiresharkusbsniffing/sniffed.txt
-   this is the read setup packet for 24c04
+/* please see file /wiresharkusbsniffing/sniffed.txt
+this is the read setup packet for 24c04
 
 0040  aa 74 82 a0 00 74 81 a1  e0 00 11 00 06 04 00 00   .t...t.. ........
 0050  00 00 00 00 04 00 00 00  11 4d 40 77 cd ab ba dc   ........ .M@w....
@@ -194,7 +194,7 @@
 */
 
 /* CH341a READ EEPROM next packet for 24c04 (three packets)*/
-#define CH341_EEPROM_24c04_READ_NEXT_CMD \
+#define CH341_EEPROM_24c04_READ_NEXT_CMD                              \
    "\xaa\x74\x82\xa0\x80\x74\x81\xa1\xe0\x00\x00\x00\x10\x00\x00\x00" \
    "\x00\x00\x00\x00\x8c\xf1\x12\x00\x01\x00\x00\x00\x00\x00\x00\x00" \
    "\xaa\xe0\x00\x00\x4c\xf1\x12\x00\x5d\x22\xd7\x5a\xdc\xf1\x12\x00" \
@@ -203,8 +203,8 @@
    "\x0f\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x8c\xe8\x67\x00" \
    "\xaa\xdf\xc0\x75\x00"
 
-   /* please see file /wiresharkusbsniffing/sniffed.txt
-   this is the first read next packet for 24c04  (three different packets)
+/* please see file /wiresharkusbsniffing/sniffed.txt
+this is the first read next packet for 24c04  (three different packets)
 
 0040  aa 74 82 a0 80 74 81 a1  e0 00 00 00 10 00 00 00   .t...t.. ........
 0050  00 00 00 00 8c f1 12 00  01 00 00 00 00 00 00 00   ........ ........
@@ -216,7 +216,7 @@
 */
 
 /* CH341a READ EEPROM setup packet for the 24c08 */
-#define CH341_EEPROM_24c08_READ_SETUP_CMD \
+#define CH341_EEPROM_24c08_READ_SETUP_CMD                             \
    "\xaa\x74\x82\xa0\x00\x74\x81\xa1\xe0\x00\x16\x00\x06\x04\x00\x00" \
    "\x00\x00\x00\x00\x08\x00\x00\x00\x11\x4d\x40\x77\xcd\xab\xba\xdc" \
    "\xaa\xe0\x00\x00\xc4\xf1\x12\x00\x11\x4d\x40\x77\xf0\xf1\x12\x00" \
@@ -225,8 +225,8 @@
    "\xe8\xf3\x12\x00\x14\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00" \
    "\xaa\xdf\xc0\x75\x00"
 
-   /* please see file /wiresharkusbsniffing/sniffed.txt
-   this is the read setup packet for 24c08
+/* please see file /wiresharkusbsniffing/sniffed.txt
+this is the read setup packet for 24c08
 
 0040  aa 74 82 a0 00 74 81 a1  e0 00 16 00 06 04 00 00   .t...t.. ........
 0050  00 00 00 00 08 00 00 00  11 4d 40 77 cd ab ba dc   ........ .M@w....
@@ -238,7 +238,7 @@
 */
 
 /* CH341a READ EEPROM next packet for 24c08 (seven packets)*/
-#define CH341_EEPROM_24c08_READ_NEXT_CMD \
+#define CH341_EEPROM_24c08_READ_NEXT_CMD                              \
    "\xaa\x74\x82\xa0\x80\x74\x81\xa1\xe0\x00\x00\x00\x10\x00\x00\x00" \
    "\x00\x00\x00\x00\x8c\xf1\x12\x00\x01\x00\x00\x00\x00\x00\x00\x00" \
    "\xaa\xe0\x00\x00\x4c\xf1\x12\x00\x5d\x22\xd7\x5a\xdc\xf1\x12\x00" \
@@ -247,8 +247,8 @@
    "\x0f\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x8c\xe8\x67\x00" \
    "\xaa\xdf\xc0\x75\x00"
 
-   /* please see file /wiresharkusbsniffing/sniffed.txt
-   this is the first read next packet for 24c08  (seven different packets)
+/* please see file /wiresharkusbsniffing/sniffed.txt
+this is the first read next packet for 24c08  (seven different packets)
 
 0040  aa 74 82 a0 80 74 81 a1  e0 00 00 00 10 00 00 00   .t...t.. ........
 0050  00 00 00 00 8c f1 12 00  01 00 00 00 00 00 00 00   ........ ........
@@ -260,7 +260,7 @@
 */
 
 /* CH341a READ EEPROM setup packet for the 24c16 */
-#define CH341_EEPROM_24c16_READ_SETUP_CMD \
+#define CH341_EEPROM_24c16_READ_SETUP_CMD                             \
    "\xaa\x74\x82\xa0\x00\x74\x81\xa1\xe0\x00\x0e\x00\x06\x04\x00\x00" \
    "\x00\x00\x00\x00\x10\x00\x00\x00\x11\x4d\x40\x77\xcd\xab\xba\xdc" \
    "\xaa\xe0\x00\x00\xc4\xf1\x12\x00\x11\x4d\x40\x77\xf0\xf1\x12\x00" \
@@ -269,8 +269,8 @@
    "\xe8\xf3\x12\x00\x14\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00" \
    "\xaa\xdf\xc0\x75\x00"
 
-   /* please see file /wiresharkusbsniffing/sniffed.txt
-   this is the read setup packet for 24c16
+/* please see file /wiresharkusbsniffing/sniffed.txt
+this is the read setup packet for 24c16
 
 0040  aa 74 82 a0 00 74 81 a1  e0 00 0e 00 06 04 00 00   .t...t.. ........
 0050  00 00 00 00 10 00 00 00  11 4d 40 77 cd ab ba dc   ........ .M@w....
@@ -282,7 +282,7 @@
 */
 
 /* CH341a READ EEPROM next packet for 24c16 */
-#define CH341_EEPROM_24c16_READ_NEXT_CMD \
+#define CH341_EEPROM_24c16_READ_NEXT_CMD                              \
    "\xaa\x74\x82\xa0\x80\x74\x81\xa1\xe0\x00\x00\x00\x10\x00\x00\x00" \
    "\x00\x00\x00\x00\x8c\xf1\x12\x00\x01\x00\x00\x00\x00\x00\x00\x00" \
    "\xaa\xe0\x00\x00\x4c\xf1\x12\x00\x5d\x22\xd7\x5a\xdc\xf1\x12\x00" \
@@ -291,8 +291,8 @@
    "\x0f\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x8c\xe8\x67\x00" \
    "\xaa\xdf\xc0\x75\x00"
 
-   /* please see file /wiresharkusbsniffing/sniffed.txt
-   this is the first read next packet for 24c16  (fifteen different packets)
+/* please see file /wiresharkusbsniffing/sniffed.txt
+this is the first read next packet for 24c16  (fifteen different packets)
 
 0040  aa 74 82 a0 80 74 81 a1  e0 00 00 00 10 00 00 00   .t...t.. ........
 0050  00 00 00 00 8c f1 12 00  01 00 00 00 00 00 00 00   ........ ........
@@ -304,7 +304,7 @@
 */
 
 /* CH341a READ EEPROM setup packet for the 24c64 */
-#define CH341_EEPROM_24c64_READ_SETUP_CMD \
+#define CH341_EEPROM_24c64_READ_SETUP_CMD                             \
    "\xaa\x74\x83\xa0\x00\x00\x74\x81\xa1\xe0\x00\x00\x06\x04\x00\x00" \
    "\x00\x00\x00\x00\x40\x00\x00\x00\x11\x4d\x40\x77\xcd\xab\xba\xdc" \
    "\xaa\xe0\x00\x00\xc4\xf1\x12\x00\x11\x4d\x40\x77\xf0\xf1\x12\x00" \
@@ -313,8 +313,8 @@
    "\xe8\xf3\x12\x00\x14\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00" \
    "\xaa\xdf\xc0\x75\x00"
 
-   /* please see file /wiresharkusbsniffing/sniffed.txt
-   this is the read setup packet for 24c64
+/* please see file /wiresharkusbsniffing/sniffed.txt
+this is the read setup packet for 24c64
 
 0040  aa 74 83 a0 00 00 74 81  a1 e0 00 00 06 04 00 00   .t....t. ........
 0050  00 00 00 00 40 00 00 00  11 4d 40 77 cd ab ba dc   ....@... .M@w....
@@ -326,7 +326,7 @@
 */
 
 /* CH341a READ EEPROM next packet for 24c64 (63 packets)*/
-#define CH341_EEPROM_24c64_READ_NEXT_CMD \
+#define CH341_EEPROM_24c64_READ_NEXT_CMD                              \
    "\xaa\x74\x83\xa0\x00\x00\x74\x81\xa1\xe0\x00\x00\x10\x00\x00\x00" \
    "\x00\x00\x00\x00\x8c\xf1\x12\x00\x01\x00\x00\x00\x00\x00\x00\x00" \
    "\xaa\xe0\x00\x00\x4c\xf1\x12\x00\x5d\x22\xd7\x5a\xdc\xf1\x12\x00" \
@@ -335,8 +335,8 @@
    "\x0f\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x9c\x2e\x68\x00" \
    "\xaa\xdf\xc0\x75\x00"
 
-   /* please see file /wiresharkusbsniffing/sniffed.txt
-   this is the first read next packet for 24c64  (63 different packets)
+/* please see file /wiresharkusbsniffing/sniffed.txt
+this is the first read next packet for 24c64  (63 different packets)
 
 0040  aa 74 83 a0 00 80 74 81  a1 e0 00 00 10 00 00 00   .t....t. ........
 0050  00 00 00 00 8c f1 12 00  01 00 00 00 00 00 00 00   ........ ........
@@ -347,34 +347,34 @@
 00a0  aa df c0 75 00                                     ...u.
 */
 
-#define MIN(a,b) (((a)<(b))?(a):(b))
-#define MAX(a,b) (((a)>(b))?(a):(b))
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+#define MAX(a, b) (((a) > (b)) ? (a) : (b))
 
-#define TRUE	1
-#define FALSE	0
+#define TRUE 1
+#define FALSE 0
 
-struct EEPROM {
-	char *name;
-	uint32_t size;
-	uint16_t page_size;
-	uint8_t addr_size; // address length in bytes
-	uint8_t i2c_addr_mask;
+struct EEPROM
+{
+   char *name;
+   uint32_t size;
+   uint16_t page_size;
+   uint8_t addr_size; // address length in bytes
+   uint8_t i2c_addr_mask;
 };
 
 const static struct EEPROM eepromlist[] = {
-	{ "24c01",   128,     8,  1, 0x00 }, // 16 pages of 8 bytes each = 128 bytes
-	{ "24c02",   256,     8,  1, 0x00 }, // 32 pages of 8 bytes each = 256 bytes
-	{ "24c04",   512,    16,  1, 0x01 }, // 32 pages of 16 bytes each = 512 bytes
-	{ "24c08",   1024,   16,  1, 0x03 }, // 64 pages of 16 bytes each = 1024 bytes
-	{ "24c16",   2048,   16,  1, 0x07 }, // 128 pages of 16 bytes each = 2048 bytes
-	{ "24c32",   4096,   32,  2, 0x00 }, // 32kbit = 4kbyte
-	{ "24c64",   8192,   32,  2, 0x00 },
-	{ "24c128",  16384,  32/*64*/,  2, 0x00 },
-	{ "24c256",  32768,  32/*64*/,  2, 0x00 },
-	{ "24c512",  65536,  32/*128*/, 2, 0x00 },
-	{ "24c1024", 131072, 32/*128*/, 2, 0x01 },
-	{ 0, 0, 0, 0 }
-};
+    {"24c01", 128, 8, 1, 0x00},   // 16 pages of 8 bytes each = 128 bytes
+    {"24c02", 256, 8, 1, 0x00},   // 32 pages of 8 bytes each = 256 bytes
+    {"24c04", 512, 16, 1, 0x01},  // 32 pages of 16 bytes each = 512 bytes
+    {"24c08", 1024, 16, 1, 0x03}, // 64 pages of 16 bytes each = 1024 bytes
+    {"24c16", 2048, 16, 1, 0x07}, // 128 pages of 16 bytes each = 2048 bytes
+    {"24c32", 4096, 32, 2, 0x00}, // 32kbit = 4kbyte
+    {"24c64", 8192, 32, 2, 0x00},
+    {"24c128", 16384, 32 /*64*/, 2, 0x00},
+    {"24c256", 32768, 32 /*64*/, 2, 0x00},
+    {"24c512", 65536, 32 /*128*/, 2, 0x00},
+    {"24c1024", 131072, 32 /*128*/, 2, 0x01},
+    {0, 0, 0, 0}};
 
 int32_t ch341readEEPROM(uint8_t *buf, uint32_t bytes, struct EEPROM *eeprom_info);
 int32_t ch341writeEEPROM(uint8_t *buf, uint32_t bytes, struct EEPROM *eeprom_info);

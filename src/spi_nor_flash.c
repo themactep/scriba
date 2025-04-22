@@ -31,7 +31,7 @@ static int snor_read_rg(uint8_t code, uint8_t *val) {  // Using uint8_t
     int retval;
 	SPI_CONTROLLER_Chip_Select_Low();
 	SPI_CONTROLLER_Write_One_Byte(code);
-	retval = SPI_CONTROLLER_Read_NByte(val, 1); // Removed speed argument
+	retval = SPI_CONTROLLER_Read_NByte(val, 1);
 	SPI_CONTROLLER_Chip_Select_High();
 	if (retval) {
         printf("%s: ret: %x\n", __func__, retval);
@@ -44,7 +44,7 @@ static int snor_write_rg(uint8_t code, uint8_t *val) {  // Using uint8_t
     int retval;
 	SPI_CONTROLLER_Chip_Select_Low();
 	SPI_CONTROLLER_Write_One_Byte(code);
-	retval = SPI_CONTROLLER_Write_NByte(val, 1); // Removed speed argument
+	retval = SPI_CONTROLLER_Write_NByte(val, 1);
 	SPI_CONTROLLER_Chip_Select_High();
 	if (retval) {
         printf("%s: ret: %x\n", __func__, retval);
@@ -490,7 +490,7 @@ static int snor_read_devid(u8 *rxbuf, int n_rx)
 	SPI_CONTROLLER_Chip_Select_Low();
 	SPI_CONTROLLER_Write_One_Byte(OPCODE_RDID);
 
-	retval = SPI_CONTROLLER_Read_NByte(rxbuf, n_rx); // Removed speed argument
+	retval = SPI_CONTROLLER_Read_NByte(rxbuf, n_rx);
 	SPI_CONTROLLER_Chip_Select_High();
 	if (retval) {
 		printf("%s: ret: %x\n", __func__, retval);
@@ -510,7 +510,7 @@ int snor_read_sr(u8 *val)
 	SPI_CONTROLLER_Chip_Select_Low();
 	SPI_CONTROLLER_Write_One_Byte(OPCODE_RDSR);
 
-	retval = SPI_CONTROLLER_Read_NByte(val, 1); // Removed speed argument
+	retval = SPI_CONTROLLER_Read_NByte(val, 1);
 	SPI_CONTROLLER_Chip_Select_High();
 	if (retval) {
 		printf("%s: ret: %x\n", __func__, retval);
@@ -520,27 +520,6 @@ int snor_read_sr(u8 *val)
 	return 0;
 }
 
-/*
- * write status register
- */
-// static int snor_write_sr(u8 *val) // Removed duplicate definition
-
-/* Removed orphaned function body:
-{
-	int retval = 0;
-
-	SPI_CONTROLLER_Chip_Select_Low();
-	SPI_CONTROLLER_Write_One_Byte(OPCODE_WRSR);
-
-	retval = SPI_CONTROLLER_Write_NByte(val, 1, SPI_CONTROLLER_SPEED_SINGLE);
-	SPI_CONTROLLER_Chip_Select_High();
-	if (retval) {
-		printf("%s: ret: %x\n", __func__, retval);
-		return retval;
-	}
-	return 0;
-}
-*/
 struct chip_info *chip_prob(void)
 {
 	struct chip_info *info = NULL, *match = NULL;
@@ -675,7 +654,7 @@ int snor_read(unsigned char *buf, unsigned long from, unsigned long len)
 
 		if( (data_offset + remain_len) < spi_chip_info->sector_size )
 		{
-			if(SPI_CONTROLLER_Read_NByte(&buf[len - remain_len], remain_len)) { // Removed speed argument
+			if(SPI_CONTROLLER_Read_NByte(&buf[len - remain_len], remain_len)) {
 				SPI_CONTROLLER_Chip_Select_High();
 				if (spi_chip_info->addr4b)
 					snor_4byte_mode(0);
@@ -684,7 +663,7 @@ int snor_read(unsigned char *buf, unsigned long from, unsigned long len)
 			}
 			remain_len = 0;
 		} else {
-			if(SPI_CONTROLLER_Read_NByte(&buf[len - remain_len], spi_chip_info->sector_size - data_offset)) { // Removed speed argument
+			if(SPI_CONTROLLER_Read_NByte(&buf[len - remain_len], spi_chip_info->sector_size - data_offset)) {
 				SPI_CONTROLLER_Chip_Select_High();
 				if (spi_chip_info->addr4b)
 					snor_4byte_mode(0);
@@ -759,7 +738,7 @@ int snor_write(unsigned char *buf, unsigned long to, unsigned long len)
 		SPI_CONTROLLER_Write_One_Byte((to >> 8) & 0xff);
 		SPI_CONTROLLER_Write_One_Byte(to & 0xff);
 
-		if(!SPI_CONTROLLER_Write_NByte(buf, page_size)) // Removed speed argument
+		if(!SPI_CONTROLLER_Write_NByte(buf, page_size))
 			rc = page_size;
 		else
 			rc = 1;

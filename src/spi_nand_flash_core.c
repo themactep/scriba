@@ -43,22 +43,27 @@ SPI_NAND_FLASH_RTN_T spi_nand_check_status(void)
 	u8 status;
 	u32 timeout = 0;
 
-	do {
+	do
+	{
 		rtn_status = spi_nand_protocol_get_status_reg_3(&status);
-		if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR) {
+		if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR)
+		{
 			return rtn_status;
 		}
 
-		if (timeout++ > SPI_NAND_FLASH_TIMEOUT) {
+		if (timeout++ > SPI_NAND_FLASH_TIMEOUT)
+		{
 			return SPI_NAND_FLASH_RTN_TIMEOUT;
 		}
 	} while ((status & _SPI_NAND_VAL_OIP) == _SPI_NAND_VAL_OIP);
 
-	if ((status & _SPI_NAND_VAL_ERASE_FAIL) == _SPI_NAND_VAL_ERASE_FAIL) {
+	if ((status & _SPI_NAND_VAL_ERASE_FAIL) == _SPI_NAND_VAL_ERASE_FAIL)
+	{
 		return SPI_NAND_FLASH_RTN_ERASE_FAIL;
 	}
 
-	if ((status & _SPI_NAND_VAL_PROGRAM_FAIL) == _SPI_NAND_VAL_PROGRAM_FAIL) {
+	if ((status & _SPI_NAND_VAL_PROGRAM_FAIL) == _SPI_NAND_VAL_PROGRAM_FAIL)
+	{
 		return SPI_NAND_FLASH_RTN_PROGRAM_FAIL;
 	}
 
@@ -76,29 +81,37 @@ SPI_NAND_FLASH_RTN_T spi_nand_flash_detect_device(struct SPI_NAND_FLASH_INFO_T *
 
 	/* Try different read ID methods */
 	rtn_status = spi_nand_protocol_read_id(&flash_id);
-	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR) {
+	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR)
+	{
 		return rtn_status;
 	}
 
-	if ((flash_id.mfr_id == 0) || (flash_id.mfr_id == 0xFF)) {
+	if ((flash_id.mfr_id == 0) || (flash_id.mfr_id == 0xFF))
+	{
 		rtn_status = spi_nand_protocol_read_id_2(&flash_id);
-		if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR) {
+		if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR)
+		{
 			return rtn_status;
 		}
 	}
 
-	if ((flash_id.mfr_id == 0) || (flash_id.mfr_id == 0xFF)) {
+	if ((flash_id.mfr_id == 0) || (flash_id.mfr_id == 0xFF))
+	{
 		rtn_status = spi_nand_protocol_read_id_3(&flash_id);
-		if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR) {
+		if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR)
+		{
 			return rtn_status;
 		}
 	}
 
 	/* Search for matching device in tables */
-	for (i = 0; spi_nand_flash_tables[i].ptr_name != NULL; i++) {
-		if (flash_id.mfr_id == spi_nand_flash_tables[i].mfr_id) {
+	for (i = 0; spi_nand_flash_tables[i].ptr_name != NULL; i++)
+	{
+		if (flash_id.mfr_id == spi_nand_flash_tables[i].mfr_id)
+		{
 			if ((flash_id.dev_id == spi_nand_flash_tables[i].dev_id) &&
-			    ((flash_id.dev_id_2 == spi_nand_flash_tables[i].dev_id_2) || (spi_nand_flash_tables[i].dev_id_2 == 0))) {
+			    ((flash_id.dev_id_2 == spi_nand_flash_tables[i].dev_id_2) || (spi_nand_flash_tables[i].dev_id_2 == 0)))
+			{
 				*ptr_rtn_device_t = spi_nand_flash_tables[i];
 				return SPI_NAND_FLASH_RTN_NO_ERROR;
 			}
@@ -123,19 +136,22 @@ SPI_NAND_FLASH_RTN_T spi_nand_flash_init(struct SPI_NAND_FLASH_INFO_T *ptr_devic
 
 	/* Disable block protection */
 	rtn_status = spi_nand_protocol_set_status_reg_1(0);
-	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR) {
+	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR)
+	{
 		return rtn_status;
 	}
 
 	/* Enable ECC */
 	rtn_status = spi_nand_protocol_get_status_reg_2(&feature);
-	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR) {
+	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR)
+	{
 		return rtn_status;
 	}
 
 	feature |= _SPI_NAND_VAL_ECC_ENABLE;
 	rtn_status = spi_nand_protocol_set_status_reg_2(feature);
-	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR) {
+	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR)
+	{
 		return rtn_status;
 	}
 
@@ -152,49 +168,62 @@ SPI_NAND_FLASH_RTN_T spi_nand_flash_read_page(u32 page_number, u32 column_number
 
 	/* Handle die select if needed */
 	if ((ptr_dev_info_t->feature & SPI_NAND_FLASH_DIE_SELECT_1_HAVE) &&
-	    (page_number >= (ptr_dev_info_t->device_size / 2) / ptr_dev_info_t->erase_size * 64)) {
-		if (_die_id != 1) {
+	    (page_number >= (ptr_dev_info_t->device_size / 2) / ptr_dev_info_t->erase_size * 64))
+	{
+		if (_die_id != 1)
+		{
 			_die_id = 1;
 			rtn_status = spi_nand_protocol_die_select_1(_die_id);
-			if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR) {
+			if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR)
+			{
 				return rtn_status;
 			}
 		}
 		page_number -= (ptr_dev_info_t->device_size / 2) / ptr_dev_info_t->erase_size * 64;
-	} else {
-		if (_die_id != 0) {
+	}
+	else
+	{
+		if (_die_id != 0)
+		{
 			_die_id = 0;
 			rtn_status = spi_nand_protocol_die_select_1(_die_id);
-			if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR) {
+			if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR)
+			{
 				return rtn_status;
 			}
 		}
 	}
 
 	/* Handle plane select if needed */
-	if ((ptr_dev_info_t->feature & SPI_NAND_FLASH_PLANE_SELECT_HAVE) && (page_number % 2)) {
+	if ((ptr_dev_info_t->feature & SPI_NAND_FLASH_PLANE_SELECT_HAVE) && (page_number % 2))
+	{
 		_plane_select_bit = 1;
-	} else {
+	}
+	else
+	{
 		_plane_select_bit = 0;
 	}
 
 	/* Load page into cache */
 	rtn_status = spi_nand_protocol_page_read(page_number);
-	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR) {
+	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR)
+	{
 		return rtn_status;
 	}
 
 	/* Wait for operation to complete */
 	rtn_status = spi_nand_check_status();
-	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR) {
+	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR)
+	{
 		return rtn_status;
 	}
 
 	/* Read data from cache */
 	rtn_status = spi_nand_protocol_read_from_cache(column_number, len, ptr_rtn_buf,
-	                                              ptr_dev_info_t->read_mode,
-	                                              ptr_dev_info_t->dummy_mode);
-	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR) {
+						       ptr_dev_info_t->read_mode,
+						       ptr_dev_info_t->dummy_mode);
+	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR)
+	{
 		return rtn_status;
 	}
 
@@ -211,53 +240,67 @@ SPI_NAND_FLASH_RTN_T spi_nand_flash_write_page(u32 page_number, u32 column_numbe
 
 	/* Handle die select if needed */
 	if ((ptr_dev_info_t->feature & SPI_NAND_FLASH_DIE_SELECT_1_HAVE) &&
-	    (page_number >= (ptr_dev_info_t->device_size / 2) / ptr_dev_info_t->erase_size * 64)) {
-		if (_die_id != 1) {
+	    (page_number >= (ptr_dev_info_t->device_size / 2) / ptr_dev_info_t->erase_size * 64))
+	{
+		if (_die_id != 1)
+		{
 			_die_id = 1;
 			rtn_status = spi_nand_protocol_die_select_1(_die_id);
-			if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR) {
+			if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR)
+			{
 				return rtn_status;
 			}
 		}
 		page_number -= (ptr_dev_info_t->device_size / 2) / ptr_dev_info_t->erase_size * 64;
-	} else {
-		if (_die_id != 0) {
+	}
+	else
+	{
+		if (_die_id != 0)
+		{
 			_die_id = 0;
 			rtn_status = spi_nand_protocol_die_select_1(_die_id);
-			if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR) {
+			if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR)
+			{
 				return rtn_status;
 			}
 		}
 	}
 
 	/* Handle plane select if needed */
-	if ((ptr_dev_info_t->feature & SPI_NAND_FLASH_PLANE_SELECT_HAVE) && (page_number % 2)) {
+	if ((ptr_dev_info_t->feature & SPI_NAND_FLASH_PLANE_SELECT_HAVE) && (page_number % 2))
+	{
 		_plane_select_bit = 1;
-	} else {
+	}
+	else
+	{
 		_plane_select_bit = 0;
 	}
 
 	/* Enable write */
 	rtn_status = spi_nand_protocol_write_enable();
-	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR) {
+	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR)
+	{
 		return rtn_status;
 	}
 
 	/* Load data to cache */
 	rtn_status = spi_nand_protocol_program_load(column_number, ptr_buf, len, ptr_dev_info_t->write_mode);
-	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR) {
+	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR)
+	{
 		return rtn_status;
 	}
 
 	/* Execute program */
 	rtn_status = spi_nand_protocol_program_execute(page_number);
-	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR) {
+	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR)
+	{
 		return rtn_status;
 	}
 
 	/* Wait for operation to complete */
 	rtn_status = spi_nand_check_status();
-	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR) {
+	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR)
+	{
 		return rtn_status;
 	}
 
@@ -278,21 +321,28 @@ SPI_NAND_FLASH_RTN_T spi_nand_flash_erase_block(u32 block_idx)
 
 	/* Handle die select if needed */
 	if ((ptr_dev_info_t->feature & SPI_NAND_FLASH_DIE_SELECT_1_HAVE) &&
-	    (page_number >= (ptr_dev_info_t->device_size / 2) / ptr_dev_info_t->erase_size * 64)) {
-		if (_die_id != 1) {
+	    (page_number >= (ptr_dev_info_t->device_size / 2) / ptr_dev_info_t->erase_size * 64))
+	{
+		if (_die_id != 1)
+		{
 			_die_id = 1;
 			rtn_status = spi_nand_protocol_die_select_1(_die_id);
-			if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR) {
+			if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR)
+			{
 				return rtn_status;
 			}
 		}
 		page_number -= (ptr_dev_info_t->device_size / 2) / ptr_dev_info_t->erase_size * 64;
 		block_idx = page_number / (ptr_dev_info_t->erase_size / ptr_dev_info_t->page_size);
-	} else {
-		if (_die_id != 0) {
+	}
+	else
+	{
+		if (_die_id != 0)
+		{
 			_die_id = 0;
 			rtn_status = spi_nand_protocol_die_select_1(_die_id);
-			if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR) {
+			if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR)
+			{
 				return rtn_status;
 			}
 		}
@@ -300,19 +350,22 @@ SPI_NAND_FLASH_RTN_T spi_nand_flash_erase_block(u32 block_idx)
 
 	/* Enable write */
 	rtn_status = spi_nand_protocol_write_enable();
-	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR) {
+	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR)
+	{
 		return rtn_status;
 	}
 
 	/* Erase block */
 	rtn_status = spi_nand_protocol_block_erase(block_idx);
-	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR) {
+	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR)
+	{
 		return rtn_status;
 	}
 
 	/* Wait for operation to complete */
 	rtn_status = spi_nand_check_status();
-	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR) {
+	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR)
+	{
 		return rtn_status;
 	}
 
@@ -337,7 +390,8 @@ SPI_NAND_FLASH_RTN_T spi_nand_flash_get_ecc_status(u8 *ptr_rtn_ecc_status)
 	u8 status;
 
 	rtn_status = spi_nand_protocol_get_status_reg_3(&status);
-	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR) {
+	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR)
+	{
 		return rtn_status;
 	}
 
@@ -360,7 +414,8 @@ SPI_NAND_FLASH_RTN_T spi_nand_flash_is_bad_block(u32 block_idx, u8 *ptr_rtn_is_b
 
 	/* Read bad block marker from spare area */
 	rtn_status = spi_nand_flash_read_page(page_number, ptr_dev_info_t->page_size, 1, &spare_data);
-	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR) {
+	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR)
+	{
 		return rtn_status;
 	}
 
@@ -383,7 +438,8 @@ SPI_NAND_FLASH_RTN_T spi_nand_flash_mark_bad_block(u32 block_idx)
 
 	/* Write bad block marker to spare area */
 	rtn_status = spi_nand_flash_write_page(page_number, ptr_dev_info_t->page_size, 1, &bad_mark);
-	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR) {
+	if (rtn_status != SPI_NAND_FLASH_RTN_NO_ERROR)
+	{
 		return rtn_status;
 	}
 

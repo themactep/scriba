@@ -25,15 +25,19 @@ static int wait_ready(void)
 	uint8_t data[1];
 	SPI_CONTROLLER_RTN_T spi_ret;
 
-	while (1) {
+	while (1)
+	{
 		SPI_CONTROLLER_Chip_Select_Low();
 		spi_ret = SPI_CONTROLLER_Write_One_Byte(SEEP_RDSR_CMD);
-		if (spi_ret != SPI_CONTROLLER_RTN_NO_ERROR) goto spi_fail;
+		if (spi_ret != SPI_CONTROLLER_RTN_NO_ERROR)
+			goto spi_fail;
 		spi_ret = SPI_CONTROLLER_Read_NByte(data, 1); // Removed speed argument
 		SPI_CONTROLLER_Chip_Select_High();
-		if (spi_ret != SPI_CONTROLLER_RTN_NO_ERROR) return -1; // Check read error after CS high
+		if (spi_ret != SPI_CONTROLLER_RTN_NO_ERROR)
+			return -1; // Check read error after CS high
 
-		if ((data[0] & 0x01) == 0) break;
+		if ((data[0] & 0x01) == 0)
+			break;
 		usleep(1);
 	}
 	return 0;
@@ -48,21 +52,26 @@ static int write_enable(void)
 	uint8_t data[1];
 	SPI_CONTROLLER_RTN_T spi_ret;
 
-	while (1) {
+	while (1)
+	{
 		SPI_CONTROLLER_Chip_Select_Low();
 		spi_ret = SPI_CONTROLLER_Write_One_Byte(SEEP_WREN_CMD);
 		SPI_CONTROLLER_Chip_Select_High();
-		if (spi_ret != SPI_CONTROLLER_RTN_NO_ERROR) return -1; // Check write error after CS high
+		if (spi_ret != SPI_CONTROLLER_RTN_NO_ERROR)
+			return -1; // Check write error after CS high
 		usleep(1);
 
 		SPI_CONTROLLER_Chip_Select_Low();
 		spi_ret = SPI_CONTROLLER_Write_One_Byte(SEEP_RDSR_CMD);
-		if (spi_ret != SPI_CONTROLLER_RTN_NO_ERROR) goto spi_fail;
+		if (spi_ret != SPI_CONTROLLER_RTN_NO_ERROR)
+			goto spi_fail;
 		spi_ret = SPI_CONTROLLER_Read_NByte(data, 1); // Removed speed argument
 		SPI_CONTROLLER_Chip_Select_High();
-		if (spi_ret != SPI_CONTROLLER_RTN_NO_ERROR) return -1; // Check read error after CS high
+		if (spi_ret != SPI_CONTROLLER_RTN_NO_ERROR)
+			return -1; // Check read error after CS high
 
-		if (data[0] == 0x02) break;
+		if (data[0] == 0x02)
+			break;
 		usleep(1);
 	}
 	return 0;
@@ -78,24 +87,30 @@ static int eeprom_write_byte(struct spi_eeprom *dev, uint32_t address, uint8_t d
 	SPI_CONTROLLER_RTN_T spi_ret;
 	int ret = 0;
 
-	if (write_enable() != 0) return -1;
+	if (write_enable() != 0)
+		return -1;
 
 	buf[0] = SEEP_WRITE_CMD;
 	if (dev->addr_bits == 9 && address > 0xFF)
 		buf[0] = buf[0] | 0x08;
 
 	SPI_CONTROLLER_Chip_Select_Low();
-	if (dev->addr_bits > 16) {
+	if (dev->addr_bits > 16)
+	{
 		buf[1] = (address & 0xFF0000) >> 16;
 		buf[2] = (address & 0xFF00) >> 8;
 		buf[3] = (address & 0xFF);
 		buf[4] = data;
 		spi_ret = SPI_CONTROLLER_Write_NByte(buf, 5); // Removed speed argument
-	} else if (dev->addr_bits < 10) {
+	}
+	else if (dev->addr_bits < 10)
+	{
 		buf[1] = (address & 0xFF);
 		buf[2] = data;
 		spi_ret = SPI_CONTROLLER_Write_NByte(buf, 3); // Removed speed argument
-	} else {
+	}
+	else
+	{
 		buf[1] = (address & 0xFF00) >> 8;
 		buf[2] = (address & 0xFF);
 		buf[3] = data;
@@ -103,9 +118,11 @@ static int eeprom_write_byte(struct spi_eeprom *dev, uint32_t address, uint8_t d
 	}
 	SPI_CONTROLLER_Chip_Select_High();
 
-	if (spi_ret != SPI_CONTROLLER_RTN_NO_ERROR) ret = -1; // Check write error after CS high
+	if (spi_ret != SPI_CONTROLLER_RTN_NO_ERROR)
+		ret = -1; // Check write error after CS high
 
-	if (ret == 0 && wait_ready() != 0) ret = -1; // Check wait_ready error
+	if (ret == 0 && wait_ready() != 0)
+		ret = -1; // Check wait_ready error
 
 	return ret;
 }
@@ -124,15 +141,20 @@ static int eeprom_write_page(struct spi_eeprom *dev, uint32_t address, int page_
 	if (dev->addr_bits == 9 && address > 0xFF)
 		buf[0] = buf[0] | 0x08;
 
-	if (dev->addr_bits > 16) {
+	if (dev->addr_bits > 16)
+	{
 		buf[1] = (address & 0xFF0000) >> 16;
 		buf[2] = (address & 0xFF00) >> 8;
 		buf[3] = (address & 0xFF);
 		offs = 4;
-	} else if (dev->addr_bits < 10) {
+	}
+	else if (dev->addr_bits < 10)
+	{
 		buf[1] = (address & 0xFF);
 		offs = 2;
-	} else {
+	}
+	else
+	{
 		buf[1] = (address & 0xFF00) >> 8;
 		buf[2] = (address & 0xFF);
 		offs = 3;
@@ -140,15 +162,18 @@ static int eeprom_write_page(struct spi_eeprom *dev, uint32_t address, int page_
 
 	memcpy(&buf[offs], data, page_size);
 
-	if (write_enable() != 0) return -1;
+	if (write_enable() != 0)
+		return -1;
 
 	SPI_CONTROLLER_Chip_Select_Low();
 	spi_ret = SPI_CONTROLLER_Write_NByte(buf, offs + page_size); // Removed speed argument
 	SPI_CONTROLLER_Chip_Select_High();
 
-	if (spi_ret != SPI_CONTROLLER_RTN_NO_ERROR) ret = -1; // Check write error after CS high
+	if (spi_ret != SPI_CONTROLLER_RTN_NO_ERROR)
+		ret = -1; // Check write error after CS high
 
-	if (ret == 0 && wait_ready() != 0) ret = -1; // Check wait_ready error
+	if (ret == 0 && wait_ready() != 0)
+		ret = -1; // Check wait_ready error
 
 	return ret;
 }
@@ -166,29 +191,40 @@ static int eeprom_read_byte(struct spi_eeprom *dev, uint32_t address)
 		buf[0] = buf[0] | 0x08;
 
 	SPI_CONTROLLER_Chip_Select_Low();
-	if (dev->addr_bits > 16) {
+	if (dev->addr_bits > 16)
+	{
 		buf[1] = (address & 0xFF0000) >> 16;
 		buf[2] = (address & 0xFF00) >> 8;
 		buf[3] = (address & 0xFF);
 		spi_ret = SPI_CONTROLLER_Write_NByte(buf, 4); // Removed speed argument
-		if (spi_ret != SPI_CONTROLLER_RTN_NO_ERROR) goto spi_fail;
+		if (spi_ret != SPI_CONTROLLER_RTN_NO_ERROR)
+			goto spi_fail;
 		spi_ret = SPI_CONTROLLER_Read_NByte(buf, 1); // Removed speed argument
-		if (spi_ret != SPI_CONTROLLER_RTN_NO_ERROR) goto spi_fail;
+		if (spi_ret != SPI_CONTROLLER_RTN_NO_ERROR)
+			goto spi_fail;
 		data = buf[0];
-	} else if (dev->addr_bits < 10) {
+	}
+	else if (dev->addr_bits < 10)
+	{
 		buf[1] = (address & 0xFF);
 		spi_ret = SPI_CONTROLLER_Write_NByte(buf, 2); // Removed speed argument
-		if (spi_ret != SPI_CONTROLLER_RTN_NO_ERROR) goto spi_fail;
+		if (spi_ret != SPI_CONTROLLER_RTN_NO_ERROR)
+			goto spi_fail;
 		spi_ret = SPI_CONTROLLER_Read_NByte(buf, 1); // Removed speed argument
-		if (spi_ret != SPI_CONTROLLER_RTN_NO_ERROR) goto spi_fail;
+		if (spi_ret != SPI_CONTROLLER_RTN_NO_ERROR)
+			goto spi_fail;
 		data = buf[0];
-	} else {
+	}
+	else
+	{
 		buf[1] = (address & 0xFF00) >> 8;
 		buf[2] = (address & 0xFF);
 		spi_ret = SPI_CONTROLLER_Write_NByte(buf, 3); // Removed speed argument
-		if (spi_ret != SPI_CONTROLLER_RTN_NO_ERROR) goto spi_fail;
+		if (spi_ret != SPI_CONTROLLER_RTN_NO_ERROR)
+			goto spi_fail;
 		spi_ret = SPI_CONTROLLER_Read_NByte(buf, 1); // Removed speed argument
-		if (spi_ret != SPI_CONTROLLER_RTN_NO_ERROR) goto spi_fail;
+		if (spi_ret != SPI_CONTROLLER_RTN_NO_ERROR)
+			goto spi_fail;
 		data = buf[0];
 	}
 	SPI_CONTROLLER_Chip_Select_High();
@@ -203,8 +239,10 @@ int32_t parseSEEPsize(char *seepromname, struct spi_eeprom *seeprom)
 {
 	int i;
 
-	for (i = 0; seepromlist[i].total_bytes; i++) {
-		if (strstr(seepromlist[i].name, seepromname)) {
+	for (i = 0; seepromlist[i].total_bytes; i++)
+	{
+		if (strstr(seepromlist[i].name, seepromname))
+		{
 			memcpy(seeprom, &(seepromlist[i]), sizeof(struct spi_eeprom));
 			return (seepromlist[i].total_bytes);
 		}
@@ -226,14 +264,16 @@ int spi_eeprom_read(unsigned char *buf, unsigned long from, unsigned long len)
 	pbuf = ebuf;
 	int read_val; // To store return value from eeprom_read_byte
 
-	for (i = 0; i < seepromsize; i++) {
+	for (i = 0; i < seepromsize; i++)
+	{
 		read_val = eeprom_read_byte(&seeprom_info, i);
-		if (read_val < 0) { // Check for error (-1)
+		if (read_val < 0)
+		{ // Check for error (-1)
 			fprintf(stderr, "Error reading byte at address %u\n", i);
 			return -1;
 		}
 		pbuf[i] = (uint8_t)read_val; // Cast valid byte value
-		if( timer_progress() )
+		if (timer_progress())
 		{
 			printf("\bRead %d%% [%d] of [%d] bytes      ", 100 * i / seepromsize, i, seepromsize);
 			printf("\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b");
@@ -260,12 +300,15 @@ int spi_eeprom_erase(unsigned long offs, unsigned long len)
 	memset(ebuf, 0xff, sizeof(ebuf));
 	pbuf = ebuf;
 	int read_val; // To store return value from eeprom_read_byte
-	int ret = 0; // To store return value from write helpers
+	int ret = 0;  // To store return value from write helpers
 
-	if (offs || len < seepromsize) {
-		for (i = 0; i < seepromsize; i++) {
+	if (offs || len < seepromsize)
+	{
+		for (i = 0; i < seepromsize; i++)
+		{
 			read_val = eeprom_read_byte(&seeprom_info, i);
-			if (read_val < 0) {
+			if (read_val < 0)
+			{
 				fprintf(stderr, "Error reading byte at address %u before erase\n", i);
 				return -1;
 			}
@@ -274,22 +317,28 @@ int spi_eeprom_erase(unsigned long offs, unsigned long len)
 		memset(pbuf + offs, 0xff, len);
 	}
 
-	for (i = 0; i < seepromsize; i++) {
-		if (spage_size) {
+	for (i = 0; i < seepromsize; i++)
+	{
+		if (spage_size)
+		{
 			ret = eeprom_write_page(&seeprom_info, i, spage_size, pbuf + i);
-			if (ret < 0) {
+			if (ret < 0)
+			{
 				fprintf(stderr, "Error writing page at address %u during erase\n", i);
 				return -1;
 			}
 			i = (spage_size + i) - 1;
-		} else {
+		}
+		else
+		{
 			ret = eeprom_write_byte(&seeprom_info, i, pbuf[i]);
-			if (ret < 0) {
+			if (ret < 0)
+			{
 				fprintf(stderr, "Error writing byte at address %u during erase\n", i);
 				return -1;
 			}
 		}
-		if( timer_progress() )
+		if (timer_progress())
 		{
 			printf("\bErase %d%% [%d] of [%d] bytes      ", 100 * i / seepromsize, i, seepromsize);
 			printf("\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b");
@@ -315,12 +364,15 @@ int spi_eeprom_write(unsigned char *buf, unsigned long to, unsigned long len)
 	memset(ebuf, 0xff, sizeof(ebuf));
 	pbuf = ebuf;
 	int read_val; // To store return value from eeprom_read_byte
-	int ret = 0; // To store return value from write helpers
+	int ret = 0;  // To store return value from write helpers
 
-	if (to || len < seepromsize) {
-		for (i = 0; i < seepromsize; i++) {
+	if (to || len < seepromsize)
+	{
+		for (i = 0; i < seepromsize; i++)
+		{
 			read_val = eeprom_read_byte(&seeprom_info, i);
-			if (read_val < 0) {
+			if (read_val < 0)
+			{
 				fprintf(stderr, "Error reading byte at address %u before write\n", i);
 				return -1;
 			}
@@ -329,22 +381,28 @@ int spi_eeprom_write(unsigned char *buf, unsigned long to, unsigned long len)
 	}
 	memcpy(pbuf + to, buf, len);
 
-	for (i = 0; i < seepromsize; i++) {
-		if (spage_size) {
+	for (i = 0; i < seepromsize; i++)
+	{
+		if (spage_size)
+		{
 			ret = eeprom_write_page(&seeprom_info, i, spage_size, pbuf + i);
-			if (ret < 0) {
+			if (ret < 0)
+			{
 				fprintf(stderr, "Error writing page at address %u\n", i);
 				return -1;
 			}
 			i = (spage_size + i) - 1;
-		} else {
+		}
+		else
+		{
 			ret = eeprom_write_byte(&seeprom_info, i, pbuf[i]);
-			if (ret < 0) {
+			if (ret < 0)
+			{
 				fprintf(stderr, "Error writing byte at address %u\n", i);
 				return -1;
 			}
 		}
-		if( timer_progress() )
+		if (timer_progress())
 		{
 			printf("\bWritten %d%% [%d] of [%d] bytes      ", 100 * i / seepromsize, i, seepromsize);
 			printf("\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b");
@@ -360,7 +418,8 @@ int spi_eeprom_write(unsigned char *buf, unsigned long to, unsigned long len)
 
 long spi_eeprom_init(void)
 {
-	if (seepromsize <= 0) {
+	if (seepromsize <= 0)
+	{
 		fprintf(stderr, "SPI EEPROM Not Detected!\n"); // Use stderr
 		return -1;
 	}
@@ -377,7 +436,7 @@ void support_spi_eeprom_list(void)
 	int i;
 
 	printf("SPI EEPROM Support List:\n");
-	for ( i = 0; i < (sizeof(seepromlist)/sizeof(struct spi_eeprom)); i++)
+	for (i = 0; i < (sizeof(seepromlist) / sizeof(struct spi_eeprom)); i++)
 	{
 		if (!seepromlist[i].total_bytes)
 			break;

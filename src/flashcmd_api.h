@@ -14,7 +14,8 @@
 #include "spi_eeprom_api.h"
 #endif
 
-struct flash_cmd {
+struct flash_cmd
+{
 	int (*flash_read)(unsigned char *buf, unsigned long from, unsigned long len);
 	int (*flash_erase)(unsigned long offs, unsigned long len);
 	int (*flash_write)(unsigned char *buf, unsigned long to, unsigned long len);

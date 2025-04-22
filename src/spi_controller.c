@@ -8,7 +8,7 @@
 /* Enable SPI Controller Manual Mode */
 SPI_CONTROLLER_RTN_T SPI_CONTROLLER_Enable_Manual_Mode(void)
 {
-	// CH341A driver might operate in manual mode by default or concept doesn't apply
+    // CH341A driver might operate in manual mode by default or concept doesn't apply
     return 0;
 }
 

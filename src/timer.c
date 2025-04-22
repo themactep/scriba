@@ -38,7 +38,8 @@ int timer_progress(void)
 
 	elapsed_seconds = (int)difftime(end_time, print_time);
 
-	if (elapsed_seconds == 1) {
+	if (elapsed_seconds == 1)
+	{
 		print_time = 0;
 		return 1;
 	}

@@ -22,9 +22,7 @@ STRIP     ?= strip
 INSTALL   ?= install
 PREFIX    ?= /usr
 BINDIR    ?= $(PREFIX)/bin
-CFLAGS     = -std=gnu99 -Wall -O2 -D_FILE_OFFSET_BITS=64 \
-	-DGIT_COMMIT_DATE=\"$(GIT_COMMIT_DATE)\" \
-	-DGIT_COMMIT_HASH=\"$(GIT_COMMIT_HASH)\"
+CFLAGS     = -std=gnu99 -Wall -O2 -D_FILE_OFFSET_BITS=64 -DGIT_COMMIT_DATE=\"$(GIT_COMMIT_DATE)\" -DGIT_COMMIT_HASH=\"$(GIT_COMMIT_HASH)\"
 LDFLAGS   ?= -pthread
 LIBS      ?= -lusb-1.0
 

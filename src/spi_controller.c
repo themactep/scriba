@@ -41,13 +41,3 @@ SPI_CONTROLLER_RTN_T SPI_CONTROLLER_Write_NByte(u8 *ptr_data, u32 len) // speed 
 {
     return (SPI_CONTROLLER_RTN_T)ch341a_spi_send_command(len, 0, ptr_data, NULL);
 }
-
-/* Commented code removed:
-#if 0
-SPI_CONTROLLER_RTN_T SPI_CONTROLLER_Xfer_NByte( u8 *ptr_data_in, u32 len_in, u8 *ptr_data_out, u32 len_out, SPI_CONTROLLER_SPEED_T speed )
-{
-	return (SPI_CONTROLLER_RTN_T)ch341a_spi_send_command(len_out, len_in, ptr_data_out, ptr_data_in);
-}
-#endif
-*/
-/* vim: set ts=8: */

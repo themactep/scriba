@@ -13,9 +13,6 @@
 
 struct gpio_cmd bb_func;
 
-#if 0
-unsigned char ORG = 0; /* organization 0 = 8 bit and 1 = 16 bit */
-#endif
 unsigned char CLK = 0;
 unsigned char DO = 0;
 unsigned char DI = 0;
@@ -29,12 +26,7 @@ static unsigned char data = 0;
 
 static void delay_ms(int n)
 {
-#if 0 /* ifndef _WINDOWS */
-	int i;
-	for(i = 0; i < (n * 100000); i++);
-#else
 	usleep(n);
-#endif
 }
 
 static void data_1()
@@ -53,20 +45,12 @@ static void data_0()
 
 static void org_1()
 {
-#if 0
-	data = data | ORG; /* 16bit */
-	if (bb_func.gpio_setbits)
-		bb_func.gpio_setbits(data);
-#endif
+	//
 }
 
 static void org_0()
 {
-#if 0
-	data = data & (~ORG); /* 8bit */
-	if (bb_func.gpio_setbits)
-		bb_func.gpio_setbits(data);
-#endif
+	//
 }
 
 static void csel_1()
@@ -109,29 +93,31 @@ static int addr_nbits(const char *func, int size)
 {
 	int i = 0;
 
-	if (fix_addr_len) {
+	if (fix_addr_len)
+	{
 		printf("%s: Set address len %d bits\n", func, fix_addr_len);
 		return fix_addr_len;
 	}
 
-	switch (size) {
-		case 128: /* 93c46 */
-			i = org ? 6 : 7;
-			break;
-		case 256: /* 93c56 */
-		case 512: /* 93c66 */
-			i = org ? 8 : 9;
-			break;
-		case 1024: /* 93c76 */
-		case 2048: /* 93c86 */
-			i = org ? 10 : 11;
-			break;
-		case 4096: /* 93c96(not original name) */
-			i = org ? 12 : 13;
-			break;
-		default:
-			i = 6; /* 93c06 and 93c16(not original name) */
-			break;
+	switch (size)
+	{
+	case 128: /* 93c46 */
+		i = org ? 6 : 7;
+		break;
+	case 256: /* 93c56 */
+	case 512: /* 93c66 */
+		i = org ? 8 : 9;
+		break;
+	case 1024: /* 93c76 */
+	case 2048: /* 93c86 */
+		i = org ? 10 : 11;
+		break;
+	case 4096: /* 93c96(not original name) */
+		i = org ? 12 : 13;
+		break;
+	default:
+		i = 6; /* 93c06 and 93c16(not original name) */
+		break;
 	}
 
 	printf("%s: Set address len %d bits\n", func, i);
@@ -407,8 +393,10 @@ int deviceSize_3wire(char *eepromname)
 {
 	int i;
 
-	for (i = 0; mw_eepromlist[i].size; i++) {
-		if (strstr(mw_eepromlist[i].name, eepromname)) {
+	for (i = 0; mw_eepromlist[i].size; i++)
+	{
+		if (strstr(mw_eepromlist[i].name, eepromname))
+		{
 			return (mw_eepromlist[i].size);
 		}
 	}

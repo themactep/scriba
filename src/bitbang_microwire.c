@@ -415,4 +415,3 @@ int deviceSize_3wire(char *eepromname)
 
 	return -1;
 }
-/* vim: set ts=8: */

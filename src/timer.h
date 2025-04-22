@@ -11,4 +11,3 @@ void timer_end(void);
 int timer_progress(void);
 
 #endif /* __TIMER_H__ */
-/* vim: set ts=8: */

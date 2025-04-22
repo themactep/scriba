@@ -182,4 +182,3 @@ void support_mw_eeprom_list(void)
 		printf("%03d. %s\n", i + 1, mw_eepromlist[i].name);
 	}
 }
-/* vim: set ts=8: */

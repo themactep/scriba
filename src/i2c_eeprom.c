@@ -125,4 +125,3 @@ void support_i2c_eeprom_list(void)
 		printf("%03d. %s\n", i + 1, eepromlist[i].name);
 	}
 }
-/* vim: set ts=8: */

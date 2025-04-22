@@ -13,4 +13,3 @@ long i2c_init(void);
 void support_i2c_eeprom_list(void);
 
 #endif /* __I2C_EEPROM_API_H__ */
-/* vim: set ts=8: */

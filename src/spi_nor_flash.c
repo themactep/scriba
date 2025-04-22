@@ -810,4 +810,3 @@ void support_snor_list(void)
 		printf("%03d. %s\n", i + 1, chips_data[i].name);
 	}
 }
-/* vim: set ts=8: */

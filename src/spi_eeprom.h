@@ -43,4 +43,3 @@ const static struct spi_eeprom seepromlist[] = {
 int32_t parseSEEPsize(char *seepromname, struct spi_eeprom *seeprom);
 
 #endif /* __SPI_EEPROM_H__ */
-/* vim: set ts=8: */

@@ -24,4 +24,3 @@ long flash_cmd_init(struct flash_cmd *cmd);
 void support_flash_list(void);
 
 #endif /* __FLASHCMD_API_H__ */
-/* vim: set ts=8: */

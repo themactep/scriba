@@ -384,4 +384,3 @@ void support_spi_eeprom_list(void)
 		printf("%03d. %s\n", i + 1, seepromlist[i].name);
 	}
 }
-/* vim: set ts=8: */

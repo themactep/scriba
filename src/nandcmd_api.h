@@ -19,4 +19,3 @@ extern int Skip_BAD_page;
 extern unsigned char _ondie_ecc_flag;
 
 #endif /* __NANDCMD_API_H__ */
-/* vim: set ts=8: */

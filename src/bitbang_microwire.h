@@ -49,4 +49,3 @@ const static struct MW_EEPROM mw_eepromlist[] = {
 #define MAX_MW_EEPROM_SIZE	4096
 
 #endif /* _BITBANG_MICROWIRE_H */
-/* vim: set ts=8: */

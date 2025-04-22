@@ -13,4 +13,3 @@ long snor_init(void);
 void support_snor_list(void);
 
 #endif /* __SNORCMD_API_H__ */
-/* vim: set ts=8: */

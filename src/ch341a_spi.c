@@ -506,4 +506,3 @@ close_handle:
 	handle = NULL;
 	return -1;
 }
-/* vim: set ts=8: */

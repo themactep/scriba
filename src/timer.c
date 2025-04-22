@@ -44,4 +44,3 @@ int timer_progress(void)
 	}
 	return 0;
 }
-/* vim: set ts=8: */

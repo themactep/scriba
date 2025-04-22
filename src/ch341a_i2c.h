@@ -381,4 +381,3 @@ int32_t ch341writeEEPROM(uint8_t *buf, uint32_t bytes, struct EEPROM *eeprom_inf
 int32_t parseEEPsize(char *eepromname, struct EEPROM *eeprom);
 
 #endif /* __CH341A_I2C_H__ */
-/* vim: set ts=8: */

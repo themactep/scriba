@@ -13,4 +13,3 @@ long spi_eeprom_init(void);
 void support_spi_eeprom_list(void);
 
 #endif /* __SPI_EEPROM_API_H__ */
-/* vim: set ts=8: */

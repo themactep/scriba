@@ -235,4 +235,3 @@ int32_t parseEEPsize(char *eepromname, struct EEPROM *eeprom)
 
 	return -1;
 }
-/* vim: set ts=8: */

@@ -1681,4 +1681,3 @@ void support_snand_list(void)
 		_SPI_NAND_PRINTF("%03d. %s\n", i + 1, spi_nand_flash_tables[i].ptr_name);
 	}
 }
-/* vim: set ts=8: */

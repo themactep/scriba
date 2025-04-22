@@ -40,4 +40,3 @@ int config_stream(unsigned int speed);
 const char* get_libusb_version(void);
 
 #endif /* __CH341_SPI_H__ */
-/* vim: set ts=8: */

@@ -16,4 +16,3 @@ typedef u32 __le32;
 typedef u32 __be32;
 
 #endif /* __TYPES_H__ */
-/* vim: set ts=8: */

@@ -13,4 +13,3 @@ int ch341a_gpio_setbits(uint8_t bits);
 int ch341a_gpio_getbits(uint8_t *data);
 
 #endif /* __CH341A_GPIO_H__ */
-/* vim: set ts=8: */

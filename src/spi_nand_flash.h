@@ -185,4 +185,3 @@ SPI_NAND_FLASH_RTN_T SPI_NAND_Flash_Enable_OnDie_ECC( void );
 SPI_NAND_FLASH_RTN_T spi_nand_erase_block ( u32 block_index);
 
 #endif /* ifndef __SPI_NAND_FLASH_H__ */
-/* vim: set ts=8: */

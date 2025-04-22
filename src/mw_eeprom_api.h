@@ -13,4 +13,3 @@ long mw_init(void);
 void support_mw_eeprom_list(void);
 
 #endif /* __MW_EEPROM_API_H__ */
-/* vim: set ts=8: */

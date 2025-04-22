@@ -379,4 +379,3 @@ okout:	//exit without errors
 	ch341a_spi_shutdown();
 	return 0;
 }
-/* vim: set ts=8: */

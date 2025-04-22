@@ -70,4 +70,3 @@ support_flash_list(void)
 	support_spi_eeprom_list();
 #endif
 }
-/* vim: set ts=8: */

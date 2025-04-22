@@ -1838,4 +1838,3 @@ size_t get_spi_nand_flash_table_size(void)
 	return sizeof(spi_nand_flash_tables) / sizeof(struct SPI_NAND_FLASH_INFO_T);
 }
 
-/* vim: set ts=8: */

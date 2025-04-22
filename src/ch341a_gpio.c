@@ -85,4 +85,3 @@ int ch341a_gpio_getbits(uint8_t *data)
 
 	return ret;
 }
-/* vim: set ts=8: */

@@ -53,11 +53,13 @@ General:
   -L             List supported chips
   -i             Read chip ID
 
+Automation:
+  -R <file>      Read chip (read twice and compare)
+  -W <file>      Write chip (erase + write + verify)
+
 Operations:
   -r <file>      Read chip to file
   -w <file>      Write file to chip
-  -p <file>      Program chip (erase + write + verify)
-  -c <file>      Check chip (read twice and compare)
   -v             Verify after write
   -e             Erase chip
   -a <address>   Set address
@@ -94,14 +96,14 @@ scriba -r output.bin
 scriba -w data.bin -v
 ```
 
-### Program chip (automatic erase + write + verify)
+### Write chip (automatic erase + write + verify)
 ```
-scriba -p firmware.bin
+scriba -W firmware.bin
 ```
 
-### Check chip integrity (read twice and compare)
+### Read chip (read twice and compare)
 ```
-scriba -c verified_backup.bin
+scriba -R verified_backup.bin
 ```
 
 ### EEPROM operations

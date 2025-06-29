@@ -54,8 +54,8 @@ void usage(const char *program_name)
 				   "  -e           Erase chip\n"
 				   "  -r <file>    Read chip to file\n"
 				   "  -w <file>    Write file to chip\n"
-				   "  -p <file>    Program chip (erase + write + verify)\n"
-				   "  -c <file>    Check chip (read twice and compare)\n"
+				   "  -W <file>    Write chip (erase + write + verify)\n"
+				   "  -R <file>    Read chip (read twice and compare)\n"
 				   "  -v           Verify after write\n"
 				   "  -a <address> Set address\n"
 				   "  -l <bytes>   Set length\n"
@@ -84,7 +84,7 @@ int main(int argc, char *argv[])
 
 	title();
 
-	while ((c = getopt(argc, argv, "diIhveLkl:a:w:r:p:c:o:s:E:f:8")) != -1)
+	while ((c = getopt(argc, argv, "diIhveLkl:a:w:r:W:R:o:s:E:f:8")) != -1)
 	{
 		switch (c)
 		{
@@ -181,8 +181,8 @@ int main(int argc, char *argv[])
 			break;
 		case 'r':
 		case 'w':
-		case 'p':
-		case 'c':
+		case 'W':
+		case 'R':
 			if (!op)
 			{
 				op = c;
@@ -292,9 +292,9 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 
-	if (op == 'p')
+	if (op == 'W')
 	{
-		printf("PROGRAM (Erase + Write + Verify):\n");
+		printf("WRITE (Erase + Write + Verify):\n");
 
 		// Step 1: Erase
 		printf("Step 1/3 - ERASE:\n");
@@ -384,7 +384,7 @@ int main(int argc, char *argv[])
 		if (ch1 == buf[i])
 		{
 			printf("Verify Status: OK\n");
-			printf("Program Status: OK - All operations completed successfully\n");
+			printf("Write Status: OK - All operations completed successfully\n");
 			fclose(fp);
 			free(buf);
 			goto okout;
@@ -392,16 +392,16 @@ int main(int argc, char *argv[])
 		else
 		{
 			fprintf(stderr, "Verify Status: BAD - Data mismatch\n");
-			fprintf(stderr, "Program Status: FAILED\n");
+			fprintf(stderr, "Write Status: FAILED\n");
 			fclose(fp);
 			free(buf);
 			goto out;
 		}
 	}
 
-	if (op == 'c')
+	if (op == 'R')
 	{
-		printf("CHECK (Read twice and compare):\n");
+		printf("READ (Read twice and compare):\n");
 
 		// Set up length and address
 		if (addr && !len)
@@ -488,7 +488,7 @@ int main(int argc, char *argv[])
 			}
 			fclose(fp);
 
-			printf("Check Status: OK - Verified data saved to %s\n", fname);
+			printf("Read Status: OK - Verified data saved to %s\n", fname);
 			free(buf1);
 			free(buf2);
 			goto okout;
@@ -498,7 +498,7 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "Compare Status: BAD - Found %d mismatched bytes\n", mismatch_count);
 			fprintf(stderr, "First mismatch at address 0x%016llX (byte1=0x%02X, byte2=0x%02X)\n",
 					addr + first_mismatch, buf1[first_mismatch], buf2[first_mismatch]);
-			fprintf(stderr, "Check Status: FAILED - Flash may be unreliable\n");
+			fprintf(stderr, "Read Status: FAILED - Flash may be unreliable\n");
 			free(buf1);
 			free(buf2);
 			goto out;

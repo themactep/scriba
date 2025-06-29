@@ -56,6 +56,8 @@ General:
 Operations:
   -r <file>      Read chip to file
   -w <file>      Write file to chip
+  -p <file>      Program chip (erase + write + verify)
+  -c <file>      Check chip (read twice and compare)
   -v             Verify after write
   -e             Erase chip
   -a <address>   Set address
@@ -90,6 +92,16 @@ scriba -r output.bin
 ### Write and verify
 ```
 scriba -w data.bin -v
+```
+
+### Program chip (automatic erase + write + verify)
+```
+scriba -p firmware.bin
+```
+
+### Check chip integrity (read twice and compare)
+```
+scriba -c verified_backup.bin
 ```
 
 ### EEPROM operations

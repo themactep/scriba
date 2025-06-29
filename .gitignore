@@ -1,3 +1,6 @@
 /.vscode/
 /build/
 /dl/
+CLAUDE.md
+*.bin
+

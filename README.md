@@ -48,20 +48,18 @@ Usage
 ```
 scriba [options]
 
-General:
-  -h             Display help
-  -L             List supported chips
-  -i             Read chip ID
-
 Automation:
   -R <file>      Read chip (read twice and compare)
   -W <file>      Write chip (erase + write + verify)
 
-Operations:
+Single operations:
+  -i             Read chip ID
+  -e             Erase chip
   -r <file>      Read chip to file
   -w <file>      Write file to chip
   -v             Verify after write
-  -e             Erase chip
+
+Granularity:
   -a <address>   Set address
   -l <bytes>     Set length
 
@@ -76,6 +74,10 @@ EEPROM:
   -8             Set 8-bit organization
   -f <bits>      Set address size
   -s <bytes>     Set page size
+
+General:
+  -h             Display help
+  -L             List supported chips
 ```
 
 Examples

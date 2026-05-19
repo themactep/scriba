@@ -35,6 +35,7 @@ SRCS  = src/flashcmd_api.c \
 	src/spi_nand_flash_tables.c \
 	src/spi_nor_flash.c \
 	src/ch341a_spi.c \
+	src/ezp2019_spi.c \
 	src/timer.c \
 	src/main.c
 
@@ -111,3 +112,4 @@ strip: $(TARGET_BIN)
 install: $(TARGET_BIN)
 	$(INSTALL) -m 0755 -D $(TARGET_BIN) $(DESTDIR)$(BINDIR)/scriba
 	$(INSTALL) -m 0664 -D $(SRC_DIR)/40-persistent-ch341a.rules $(DESTDIR)/etc/udev/rules.d/40-persistent-ch341a.rules
+	$(INSTALL) -m 0664 -D $(SRC_DIR)/40-persistent-ezp2019.rules $(DESTDIR)/etc/udev/rules.d/40-persistent-ezp2019.rules

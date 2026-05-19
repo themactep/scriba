@@ -7,6 +7,16 @@
 
 #include "types.h"
 
+/* Programmer type selection */
+typedef enum
+{
+    PROGRAMMER_CH341A = 0,
+    PROGRAMMER_EZP2019,
+    PROGRAMMER_AUTO
+} PROGRAMMER_TYPE_T;
+
+extern PROGRAMMER_TYPE_T programmer_type;
+
 /* SPI speed modes */
 typedef enum
 {

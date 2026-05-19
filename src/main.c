@@ -13,10 +13,16 @@
 
 #include "flashcmd_api.h"
 #include "ch341a_spi.h"
+#include "ezp2019_spi.h"
+#include "spi_controller.h"
 #include "spi_nand_flash.h"
 
 struct flash_cmd prog;
 extern unsigned int bsize;
+
+/* Global debug/trace flags */
+int debug_enabled = 0;
+int trace_enabled = 0;
 
 #include "ch341a_i2c.h"
 #include "bitbang_microwire.h"
@@ -32,7 +38,14 @@ extern int org;
 
 void title(void)
 {
-	printf("Thingino CH341A Programming Tool v.%s-%s (based on SNANDer)\n", GIT_COMMIT_DATE, GIT_COMMIT_HASH);
+	const char *prog_name;
+	if (programmer_type == PROGRAMMER_EZP2019)
+		prog_name = "EZP2019";
+	else if (programmer_type == PROGRAMMER_CH341A)
+		prog_name = "CH341A";
+	else
+		prog_name = "Auto-detect";
+	printf("Thingino %s Programming Tool v.%s-%s (based on SNANDer)\n", prog_name, GIT_COMMIT_DATE, GIT_COMMIT_HASH);
 #ifdef CONFIG_STATIC
 	printf("Static");
 #else
@@ -74,7 +87,10 @@ void usage(const char *program_name)
 				   "\n"
 				   "General:\n"
 				   "  -h           Display help\n"
-				   "  -L           List supported chips\n",
+				   "  -L           List supported chips\n"
+				   "  -P <prog>    Programmer type: ch341a, ezp2019, auto (default: auto)\n"
+				   "  --debug      Enable debug messages for USB communication\n"
+				   "  --trace      Dump SPI commands and data (implies --debug)\n",
 		 program_name);
 	printf(use);
 	exit(0);
@@ -88,10 +104,34 @@ int main(int argc, char *argv[])
 	int long long len = 0, addr = 0, flen = 0, wlen = 0;
 	FILE *fp;
 
-	title();
+	/* Long options */
+	static struct option long_options[] = {
+		{"debug", no_argument, NULL, 0},
+		{"trace", no_argument, NULL, 0},
+		{0, 0, 0, 0}
+	};
+	int option_index = 0;
 
-	while ((c = getopt(argc, argv, "diIhveLkl:a:w:r:W:R:o:s:E:f:8")) != -1)
+	while ((c = getopt_long(argc, argv, "diIhveLkl:a:w:r:W:R:o:s:E:f:8P:", long_options, &option_index)) != -1)
 	{
+		if (c == 0)
+		{
+			/* Long option */
+			const char *lname = long_options[option_index].name;
+			if (strcmp(lname, "debug") == 0)
+			{
+				debug_enabled = 1;
+				printf("Debug mode enabled\n");
+				continue;
+			}
+			if (strcmp(lname, "trace") == 0)
+			{
+				trace_enabled = 1;
+				debug_enabled = 1;
+				printf("Trace mode enabled (debug forced on)\n");
+				continue;
+			}
+		}
 		switch (c)
 		{
 		case 'E':
@@ -197,6 +237,18 @@ int main(int argc, char *argv[])
 			else
 				op = 'x';
 			break;
+		case 'P':
+			if (strcmp(optarg, "ezp2019") == 0 || strcmp(optarg, "ezp") == 0)
+				programmer_type = PROGRAMMER_EZP2019;
+			else if (strcmp(optarg, "ch341a") == 0 || strcmp(optarg, "ch341") == 0)
+				programmer_type = PROGRAMMER_CH341A;
+			else if (strcmp(optarg, "auto") == 0)
+				programmer_type = PROGRAMMER_AUTO;
+			else {
+				fprintf(stderr, "Unknown programmer type: %s (use ch341a, ezp2019, or auto)\n", optarg);
+				exit(1);
+			}
+			break;
 		case 'L':
 			support_flash_list();
 			exit(0);
@@ -215,11 +267,29 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	if (ch341a_spi_init() < 0)
-	{
-		fprintf(stderr, "Programmer device not found!\n\n");
-		return 1;
+	if (programmer_type == PROGRAMMER_EZP2019) {
+		if (ezp2019_spi_init() < 0) {
+			fprintf(stderr, "EZP2019 programmer device not found!\n\n");
+			return 1;
+		}
+	} else if (programmer_type == PROGRAMMER_CH341A) {
+		if (ch341a_spi_init() < 0) {
+			fprintf(stderr, "CH341A programmer device not found!\n\n");
+			return 1;
+		}
+	} else {
+		/* PROGRAMMER_AUTO: try EZP first, then CH341A */
+		if (ezp2019_spi_init() == 0) {
+			programmer_type = PROGRAMMER_EZP2019;
+		} else if (ch341a_spi_init() == 0) {
+			programmer_type = PROGRAMMER_CH341A;
+		} else {
+			fprintf(stderr, "No supported programmer device found!\n\n");
+			return 1;
+		}
 	}
+
+	title();
 
 	if ((flen = flash_cmd_init(&prog)) <= 0)
 		goto out;
@@ -631,9 +701,15 @@ very:
 	}
 
 out: // exit with errors
-	ch341a_spi_shutdown();
+	if (programmer_type == PROGRAMMER_EZP2019)
+		ezp2019_spi_shutdown();
+	else
+		ch341a_spi_shutdown();
 	return 1;
 okout: // exit without errors
-	ch341a_spi_shutdown();
+	if (programmer_type == PROGRAMMER_EZP2019)
+		ezp2019_spi_shutdown();
+	else
+		ch341a_spi_shutdown();
 	return 0;
 }

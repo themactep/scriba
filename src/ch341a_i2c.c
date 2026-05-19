@@ -13,8 +13,11 @@
 #include <assert.h>
 #include "ch341a_i2c.h"
 
-#define dprintf(args...)
-// #define dprintf(args...) do { if (1) printf(args); } while(0)
+/* Global debug flag from main.c */
+extern int debug_enabled;
+
+/* Debug printf - now controlled by global debug_enabled flag */
+#define dprintf(args...) do { if (debug_enabled) fprintf(stderr, "[DEBUG] " args); } while(0)
 
 extern struct libusb_device_handle *handle;
 unsigned char *readbuf;
@@ -102,18 +105,22 @@ int32_t ch341readEEPROM(uint8_t *buffer, uint32_t bytestoread, struct EEPROM *ee
 	struct libusb_transfer *xferBulkIn, *xferBulkOut;
 	struct timeval tv = {0, 100}; // our async polling interval
 
+	dprintf("ch341readEEPROM: reading %u bytes\n", bytestoread);
+
 	xferBulkIn = libusb_alloc_transfer(0);
 	xferBulkOut = libusb_alloc_transfer(0);
 
 	if (!xferBulkIn || !xferBulkOut)
 	{
 		fprintf(stderr, "Couldn't allocate USB transfer structures\n"); // Use stderr
+		if (debug_enabled)
+			fprintf(stderr, "[DEBUG] ch341readEEPROM: transfer allocation failed\n");
 		return -1;
 	}
 
 	byteoffset = 0;
 
-	dprintf("Allocated USB transfer structures\n");
+	dprintf("ch341readEEPROM: allocated USB transfer structures\n");
 
 	memset(ch341inBuffer, 0, EEPROM_READ_BULKIN_BUF_SZ);
 	ch341ReadCmdMarshall(ch341outBuffer, 0, eeprom_info); // Fill output buffer
@@ -124,12 +131,19 @@ int32_t ch341readEEPROM(uint8_t *buffer, uint32_t bytestoread, struct EEPROM *ee
 	libusb_fill_bulk_transfer(xferBulkOut, handle, BULK_WRITE_ENDPOINT,
 				  ch341outBuffer, EEPROM_READ_BULKOUT_BUF_SZ, cbBulkOut, NULL, DEFAULT_TIMEOUT);
 
-	dprintf("Filled USB transfer structures\n");
+	dprintf("ch341readEEPROM: filled USB transfer structures\n");
 
-	libusb_submit_transfer(xferBulkIn);
-	dprintf("Submitted BULK IN start packet\n");
-	libusb_submit_transfer(xferBulkOut);
-	dprintf("Submitted BULK OUT setup packet\n");
+	ret = libusb_submit_transfer(xferBulkIn);
+	if (ret < 0)
+		dprintf("ch341readEEPROM: BULK IN submit failed with error %d: %s\n", ret, libusb_error_name(ret));
+	else
+		dprintf("ch341readEEPROM: submitted BULK IN start packet\n");
+
+	ret = libusb_submit_transfer(xferBulkOut);
+	if (ret < 0)
+		dprintf("ch341readEEPROM: BULK OUT submit failed with error %d: %s\n", ret, libusb_error_name(ret));
+	else
+		dprintf("ch341readEEPROM: submitted BULK OUT setup packet\n");
 
 	readbuf = buffer;
 
@@ -145,7 +159,13 @@ int32_t ch341readEEPROM(uint8_t *buffer, uint32_t bytestoread, struct EEPROM *ee
 			fprintf(stderr, "ret from libusb_handle_timeout = %d\n", ret); // Use stderr
 			fprintf(stderr, "getnextpkt = %d\n", getnextpkt);	       // Use stderr
 			if (ret < 0)
+			{
 				fprintf(stderr, "USB read error : %s\n", strerror(-ret)); // Use stderr
+				if (debug_enabled)
+					fprintf(stderr, "[DEBUG] ch341readEEPROM: libusb_handle_events_timeout error %d\n", ret);
+			}
+			if (debug_enabled)
+				fprintf(stderr, "[DEBUG] ch341readEEPROM: read operation failed, aborting\n");
 			libusb_free_transfer(xferBulkIn);
 			libusb_free_transfer(xferBulkOut);
 			return -1;
@@ -180,6 +200,9 @@ int32_t ch341readEEPROM(uint8_t *buffer, uint32_t bytestoread, struct EEPROM *ee
 	}
 	printf("Read 100%% [%d] of [%d] bytes      \n", byteoffset, bytestoread);
 
+	if (debug_enabled)
+		fprintf(stderr, "[DEBUG] ch341readEEPROM: read completed successfully\n");
+
 	libusb_free_transfer(xferBulkIn);
 	libusb_free_transfer(xferBulkOut);
 	return 0;
@@ -194,7 +217,7 @@ void cbBulkIn(struct libusb_transfer *transfer)
 	{
 	case LIBUSB_TRANSFER_COMPLETED:
 		// display the contents of the BULK IN data buffer
-		dprintf("\ncbBulkIn(): status %d - Read %d bytes\n", transfer->status, transfer->actual_length);
+		dprintf("cbBulkIn(): status %d - Read %d bytes\n", transfer->status, transfer->actual_length);
 
 		for (i = 0; i < transfer->actual_length; i++)
 		{
@@ -209,6 +232,9 @@ void cbBulkIn(struct libusb_transfer *transfer)
 		break;
 	default:
 		fprintf(stderr, "\ncbBulkIn: error : %d\n", transfer->status); // Use stderr
+		if (debug_enabled)
+			fprintf(stderr, "[DEBUG] cbBulkIn: transfer failed with status %d (%s)\n",
+				transfer->status, libusb_error_name(transfer->status));
 		getnextpkt = -1;
 	}
 	return;
@@ -218,7 +244,10 @@ void cbBulkIn(struct libusb_transfer *transfer)
 void cbBulkOut(struct libusb_transfer *transfer)
 {
 	syncackpkt = 1;
-	dprintf("\ncbBulkOut(): Sync/Ack received: status %d\n", transfer->status);
+	dprintf("cbBulkOut(): Sync/Ack received: status %d\n", transfer->status);
+	if (transfer->status != LIBUSB_TRANSFER_COMPLETED && debug_enabled)
+		fprintf(stderr, "[DEBUG] cbBulkOut: transfer completed with non-success status %d (%s)\n",
+			transfer->status, libusb_error_name(transfer->status));
 	return;
 }
 

@@ -676,13 +676,25 @@ int ezp2019_spi_init(void)
 
 	printf("Found programmer device: www.zhifengsoft.com - EZP2019\n");
 
-#ifdef __gnu_linux__
-	ret = libusb_detach_kernel_driver(ezp_handle, 0);
-	if (ret != 0 && ret != LIBUSB_ERROR_NOT_FOUND && ret != LIBUSB_ERROR_NOT_SUPPORTED) {
-		fprintf(stderr, "EZP: failed to detach kernel driver: %s\n",
+	/* Set auto-detach so libusb handles kernel driver automatically */
+	ret = libusb_set_auto_detach_kernel_driver(ezp_handle, 1);
+	if (ret != 0 && ret != LIBUSB_ERROR_NOT_SUPPORTED && debug_enabled)
+		fprintf(stderr, "[DEBUG] ezp2019_spi_init: auto_detach not supported: %s\n",
 			libusb_error_name(ret));
+
+	/* Read string descriptors — some EZP models require this before
+	 * they will accept commands on the bulk endpoints. */
+	{
+		uint8_t tmp[256];
+		libusb_control_transfer(ezp_handle,
+			LIBUSB_ENDPOINT_IN, LIBUSB_REQUEST_GET_DESCRIPTOR,
+			(LIBUSB_DT_STRING << 8) | 0x01, 0x0409,
+			tmp, sizeof(tmp), 1000);
+		libusb_control_transfer(ezp_handle,
+			LIBUSB_ENDPOINT_IN, LIBUSB_REQUEST_GET_DESCRIPTOR,
+			(LIBUSB_DT_STRING << 8) | 0x02, 0x0409,
+			tmp, sizeof(tmp), 1000);
 	}
-#endif
 
 	ret = libusb_claim_interface(ezp_handle, 0);
 	if (ret != 0) {
@@ -705,8 +717,9 @@ int ezp2019_spi_init(void)
 		}
 	}
 
-	/* Reset device to known state */
-	ezp_reset_device();
+	/* Do NOT reset here — earlier EZP models may not support it
+	 * and will STALL the endpoint. RESET is sent before each
+	 * read/write/erase operation instead. */
 
 	/* Initialize state */
 	ezp_cmd_len = 0;

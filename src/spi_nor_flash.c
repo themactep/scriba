@@ -6,25 +6,120 @@
 #include <stdio.h>
 #include <stddef.h>
 #include <unistd.h>
+#include <string.h>
+
+extern int debug_enabled;
 
 // Global variable definitions
 struct chip_info *spi_chip_info = NULL;
+static bool last_wait_error_was_epe = false;
+struct snor_progress_state {
+	const char *op;
+	unsigned long addr;
+};
+static struct snor_progress_state snor_progress = { "IDLE", 0 };
+static void snor_log_status(const char *ctx, u8 sr1);
+static void snor_set_progress(const char *op, unsigned long addr)
+{
+	snor_progress.op = op;
+	snor_progress.addr = addr;
+}
+
+static void snor_clear_progress(void)
+{
+	snor_set_progress("IDLE", 0);
+}
 // unsigned int bsize = 0; // Removed duplicate definition (defined in spi_nand_flash.c)
+
+static bool snor_requires_dual_status(void)
+{
+	if (!spi_chip_info || !spi_chip_info->name)
+		return false;
+	return strncmp(spi_chip_info->name, "XM", 2) == 0 ||
+	       strncmp(spi_chip_info->name, "NM", 2) == 0;
+}
+
+static bool snor_requires_sr3(void)
+{
+	return snor_requires_dual_status();
+}
+
+static bool snor_is_normem(void)
+{
+	if (!spi_chip_info || !spi_chip_info->name)
+		return false;
+	return strncmp(spi_chip_info->name, "NM", 2) == 0;
+}
+
+static int snor_write_status_block(const u8 *vals, size_t len)
+{
+	int retval;
+	if (!len || len > 2)
+		return -1;
+	SPI_CONTROLLER_Chip_Select_Low();
+	SPI_CONTROLLER_Write_One_Byte(OPCODE_WRSR);
+	retval = SPI_CONTROLLER_Write_NByte((u8 *)vals, len);
+	SPI_CONTROLLER_Chip_Select_High();
+	if (retval) {
+		printf("%s: ret: %x\n", __func__, retval);
+		return -1;
+	}
+	return 0;
+}
+
+static void snor_clear_status(void)
+{
+	SPI_CONTROLLER_Chip_Select_Low();
+	SPI_CONTROLLER_Write_One_Byte(OPCODE_CLSR);
+	SPI_CONTROLLER_Chip_Select_High();
+}
 
 // Function implementations
 int snor_wait_ready(int sleep_ms) {
     int count;
     uint8_t sr = 0;  // Using uint8_t instead of u8
+    last_wait_error_was_epe = false;
     for (count = 0; count < ((sleep_ms + 1) * 1000); count++) {
-        if ((snor_read_sr(&sr)) < 0)
-            break;
-        else if (!(sr & (SR_WIP | SR_EPE | SR_WEL))) {
+		if ((snor_read_sr(&sr)) < 0)
+			break;
+		if (sr & SR_EPE) {
+			last_wait_error_was_epe = true;
+			snor_log_status("snor_wait_ready", sr);
+			printf("%s: erase/program error (SR=%02x)\n", __func__, sr);
+			snor_clear_status();
+			return -1;
+		}
+		if (!(sr & (SR_WIP | SR_EPE | SR_WEL))) {
             return 0;
         }
         usleep(500); // Use usleep instead of udelay
     }
     printf("%s: read_sr fail: %x\n", __func__, sr);
     return -1;
+}
+
+static int snor_wait_ready_retry_epe(int sleep_ms)
+{
+	int ret = snor_wait_ready(sleep_ms);
+	if (!ret)
+		return 0;
+	if (debug_enabled)
+		fprintf(stderr, "[DEBUG] snor_wait_ready_retry_epe: initial wait failed (op=%s addr=0x%08lx epe=%d)\n",
+			snor_progress.op, snor_progress.addr, last_wait_error_was_epe);
+	if (!last_wait_error_was_epe)
+		return -1;
+	if (debug_enabled)
+		fprintf(stderr, "[DEBUG] snor_wait_ready_retry_epe: retrying after SR_EPE (sleep=%dms)\n", sleep_ms);
+	ret = snor_wait_ready(sleep_ms);
+	if (ret && debug_enabled)
+		fprintf(stderr, "[DEBUG] snor_wait_ready_retry_epe: retry failed (op=%s addr=0x%08lx epe=%d)\n",
+			snor_progress.op, snor_progress.addr, last_wait_error_was_epe);
+	return ret;
+}
+
+static bool snor_wait_error_was_epe(void)
+{
+	return last_wait_error_was_epe;
 }
 
 static int snor_read_rg(uint8_t code, uint8_t *val) {  // Using uint8_t
@@ -53,19 +148,130 @@ static int snor_write_rg(uint8_t code, uint8_t *val) {  // Using uint8_t
     return 0;
 }
 
+static int snor_read_sr2(u8 *val)
+{
+	return snor_read_rg(OPCODE_RDSR2, val);
+}
+
+static int snor_read_sr3(u8 *val)
+{
+	return snor_read_rg(OPCODE_RDSR3, val);
+}
+
+static int snor_write_sr2(u8 val)
+{
+	return snor_write_rg(OPCODE_WRSR2, &val);
+}
+
+static void snor_volatile_write_enable(void)
+{
+	SPI_CONTROLLER_Chip_Select_Low();
+	SPI_CONTROLLER_Write_One_Byte(OPCODE_WREN_VSR);
+	SPI_CONTROLLER_Chip_Select_High();
+}
+
+/* NOR-MEM helpers: try non-volatile first, then volatile if needed */
+static int snor_write_sr1_nm(u8 sr1_val)
+{
+	snor_write_enable();
+	if (snor_write_sr(&sr1_val) == 0 && snor_wait_ready_retry_epe(1) == 0)
+		return 0;
+	/* fallback to volatile write */
+	snor_volatile_write_enable();
+	if (snor_write_sr(&sr1_val) == 0 && snor_wait_ready_retry_epe(1) == 0)
+		return 0;
+	return -1;
+}
+
+static int snor_write_sr2_nm(u8 sr2_val)
+{
+	snor_write_enable();
+	if (snor_write_sr2(sr2_val) == 0 && snor_wait_ready_retry_epe(1) == 0)
+		return 0;
+	/* fallback to volatile write */
+	snor_volatile_write_enable();
+	if (snor_write_sr2(sr2_val) == 0 && snor_wait_ready_retry_epe(1) == 0)
+		return 0;
+	return -1;
+}
+
+static int snor_write_sr3(u8 val)
+{
+	return snor_write_rg(OPCODE_WRSR3, &val);
+}
+
+static void snor_log_status(const char *ctx, u8 sr1)
+{
+	if (!debug_enabled)
+		return;
+	u8 sr2 = 0;
+	u8 sr3 = 0;
+	bool have_sr2 = snor_requires_dual_status();
+	bool have_sr3 = snor_requires_sr3();
+	if (have_sr2 && snor_read_sr2(&sr2) < 0)
+		have_sr2 = false;
+	if (have_sr3 && snor_read_sr3(&sr3) < 0)
+		have_sr3 = false;
+	fprintf(stderr, "[DEBUG] %s: SR1=%02x SR2=%02x SR3=%02x (op=%s addr=0x%08lx)\n",
+		ctx, sr1, have_sr2 ? sr2 : 0, have_sr3 ? sr3 : 0,
+		snor_progress.op, snor_progress.addr);
+}
+
 /* Stray code removed:
     return snor_read_rg(OPCODE_RDSR, val);
 }
 */
 
 int snor_write_sr(u8 *val) {
-    return snor_write_rg(OPCODE_WRSR, val);
+	return snor_write_status_block(val, 1);
 }
-
 void snor_write_enable(void) {
     SPI_CONTROLLER_Chip_Select_Low();
     SPI_CONTROLLER_Write_One_Byte(OPCODE_WREN);
     SPI_CONTROLLER_Chip_Select_High();
+}
+
+static int snor_global_block_unlock(void) {
+    printf("[INFO] NOR-MEM: Executing Global Block Unlock\n");
+	snor_write_enable();
+    SPI_CONTROLLER_Chip_Select_Low();
+    SPI_CONTROLLER_Write_One_Byte(OPCODE_GBULK);
+    SPI_CONTROLLER_Chip_Select_High();
+    return snor_wait_ready_retry_epe(1);
+}
+
+static int snor_block_unlock_all(void)
+{
+	if (!spi_chip_info)
+		return -1;
+	unsigned int n = spi_chip_info->n_sectors;
+	unsigned long sec_sz = spi_chip_info->sector_size;
+	for (unsigned int i = 0; i < n; i++) {
+		unsigned long addr = i * sec_sz;
+		u8 a[3];
+		a[0] = (addr >> 16) & 0xFF;
+		a[1] = (addr >> 8) & 0xFF;
+		a[2] = addr & 0xFF;
+		snor_write_enable();
+		SPI_CONTROLLER_Chip_Select_Low();
+		SPI_CONTROLLER_Write_One_Byte(OPCODE_SBULK);
+		SPI_CONTROLLER_Write_NByte(a, 3);
+		SPI_CONTROLLER_Chip_Select_High();
+		if (snor_wait_ready_retry_epe(1))
+			return -1;
+	}
+	return 0;
+}
+
+static void snor_reset_chip(void)
+{
+	SPI_CONTROLLER_Chip_Select_Low();
+	SPI_CONTROLLER_Write_One_Byte(OPCODE_RSTEN);
+	SPI_CONTROLLER_Chip_Select_High();
+	SPI_CONTROLLER_Chip_Select_Low();
+	SPI_CONTROLLER_Write_One_Byte(OPCODE_RST);
+	SPI_CONTROLLER_Chip_Select_High();
+	usleep(1000); /* allow reset to complete */
 }
 
 void snor_write_disable(void) {
@@ -75,21 +281,149 @@ void snor_write_disable(void) {
 }
 
 int snor_unprotect(void) {
-    u8 sr = 0;
-    if (snor_read_sr(&sr) < 0) {
-        printf("%s: read_sr fail: %x\n", __func__, sr);
-        return -1;
-    }
-    if ((sr & (SR_BP0 | SR_BP1 | SR_BP2)) != 0) {
-        sr = 0;
-        snor_write_sr(&sr);
-    }
-    return 0;
+	u8 sr1 = 0;
+	u8 sr2 = 0;
+	u8 sr3 = 0;
+	bool needs_sr2 = snor_requires_dual_status();
+	bool needs_sr3 = snor_requires_sr3();
+	u8 bp_mask = SR_BP0 | SR_BP1 | SR_BP2;
+	if (snor_is_normem()) {
+		/* NOR-MEM chips use 5 bits (BP4-BP0) in SR1 plus CMP bit */
+		bp_mask = SR_BP0 | SR_BP1 | SR_BP2 | SR_BP3 | SR_BP4 | SR_CMP;
+	}
+	if (snor_read_sr(&sr1) < 0) {
+		printf("%s: read_sr fail: %x\n", __func__, sr1);
+		return -1;
+	}
+	if (needs_sr2) {
+		if (snor_read_sr2(&sr2) < 0)
+			needs_sr2 = false;
+	}
+	if (needs_sr3) {
+		if (snor_read_sr3(&sr3) < 0)
+			needs_sr3 = false;
+	}
+	if (debug_enabled) {
+		fprintf(stderr, "[DEBUG] snor_unprotect: SR1=%02x SR2=%02x SR3=%02x (need_sr2=%d need_sr3=%d)\n",
+		       sr1, needs_sr2 ? sr2 : 0, needs_sr3 ? sr3 : 0, needs_sr2, needs_sr3);
+	}
+
+	/* For NOR-MEM chips, try Global Block Unlock first */
+	if (snor_is_normem()) {
+		snor_clear_status();
+		snor_write_disable();
+		snor_reset_chip();
+		if (snor_block_unlock_all() < 0)
+			printf("[WARN] Block unlock (SBULK) loop failed\n");
+		if (snor_global_block_unlock() < 0) {
+			printf("[WARN] Global Block Unlock failed\n");
+		}
+		/* Re-read status registers after unlock */
+		if (snor_read_sr(&sr1) < 0) {
+			printf("%s: read_sr fail after GBULK: %x\n", __func__, sr1);
+			return -1;
+		}
+		if (needs_sr2 && snor_read_sr2(&sr2) < 0)
+			needs_sr2 = false;
+		if (needs_sr3 && snor_read_sr3(&sr3) < 0)
+			needs_sr3 = false;
+		printf("[INFO] After GBULK: SR1=%02x SR2=%02x SR3=%02x\n",
+		       sr1, needs_sr2 ? sr2 : 0, needs_sr3 ? sr3 : 0);
+	}
+
+	bool clear_sr1 = sr1 & bp_mask;
+	bool clear_sr2_srp = false;
+	if (snor_is_normem() && needs_sr2) {
+		/* NOR-MEM chips: also need to clear SRP1 (bit 1) and SRP0 (bit 0) in SR2 */
+		clear_sr2_srp = sr2 & 0x03;
+	}
+	bool clear_sr3_bp = needs_sr3 && (sr3 & SR3_BP3);
+	bool clear_sr3_wps = needs_sr3 && (sr3 & SR3_WPS);
+	bool clear_sr3 = clear_sr3_bp || clear_sr3_wps;
+	if (!clear_sr1 && !clear_sr3 && !clear_sr2_srp)
+		return 0;
+
+	if (clear_sr3) {
+		u8 cleared_sr3 = sr3 & ~(SR3_BP3 | SR3_WPS);
+		snor_write_enable();
+		if (snor_write_sr3(cleared_sr3) < 0 || snor_wait_ready_retry_epe(1)) {
+			/* fallback: try volatile write of SR3 */
+			snor_volatile_write_enable();
+			if (snor_write_sr3(cleared_sr3) < 0 || snor_wait_ready_retry_epe(1)) {
+				if (!snor_wait_error_was_epe())
+					return -1;
+				if (debug_enabled)
+					fprintf(stderr, "[DEBUG] snor_unprotect: continuing after SR_EPE while clearing SR3 (volatile)\n");
+			}
+		}
+	}
+
+	if (clear_sr1 || clear_sr2_srp) {
+		if (snor_is_normem()) {
+			/* NOR-MEM chips: clear SR2 (SRP) before SR1 */
+			if (clear_sr2_srp) {
+				u8 cleared_sr2 = sr2 & ~0x03;
+				printf("[INFO] NOR-MEM: Clearing SR2 from 0x%02x to 0x%02x\n", sr2, cleared_sr2);
+				if (snor_write_sr2_nm(cleared_sr2) < 0)
+					return -1;
+			}
+			if (clear_sr1) {
+				u8 cleared_sr1 = sr1 & ~bp_mask;
+				printf("[INFO] NOR-MEM: Clearing SR1 from 0x%02x to 0x%02x (mask=0x%02x)\n", sr1, cleared_sr1, bp_mask);
+				if (snor_write_sr1_nm(cleared_sr1) < 0)
+					return -1;
+			}
+		} else {
+			/* Standard chips write SR1 and SR2 together */
+			u8 buf[2];
+			size_t len = 0;
+			buf[len++] = sr1 & ~bp_mask;
+			if (needs_sr2)
+				buf[len++] = sr2;
+			snor_write_enable();
+			if (snor_write_status_block(buf, len) < 0)
+				return -1;
+			if (snor_wait_ready_retry_epe(1)) {
+				if (!snor_wait_error_was_epe())
+					return -1;
+				if (debug_enabled)
+					fprintf(stderr, "[DEBUG] snor_unprotect: continuing after SR_EPE while clearing SR1/SR2\n");
+			}
+		}
+	}
+
+	if (snor_read_sr(&sr1) < 0) {
+		printf("%s: read_sr fail: %x\n", __func__, sr1);
+		return -1;
+	}
+	if (needs_sr2 && snor_read_sr2(&sr2) < 0)
+		needs_sr2 = false;
+	if (needs_sr3 && snor_read_sr3(&sr3) < 0)
+		needs_sr3 = false;
+	printf("[INFO] snor_unprotect after clear: SR1=%02x SR2=%02x SR3=%02x\n",
+	       sr1, needs_sr2 ? sr2 : 0, needs_sr3 ? sr3 : 0);
+	if (debug_enabled) {
+		fprintf(stderr, "[DEBUG] snor_unprotect: SR1'=%02x SR2'=%02x SR3'=%02x\n",
+			sr1, needs_sr2 ? sr2 : 0, needs_sr3 ? sr3 : 0);
+	}
+	if (sr1 & bp_mask) {
+		printf("%s: unable to clear block protection (SR=%02x)\n", __func__, sr1);
+		return -1;
+	}
+	if (needs_sr3 && (sr3 & SR3_BP3)) {
+		printf("%s: unable to clear extended block protection (SR3=%02x)\n", __func__, sr3);
+		return -1;
+	}
+	if (needs_sr3 && (sr3 & SR3_WPS)) {
+		printf("%s: unable to clear write protect selection (SR3=%02x)\n", __func__, sr3);
+		return -1;
+	}
+	return 0;
 }
 
 int snor_4byte_mode(int enable) {
     int retval;
-    if (snor_wait_ready(1))
+	if (snor_wait_ready_retry_epe(1))
         return -1;
     if (spi_chip_info->id == 0x1) { /* Spansion */
         u8 br = enable ? 0x81 : 0;
@@ -118,13 +452,16 @@ int snor_4byte_mode(int enable) {
     return 0;
 }
 
-int snor_erase_sector(unsigned long offset) {
-    if (snor_wait_ready(950))
-        return -1;
-    if (spi_chip_info->addr4b) {
-        snor_4byte_mode(1);
-    }
-    snor_write_enable();
+int snor_erase_sector(unsigned long offset)
+{
+	snor_set_progress("SE", offset);
+	if (snor_wait_ready_retry_epe(950)) {
+		snor_clear_progress();
+		return -1;
+	}
+	if (spi_chip_info->addr4b)
+		snor_4byte_mode(1);
+	snor_write_enable();
     SPI_CONTROLLER_Chip_Select_Low();
     SPI_CONTROLLER_Write_One_Byte(OPCODE_SE);
     if (spi_chip_info->addr4b)
@@ -133,23 +470,42 @@ int snor_erase_sector(unsigned long offset) {
     SPI_CONTROLLER_Write_One_Byte((offset >> 8) & 0xff);
     SPI_CONTROLLER_Write_One_Byte(offset & 0xff);
     SPI_CONTROLLER_Chip_Select_High();
-    snor_wait_ready(950);
-    if (spi_chip_info->addr4b)
-        snor_4byte_mode(0);
-    return 0;
+	if (snor_wait_ready(950)) {
+		if (spi_chip_info->addr4b)
+			snor_4byte_mode(0);
+		snor_clear_progress();
+		return -1;
+	}
+	if (spi_chip_info->addr4b)
+		snor_4byte_mode(0);
+	snor_clear_progress();
+	return 0;
 }
 
 int full_erase_chip(void) {
     timer_start();
-    if (snor_wait_ready(3))
-        return -1;
-    snor_write_enable();
-    snor_unprotect();
+	if (snor_wait_ready_retry_epe(3)) {
+		if (!snor_wait_error_was_epe())
+			return -1;
+		if (debug_enabled)
+			fprintf(stderr, "[DEBUG] full_erase_chip: continuing after SR_EPE to clear protection\n");
+	}
+	if (snor_unprotect()) {
+		return -1;
+	}
+	snor_set_progress("BE", 0);
+	snor_write_enable();
     SPI_CONTROLLER_Chip_Select_Low();
     SPI_CONTROLLER_Write_One_Byte(OPCODE_BE1);
     SPI_CONTROLLER_Chip_Select_High();
-    snor_wait_ready(950);
+    if (snor_wait_ready(950)) {
+		snor_write_disable();
+		snor_clear_progress();
+		timer_end();
+		return -1;
+	}
     snor_write_disable();
+    snor_clear_progress();
     timer_end();
     return 0;
 }
@@ -349,6 +705,8 @@ static struct chip_info chips_data [] = {
 
 	{ "MD25D20",		0x51, 0x40120000, 64 * 1024, 4,   0 },
 	{ "MD25D40",		0x51, 0x40130000, 64 * 1024, 8,   0 },
+
+	{ "NM25Q64EVBSIG",	0x52, 0x22175222, 64 * 1024, 128, 0 },
 
 	{ "ZB25VQ16",		0x5e, 0x40150000, 64 * 1024, 32,  0 },
 	{ "ZB25LQ16",		0x5e, 0x50150000, 64 * 1024, 32,  0 },
@@ -576,16 +934,18 @@ long snor_init(void)
 int snor_erase(unsigned long offs, unsigned long len)
 {
 	unsigned long plen = len;
+	unsigned long full_span = spi_chip_info->sector_size * spi_chip_info->n_sectors;
 	// snor_dbg("%s: offs:%x len:%x\n", __func__, offs, len); // Commented out missing function
 
 	/* sanity checks */
 	if (len == 0)
 		return -1;
 
-	if(!offs && len == (spi_chip_info->sector_size * spi_chip_info->n_sectors))
-	{
+	if (!offs && len == full_span) {
 		printf("Please Wait......\n");
-		return full_erase_chip();
+		if (full_erase_chip() == 0)
+			return 0;
+		printf("[WARN] Bulk erase failed, falling back to sector erase.\n");
 	}
 
 	timer_start();
@@ -625,7 +985,7 @@ int snor_read(unsigned char *buf, unsigned long from, unsigned long len)
 
 	timer_start();
 	/* Wait till previous write/erase is done. */
-	if (snor_wait_ready(1)) {
+	if (snor_wait_ready_retry_epe(1)) {
 		/* REVISIT status return?? */
 		return -1;
 	}
@@ -694,6 +1054,7 @@ int snor_write(unsigned char *buf, unsigned long to, unsigned long len)
 {
 	u32 page_offset, page_size;
 	int rc = 0, retlen = 0;
+	int err = 0;
 	unsigned long plen = len;
 
 	// snor_dbg("%s: to:%x len:%x \n", __func__, to, len); // Commented out missing function
@@ -707,8 +1068,11 @@ int snor_write(unsigned char *buf, unsigned long to, unsigned long len)
 
 	timer_start();
 	/* Wait until finished previous write command. */
-	if (snor_wait_ready(2)) {
-		return -1;
+	if (snor_wait_ready_retry_epe(2)) {
+		if (!snor_wait_error_was_epe())
+			return -1;
+		if (debug_enabled)
+			fprintf(stderr, "[DEBUG] snor_write: continuing after SR_EPE before programming\n");
 	}
 
 
@@ -723,10 +1087,12 @@ int snor_write(unsigned char *buf, unsigned long to, unsigned long len)
 		page_size = min(len, FLASH_PAGESIZE - page_offset);
 		page_offset = 0;
 		/* write the next page to flash */
-
-		snor_wait_ready(3);
+		if (snor_unprotect()) {
+			err = -1;
+			break;
+		}
+		snor_set_progress("PP", to);
 		snor_write_enable();
-		snor_unprotect();
 
 		SPI_CONTROLLER_Chip_Select_Low();
 		/* Set up the opcode in the write buffer. */
@@ -763,19 +1129,34 @@ int snor_write(unsigned char *buf, unsigned long to, unsigned long len)
 			}
 		}
 
+		if (snor_wait_ready(3)) {
+			err = -1;
+			break;
+		}
+
 		len -= page_size;
 		to += page_size;
 		buf += page_size;
+	}
+
+	if (!err) {
+		if (snor_wait_ready(3))
+			err = -1;
 	}
 
 	if (spi_chip_info->addr4b)
 		snor_4byte_mode(0);
 
 	snor_write_disable();
+	snor_clear_progress();
 
-	printf("Written 100%% [%ld] of [%ld] bytes      \n", plen - len, plen);
 	timer_end();
 
+	if (err) {
+		return err;
+	}
+
+	printf("Written 100%% [%ld] of [%ld] bytes      \n", plen - len, plen);
 	return retlen;
 }
 

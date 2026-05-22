@@ -39,7 +39,7 @@ SRCS  = src/flashcmd_api.c \
 	src/timer.c \
 	src/main.c
 
-LIBUSB_VERSION := 1.0.28
+LIBUSB_VERSION := 1.0.30
 LIBUSB_BUNDLE := libusb-$(LIBUSB_VERSION).tar.bz2
 LIBUSB_TARBALL_URL := https://github.com/libusb/libusb/releases/download/v$(LIBUSB_VERSION)/$(LIBUSB_BUNDLE)
 LIBUSB_TARBALL := $(DL_DIR)/$(LIBUSB_BUNDLE)

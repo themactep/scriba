@@ -4,7 +4,12 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 #include "flashcmd_api.h"
- 	#include <stdio.h>
+#ifdef EEPROM_SUPPORT
+#include "i2c_eeprom_api.h"
+#include "mw_eeprom_api.h"
+#include "spi_eeprom_api.h"
+#endif
+#include <stdio.h>
  	#include <stdlib.h>
  	#include <string.h>
 
@@ -59,7 +64,7 @@ long flash_cmd_init(struct flash_cmd *cmd)
 	return flen;
  }
 
- int flashcmd_verify(const unsigned char *data, unsigned long addr, unsigned long len, unsigned long file_len)
+ int flashcmd_verify(const unsigned char *data, unsigned long addr, unsigned long len, unsigned long file_len __attribute__((unused)))
  {
  	int ret;
  	unsigned char *verify_buf = NULL;

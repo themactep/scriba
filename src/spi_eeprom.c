@@ -264,7 +264,7 @@ int spi_eeprom_read(unsigned char *buf, unsigned long from, unsigned long len)
 	pbuf = ebuf;
 	int read_val; // To store return value from eeprom_read_byte
 
-	for (i = 0; i < seepromsize; i++)
+	for (i = 0; i < (uint32_t)seepromsize; i++)
 	{
 		read_val = eeprom_read_byte(&seeprom_info, i);
 		if (read_val < 0)
@@ -302,9 +302,9 @@ int spi_eeprom_erase(unsigned long offs, unsigned long len)
 	int read_val; // To store return value from eeprom_read_byte
 	int ret = 0;  // To store return value from write helpers
 
-	if (offs || len < seepromsize)
+	if (offs || len < (unsigned long)seepromsize)
 	{
-		for (i = 0; i < seepromsize; i++)
+		for (i = 0; i < (uint32_t)seepromsize; i++)
 		{
 			read_val = eeprom_read_byte(&seeprom_info, i);
 			if (read_val < 0)
@@ -317,7 +317,7 @@ int spi_eeprom_erase(unsigned long offs, unsigned long len)
 		memset(pbuf + offs, 0xff, len);
 	}
 
-	for (i = 0; i < seepromsize; i++)
+	for (i = 0; i < (uint32_t)seepromsize; i++)
 	{
 		if (spage_size)
 		{
@@ -363,14 +363,13 @@ int spi_eeprom_write(unsigned char *buf, unsigned long to, unsigned long len)
 	timer_start();
 	memset(ebuf, 0xff, sizeof(ebuf));
 	pbuf = ebuf;
-	int read_val; // To store return value from eeprom_read_byte
-	int ret = 0;  // To store return value from write helpers
+	int ret = 0;
 
-	if (to || len < seepromsize)
+	if (to || len < (unsigned long)seepromsize)
 	{
-		for (i = 0; i < seepromsize; i++)
+		for (i = 0; i < (uint32_t)seepromsize; i++)
 		{
-			read_val = eeprom_read_byte(&seeprom_info, i);
+			int read_val = eeprom_read_byte(&seeprom_info, i);
 			if (read_val < 0)
 			{
 				fprintf(stderr, "Error reading byte at address %u before write\n", i);
@@ -381,7 +380,7 @@ int spi_eeprom_write(unsigned char *buf, unsigned long to, unsigned long len)
 	}
 	memcpy(pbuf + to, buf, len);
 
-	for (i = 0; i < seepromsize; i++)
+	for (i = 0; i < (uint32_t)seepromsize; i++)
 	{
 		if (spage_size)
 		{
@@ -436,7 +435,7 @@ void support_spi_eeprom_list(void)
 	int i;
 
 	printf("SPI EEPROM Support List:\n");
-	for (i = 0; i < (sizeof(seepromlist) / sizeof(struct spi_eeprom)); i++)
+	for (i = 0; (unsigned long)i < (sizeof(seepromlist) / sizeof(struct spi_eeprom)); i++)
 	{
 		if (!seepromlist[i].total_bytes)
 			break;

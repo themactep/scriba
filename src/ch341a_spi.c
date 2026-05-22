@@ -20,6 +20,20 @@
 #include <libusb-1.0/libusb.h>
 #include <stdbool.h>
 
+/* Global debug/trace flags from main.c */
+extern int debug_enabled;
+extern int trace_enabled;
+
+static void trace_dump(const char *label, const unsigned char *buf, unsigned int len)
+{
+	if (!trace_enabled || !len)
+		return;
+	fprintf(stderr, "[TRACE] %s (%u byte%s):", label, len, (len == 1) ? "" : "s");
+	for (unsigned int i = 0; i < len; i++)
+		fprintf(stderr, " %02x", buf[i]);
+	fprintf(stderr, "\n");
+}
+
 /* LIBUSB_CALL ensures the right calling conventions on libusb callbacks.
  * However, the macro is not defined everywhere. m(
  */
@@ -107,6 +121,8 @@ static void cb_common(const char *func, struct libusb_transfer *transfer)
 	if (transfer->status == LIBUSB_TRANSFER_CANCELLED)
 	{
 		/* Silently ACK and exit. */
+		if (debug_enabled)
+			fprintf(stderr, "[DEBUG] %s: transfer cancelled\n", func);
 		*transfer_cnt = TRANS_IDLE;
 		return;
 	}
@@ -114,10 +130,14 @@ static void cb_common(const char *func, struct libusb_transfer *transfer)
 	if (transfer->status != LIBUSB_TRANSFER_COMPLETED)
 	{
 		fprintf(stderr, "\n%s: error: %s\n", func, libusb_error_name(transfer->status));
+		if (debug_enabled)
+			fprintf(stderr, "[DEBUG] %s: transfer failed with status %d\n", func, transfer->status);
 		*transfer_cnt = TRANS_ERR;
 	}
 	else
 	{
+		if (debug_enabled)
+			fprintf(stderr, "[DEBUG] %s: transfer completed, %d bytes\n", func, transfer->actual_length);
 		*transfer_cnt = transfer->actual_length;
 	}
 }
@@ -137,7 +157,14 @@ static void LIBUSB_CALL cb_in(struct libusb_transfer *transfer)
 static int32_t usb_transfer(const char *func, unsigned int writecnt, unsigned int readcnt, const uint8_t *writearr, uint8_t *readarr)
 {
 	if (handle == NULL)
+	{
+		if (debug_enabled)
+			fprintf(stderr, "[DEBUG] %s: handle is NULL\n", func);
 		return -1;
+	}
+
+	if (debug_enabled)
+		fprintf(stderr, "[DEBUG] %s: starting transfer (write=%u bytes, read=%u bytes)\n", func, writecnt, readcnt);
 
 	int state_out = TRANS_IDLE;
 	transfer_out->buffer = (uint8_t *)writearr;
@@ -148,10 +175,14 @@ static int32_t usb_transfer(const char *func, unsigned int writecnt, unsigned in
 	if (writecnt > 0)
 	{
 		state_out = TRANS_ACTIVE;
+		if (debug_enabled)
+			fprintf(stderr, "[DEBUG] %s: submitting OUT transfer (%u bytes)\n", func, writecnt);
 		int ret = libusb_submit_transfer(transfer_out);
 		if (ret)
 		{
 			fprintf(stderr, "%s: failed to submit OUT transfer: %s\n", func, libusb_error_name(ret)); // Use stderr
+			if (debug_enabled)
+				fprintf(stderr, "[DEBUG] %s: OUT transfer submit failed with error code %d\n", func, ret);
 			state_out = TRANS_ERR;
 			goto err;
 		}
@@ -177,12 +208,16 @@ static int32_t usb_transfer(const char *func, unsigned int writecnt, unsigned in
 			transfer_ins[free_idx]->length = cur_todo;
 			transfer_ins[free_idx]->buffer = in_buf;
 			transfer_ins[free_idx]->user_data = &state_in[free_idx];
+			if (debug_enabled)
+				fprintf(stderr, "[DEBUG] %s: submitting IN transfer[%u] (%u bytes)\n", func, free_idx, cur_todo);
 			int ret = libusb_submit_transfer(transfer_ins[free_idx]);
 			if (ret)
 			{
 				state_in[free_idx] = TRANS_ERR;
 				fprintf(stderr, "%s: failed to submit IN transfer: %s\n", // Use stderr
 					func, libusb_error_name(ret));
+				if (debug_enabled)
+					fprintf(stderr, "[DEBUG] %s: IN transfer[%u] submit failed with error code %d\n", func, free_idx, ret);
 				goto err;
 			}
 			in_buf += cur_todo;
@@ -221,6 +256,9 @@ static int32_t usb_transfer(const char *func, unsigned int writecnt, unsigned in
 			in_idx = (in_idx + 1) % USB_IN_TRANSFERS; /* Increment (and wrap around). */
 		}
 	} while ((out_done < writecnt) || (in_done < readcnt));
+
+	if (debug_enabled)
+		fprintf(stderr, "[DEBUG] %s: transfer completed successfully (wrote %u, read %u bytes)\n", func, out_done, in_done);
 	return 0;
 err:
 	/* Clean up on errors. */
@@ -270,7 +308,14 @@ err:
 int config_stream(unsigned int speed)
 {
 	if (handle == NULL)
+	{
+		if (debug_enabled)
+			fprintf(stderr, "[DEBUG] config_stream: handle is NULL\n");
 		return -1;
+	}
+
+	if (debug_enabled)
+		fprintf(stderr, "[DEBUG] config_stream: configuring stream with speed=0x%x\n", speed);
 
 	uint8_t buf[] = {
 	    CH341A_CMD_I2C_STREAM,
@@ -281,6 +326,12 @@ int config_stream(unsigned int speed)
 	if (ret < 0)
 	{
 		fprintf(stderr, "Could not configure stream interface.\n"); // Use stderr
+		if (debug_enabled)
+			fprintf(stderr, "[DEBUG] config_stream: stream configuration failed\n");
+	}
+	else if (debug_enabled)
+	{
+		fprintf(stderr, "[DEBUG] config_stream: stream configured successfully\n");
 	}
 	return ret;
 }
@@ -309,6 +360,9 @@ static uint8_t swap_byte(uint8_t x)
  */
 int enable_pins(bool enable)
 {
+	if (debug_enabled)
+		fprintf(stderr, "[DEBUG] enable_pins: %sabling output pins\n", enable ? "en" : "dis");
+
 	uint8_t buf[] = {
 	    CH341A_CMD_UIO_STREAM,
 	    CH341A_CMD_UIO_STM_OUT | CH341A_UIO_STATE_CS_HIGH_SCK_LOW, // Set CS high, SCK low
@@ -325,6 +379,12 @@ int enable_pins(bool enable)
 	if (ret < 0)
 	{
 		fprintf(stderr, "Could not %sable output pins.\n", enable ? "en" : "dis");
+		if (debug_enabled)
+			fprintf(stderr, "[DEBUG] enable_pins: failed to %sable pins\n", enable ? "en" : "dis");
+	}
+	else if (debug_enabled)
+	{
+		fprintf(stderr, "[DEBUG] enable_pins: pins %sabled successfully\n", enable ? "en" : "dis");
 	}
 	return ret;
 }
@@ -333,8 +393,17 @@ int ch341a_spi_send_command(unsigned int writecnt, unsigned int readcnt, const u
 {
 	int32_t ret = 0;
 
+	if (debug_enabled)
+		fprintf(stderr, "[DEBUG] ch341a_spi_send_command: sending command (write=%u, read=%u)\n", writecnt, readcnt);
+
+	trace_dump("SPI WRITE", writearr, writecnt);
+
 	if (handle == NULL)
+	{
+		if (debug_enabled)
+			fprintf(stderr, "[DEBUG] ch341a_spi_send_command: handle is NULL\n");
 		return -1;
+	}
 
 	/* How many packets ... */
 	const size_t packets = (writecnt + readcnt + CH341_PACKET_LENGTH - 2) / (CH341_PACKET_LENGTH - 1);
@@ -375,18 +444,27 @@ int ch341a_spi_send_command(unsigned int writecnt, unsigned int readcnt, const u
 		return -1;
 
 	unsigned int i;
+	unsigned char *read_start = readarr;
 	for (i = 0; i < readcnt; i++)
 	{
 		*readarr++ = swap_byte(rbuf[writecnt + i]);
 	}
+	trace_dump("SPI READ", read_start, readcnt);
 
 	return 0;
 }
 
 int ch341a_spi_shutdown(void)
 {
+	if (debug_enabled)
+		fprintf(stderr, "[DEBUG] ch341a_spi_shutdown: shutting down CH341A\n");
+
 	if (handle == NULL)
+	{
+		if (debug_enabled)
+			fprintf(stderr, "[DEBUG] ch341a_spi_shutdown: handle is already NULL\n");
 		return -1;
+	}
 
 	enable_pins(false);
 	libusb_free_transfer(transfer_out);
@@ -401,6 +479,9 @@ int ch341a_spi_shutdown(void)
 	libusb_close(handle);
 	libusb_exit(NULL);
 	handle = NULL;
+
+	if (debug_enabled)
+		fprintf(stderr, "[DEBUG] ch341a_spi_shutdown: shutdown complete\n");
 	return 0;
 }
 
@@ -414,32 +495,60 @@ const char *get_libusb_version(void)
 
 int ch341a_spi_init(void)
 {
+	if (debug_enabled)
+		fprintf(stderr, "[DEBUG] ch341a_spi_init: initializing CH341A\n");
+
 	if (handle != NULL)
 	{
 		fprintf(stderr, "%s: handle already set!\n", __func__); // Use stderr
+		if (debug_enabled)
+			fprintf(stderr, "[DEBUG] ch341a_spi_init: handle already set, aborting init\n");
 		return -1;
 	}
+
+	if (debug_enabled)
+		fprintf(stderr, "[DEBUG] ch341a_spi_init: calling libusb_init\n");
 
 	int32_t ret = libusb_init(NULL);
 	if (ret < 0)
 	{
 		fprintf(stderr, "Couldnt initialize libusb!\n"); // Use stderr
+		if (debug_enabled)
+			fprintf(stderr, "[DEBUG] ch341a_spi_init: libusb_init failed with error code %d\n", ret);
 		return -1;
 	}
+
+	if (debug_enabled)
+		fprintf(stderr, "[DEBUG] ch341a_spi_init: libusb initialized successfully\n");
+
 #if LIBUSB_API_VERSION >= 0x01000106
-	libusb_set_option(NULL, LIBUSB_OPTION_LOG_LEVEL, 0);
+	libusb_set_option(NULL, LIBUSB_OPTION_LOG_LEVEL, debug_enabled ? 3 : 0);
+	if (debug_enabled)
+		fprintf(stderr, "[DEBUG] ch341a_spi_init: libusb log level set to %d\n", debug_enabled ? 3 : 0);
 #else
-	libusb_set_debug(NULL, 0); // No messages ever emitted by the library (default).
+	libusb_set_debug(NULL, debug_enabled ? 3 : 0); // Set debug level based on debug flag
+	if (debug_enabled)
+		fprintf(stderr, "[DEBUG] ch341a_spi_init: libusb debug level set to %d\n", debug_enabled ? 3 : 0);
 #endif
 	uint16_t vid = devs_ch341a_spi[0].vendor_id;
 	uint16_t pid = devs_ch341a_spi[0].device_id;
+
+	if (debug_enabled)
+		fprintf(stderr, "[DEBUG] ch341a_spi_init: opening device %04x:%04x\n", vid, pid);
+
 	handle = libusb_open_device_with_vid_pid(NULL, vid, pid);
 	if (handle == NULL)
 	{
 		// This might be a common case (device not plugged in), keep as printf? Or stderr? Using stderr for consistency.
 		fprintf(stderr, "Couldn't open device %04x:%04x.\n", vid, pid); // Use stderr
+		if (debug_enabled)
+			fprintf(stderr, "[DEBUG] ch341a_spi_init: failed to open device\n");
 		return -1;
 	}
+
+	if (debug_enabled)
+		fprintf(stderr, "[DEBUG] ch341a_spi_init: device opened successfully\n");
+
 	printf("Found programmer device: %s - %s\n", devs_ch341a_spi[0].vendor_name, devs_ch341a_spi[0].device_name);
 
 #ifdef __gnu_linux__
@@ -447,24 +556,43 @@ int ch341a_spi_init(void)
 	 * We simply try to detach on Linux without a lot of passion here. If that
 	 * works then fine, or we will fail on claiming the interface anyway.
 	 */
+	if (debug_enabled)
+		fprintf(stderr, "[DEBUG] ch341a_spi_init: attempting to detach kernel driver\n");
+
 	ret = libusb_detach_kernel_driver(handle, 0);
 	if (ret == LIBUSB_ERROR_NOT_SUPPORTED)
 	{
 		fprintf(stderr, "Detaching kernel drivers is not supported. Further accesses may fail.\n");
+		if (debug_enabled)
+			fprintf(stderr, "[DEBUG] ch341a_spi_init: kernel driver detach not supported\n");
 	}
 	else if (ret != 0 && ret != LIBUSB_ERROR_NOT_FOUND)
 	{
 		fprintf(stderr, "Failed to detach kernel driver: '%s'. Further accesses will probably fail.\n",
 			libusb_error_name(ret));
+		if (debug_enabled)
+			fprintf(stderr, "[DEBUG] ch341a_spi_init: kernel driver detach failed with error %d\n", ret);
+	}
+	else if (debug_enabled)
+	{
+		fprintf(stderr, "[DEBUG] ch341a_spi_init: kernel driver detached successfully (or not found)\n");
 	}
 #endif
+
+	if (debug_enabled)
+		fprintf(stderr, "[DEBUG] ch341a_spi_init: claiming interface 0\n");
 
 	ret = libusb_claim_interface(handle, 0);
 	if (ret != 0)
 	{
 		fprintf(stderr, "Failed to claim interface 0: '%s'\n", libusb_error_name(ret));
+		if (debug_enabled)
+			fprintf(stderr, "[DEBUG] ch341a_spi_init: failed to claim interface, error %d\n", ret);
 		goto close_handle;
 	}
+
+	if (debug_enabled)
+		fprintf(stderr, "[DEBUG] ch341a_spi_init: interface 0 claimed successfully\n");
 
 	struct libusb_device *dev;
 	if (!(dev = libusb_get_device(handle)))
@@ -487,10 +615,15 @@ int ch341a_spi_init(void)
 	       (desc.bcdDevice >> 0) & 0x000F);
 
 	/* Allocate and pre-fill transfer structures. */
+	if (debug_enabled)
+		fprintf(stderr, "[DEBUG] ch341a_spi_init: allocating USB transfer structures\n");
+
 	transfer_out = libusb_alloc_transfer(0);
 	if (!transfer_out)
 	{
 		fprintf(stderr, "Failed to alloc libusb OUT transfer\n");
+		if (debug_enabled)
+			fprintf(stderr, "[DEBUG] ch341a_spi_init: OUT transfer allocation failed\n");
 		goto release_interface;
 	}
 
@@ -501,17 +634,32 @@ int ch341a_spi_init(void)
 		if (transfer_ins[i] == NULL)
 		{
 			fprintf(stderr, "Failed to alloc libusb IN transfer %d\n", i);
+			if (debug_enabled)
+				fprintf(stderr, "[DEBUG] ch341a_spi_init: IN transfer[%d] allocation failed\n", i);
 			goto dealloc_transfers;
 		}
 	}
+
+	if (debug_enabled)
+		fprintf(stderr, "[DEBUG] ch341a_spi_init: %d USB transfer structures allocated successfully\n", USB_IN_TRANSFERS + 1);
 
 	/* We use these helpers but don't fill the actual buffer yet. */
 	libusb_fill_bulk_transfer(transfer_out, handle, WRITE_EP, NULL, 0, cb_out, NULL, USB_TIMEOUT);
 	for (i = 0; i < USB_IN_TRANSFERS; i++)
 		libusb_fill_bulk_transfer(transfer_ins[i], handle, READ_EP, NULL, 0, cb_in, NULL, USB_TIMEOUT);
 
+	if (debug_enabled)
+		fprintf(stderr, "[DEBUG] ch341a_spi_init: configuring stream and enabling pins\n");
+
 	if ((config_stream(CH341A_STM_I2C_750K) < 0) || (enable_pins(true) < 0))
+	{
+		if (debug_enabled)
+			fprintf(stderr, "[DEBUG] ch341a_spi_init: stream config or pin enable failed\n");
 		goto dealloc_transfers;
+	}
+
+	if (debug_enabled)
+		fprintf(stderr, "[DEBUG] ch341a_spi_init: initialization complete\n");
 
 	return 0;
 

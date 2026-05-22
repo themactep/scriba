@@ -15,6 +15,8 @@
 /* EZP2019 USB identifiers */
 #define EZP2019_VID 0x1fc8
 #define EZP2019_PID 0x310b
+#define EZP2019_PLUS_PID 0x310c
+#define EZP2023_PID 0x310d
 
 /* EZP2019 USB endpoints */
 #define EZP_EP_DATA_OUT (1 | 0x00) /* 0x01 bulk OUT */

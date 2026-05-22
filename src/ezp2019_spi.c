@@ -656,10 +656,30 @@ int ezp2019_spi_init(void)
 #endif
 #endif
 
-	ezp_handle = libusb_open_device_with_vid_pid(NULL, EZP2019_VID, EZP2019_PID);
+	/* Try each known EZP PID */
+	static const uint16_t ezp_pids[] = {
+		EZP2019_PID,
+		EZP2019_PLUS_PID,
+		EZP2023_PID,
+		0
+	};
+	const uint16_t *pid = ezp_pids;
+	while (*pid) {
+		ezp_handle = libusb_open_device_with_vid_pid(NULL, EZP2019_VID, *pid);
+		if (ezp_handle != NULL)
+			break;
+		pid++;
+	}
+
 	if (ezp_handle == NULL) {
-		fprintf(stderr, "EZP: could not open device %04x:%04x\n",
-			EZP2019_VID, EZP2019_PID);
+		fprintf(stderr, "EZP: could not open device %04x:",
+			EZP2019_VID);
+		for (pid = ezp_pids; *pid; pid++)
+			fprintf(stderr, "%s%04x", (pid == ezp_pids) ? "" : ", ", *pid);
+		fprintf(stderr, "\n");
+		fprintf(stderr, "Check: 1) device is connected  2) run with sudo "
+			"or install 40-persistent-ezp2019.rules\n");
+		/* do NOT libusb_exit here — caller may try CH341A next */
 		libusb_exit(NULL);
 		return -1;
 	}

@@ -12,8 +12,31 @@
 #include "ezp2019_spi.h"
 #include <libusb-1.0/libusb.h>
 
+/* SPI NAND opcodes (from spi_nand_flash_defs.h) */
+#define _SPI_NAND_OP_READ_ID             0x9F
+#define _SPI_NAND_OP_READ_ID_2           0x90
+#define _SPI_NAND_OP_WRITE_ENABLE        0x06
+#define _SPI_NAND_OP_WRITE_DISABLE       0x04
+#define _SPI_NAND_OP_PROGRAM_LOAD_SINGLE 0x02
+#define _SPI_NAND_OP_PROGRAM_LOAD_QUAD   0x32
+#define _SPI_NAND_OP_BLOCK_ERASE         0xD8
+#define _SPI_NAND_OP_RES                 0xAB
+
+/* SPI NOR opcodes (from spi_nor_flash.h) */
+#define OPCODE_RDSR      0x05
+#define OPCODE_BE1       0xC7
+#define OPCODE_BE        0x60
+#define OPCODE_READ      0x03
+#define OPCODE_FAST_READ 0x0B
+
+/* Debug logging (compile-time, like _SPI_NAND_DEBUG_PRINTF) */
+#ifdef EZP_DEBUG_ENABLED
+#define EZP_DEBUG(fmt, ...) fprintf(stderr, "[DEBUG] " fmt, ##__VA_ARGS__)
+#else
+#define EZP_DEBUG(fmt, ...)
+#endif
+
 /* Global debug/trace flags from main.c */
-extern int debug_enabled;
 extern int trace_enabled;
 
 static void trace_dump(const char *label, const unsigned char *buf, unsigned int len)
@@ -88,8 +111,7 @@ static int ezp_send_raw_command(const uint8_t command[EZP2019_PACKET_SIZE],
 	if (ezp_handle == NULL)
 		return -1;
 
-	if (debug_enabled)
-		fprintf(stderr, "[DEBUG] ezp_send_raw_command: cmd_id=0x%02x\n", command[1]);
+	EZP_DEBUG("ezp_send_raw_command: cmd_id=0x%02x\n", command[1]);
 
 	ret = libusb_bulk_transfer(ezp_handle, EZP_EP_CMD_OUT,
 				    (unsigned char *)command, EZP2019_PACKET_SIZE,
@@ -120,8 +142,7 @@ static int ezp_reset_device(void)
 	memset(packet, 0, EZP2019_PACKET_SIZE);
 	packet[0] = 0x01;
 	packet[1] = EZP_CMD_RESET;
-	if (debug_enabled)
-		fprintf(stderr, "[DEBUG] ezp_reset_device: sending RESET\n");
+	EZP_DEBUG("ezp_reset_device: sending RESET\n");
 	return ezp_send_raw_command(packet, NULL);
 }
 
@@ -138,9 +159,8 @@ static int ezp_do_connect(void)
 	if (ezp_chip_id != 0 && ezp_chip_size == 0)
 		ezp_chip_size = 16 * 1024 * 1024; /* 16 MB default */
 
-	if (debug_enabled)
-		fprintf(stderr, "[DEBUG] ezp_do_connect: probing chip (size=%u pagesize=%u proto=%u)\n",
-			ezp_chip_size, ezp_chip_pagesize, ezp_chip_protocol);
+	EZP_DEBUG("ezp_do_connect: probing chip (size=%u pagesize=%u proto=%u)\n",
+		ezp_chip_size, ezp_chip_pagesize, ezp_chip_protocol);
 
 	prepare_command_packet(packet, EZP_CMD_CONNECT,
 				ezp_chip_size, ezp_chip_pagesize,
@@ -165,41 +185,53 @@ static int ezp_do_connect(void)
 	return 0;
 }
 
-static int ezp_wait_ready(void)
+static int ezp_poll_status(int max_retries, int sleep_us, const char *label)
 {
-	uint8_t packet[EZP2019_PACKET_SIZE];
-	uint8_t result[EZP2019_PACKET_SIZE];
-	int retries = ezp_chip_timeout * 10;
-	int ret;
+	uint8_t spacket[EZP2019_PACKET_SIZE];
+	uint8_t sresult[EZP2019_PACKET_SIZE];
 	int total_polls = 0;
+	int ret;
 
-	if (debug_enabled)
-		fprintf(stderr, "[DEBUG] ezp_wait_ready: polling (max %d retries)\n", retries);
+	EZP_DEBUG("ezp_poll_status: polling (max %d retries, %d us) for %s\n",
+		max_retries, sleep_us, label);
 
-	memset(packet, 0, EZP2019_PACKET_SIZE);
-	packet[1] = EZP_CMD_STATUS;
+	memset(spacket, 0, EZP2019_PACKET_SIZE);
+	spacket[1] = EZP_CMD_STATUS;
 
-	while (retries-- > 0) {
+	while (max_retries-- > 0) {
 		total_polls++;
-		usleep(50000);
-		memset(result, 0xFF, sizeof(result));
-		ret = ezp_send_raw_command(packet, result);
+		usleep(sleep_us);
+		memset(sresult, 0xFF, sizeof(sresult));
+		ret = ezp_send_raw_command(spacket, sresult);
 		if (ret == 0) {
-			if ((result[0] & 0x01) == 0) {
+			if ((sresult[0] & 0x01) == 0) {
 				/* Match reference behaviour: skip first poll result */
 				if (total_polls > 1) {
-					if (debug_enabled)
-						fprintf(stderr, "[DEBUG] ezp_wait_ready: ready after %d polls\n",
-							total_polls);
+					EZP_DEBUG("%s: ready after %d polls\n",
+						label, total_polls);
 					return 0;
 				}
 			}
 		}
 	}
 
-	fprintf(stderr, "EZP: device not ready after timeout (%d polls, last_status=0x%02x)\n",
-		total_polls, result[0]);
+	fprintf(stderr, "EZP: %s timed out (%d polls, last_status=0x%02x)\n",
+		label, total_polls, sresult[0]);
 	return -1;
+}
+
+static int ezp_wait_ready(void)
+{
+	return ezp_poll_status(ezp_chip_timeout * 10, 50000, "ezp_wait_ready");
+}
+
+static void ezp_finalize_write_session(void)
+{
+	if (ezp_write_session) {
+		usleep(100000);
+		ezp_wait_ready();
+		ezp_write_session = false;
+	}
 }
 
 static int ezp_do_read(uint32_t addr, uint32_t len, uint8_t *buf)
@@ -209,15 +241,10 @@ static int ezp_do_read(uint32_t addr, uint32_t len, uint8_t *buf)
 	uint8_t chunk_buf[EZP2019_READ_SIZE];
 	int ret;
 
-	if (debug_enabled)
-		fprintf(stderr, "[DEBUG] ezp_do_read: addr=0x%08x len=%u\n", addr, len);
+	EZP_DEBUG("ezp_do_read: addr=0x%08x len=%u\n", addr, len);
 
 	/* Finalize any pending write stream before reading */
-	if (ezp_write_session) {
-		usleep(100000);
-		ezp_wait_ready();
-		ezp_write_session = false;
-	}
+	ezp_finalize_write_session();
 
 	/* Ensure chip is configured */
 	if (!ezp_chip_configured) {
@@ -295,9 +322,8 @@ static int ezp_do_write(uint32_t addr, uint32_t len, const uint8_t *data)
 	uint8_t result[EZP2019_PACKET_SIZE];
 	int ret;
 
-	if (debug_enabled)
-		fprintf(stderr, "[DEBUG] ezp_do_write: addr=0x%08x len=%u session=%d next=0x%08x\n",
-			addr, len, ezp_write_session, ezp_write_next_addr);
+	EZP_DEBUG("ezp_do_write: addr=0x%08x len=%u session=%d next=0x%08x\n",
+		addr, len, ezp_write_session, ezp_write_next_addr);
 
 	/* Full setup (CONNECT+READ_SPI+trigger) only on first write
 	 * or when address is non-consecutive. Consecutive pages stream
@@ -351,15 +377,10 @@ static int ezp_do_erase(void)
 	uint8_t result[EZP2019_PACKET_SIZE];
 	int ret;
 
-	if (debug_enabled)
-		fprintf(stderr, "[DEBUG] ezp_do_erase: chip erase\n");
+	EZP_DEBUG("ezp_do_erase: chip erase\n");
 
 	/* Finalize any pending write stream before erasing */
-	if (ezp_write_session) {
-		usleep(100000);
-		ezp_wait_ready();
-		ezp_write_session = false;
-	}
+	ezp_finalize_write_session();
 
 	/* Always connect before erase to ensure clean state */
 	ret = ezp_do_connect();
@@ -389,35 +410,11 @@ static int ezp_do_erase(void)
 	/* Wait for completion with longer timeout for chip erase.
 	 * Chip erase on a 16 MB flash can take 30-60 seconds. */
 	usleep(5000);
-	{
-		uint8_t spacket[EZP2019_PACKET_SIZE];
-		uint8_t sresult[EZP2019_PACKET_SIZE];
-		int total_polls = 0;
-		int max_retries = 12000; /* 12000 * 5ms = 60 seconds */
+	ret = ezp_poll_status(12000, 5000, "erase");
+	if (ret < 0)
+		return -1;
 
-		memset(spacket, 0, EZP2019_PACKET_SIZE);
-		spacket[1] = EZP_CMD_STATUS;
-
-		while (max_retries-- > 0) {
-			total_polls++;
-			usleep(5000);
-			memset(sresult, 0xFF, sizeof(sresult));
-			ret = ezp_send_raw_command(spacket, sresult);
-			if (ret == 0) {
-				if ((sresult[0] & 0x01) == 0) {
-					if (total_polls > 1) {
-						if (debug_enabled)
-							fprintf(stderr, "[DEBUG] ezp_wait_ready: erase ready after %d polls\n",
-								total_polls);
-						return 0;
-					}
-				}
-			}
-		}
-	}
-
-	fprintf(stderr, "EZP: erase completion wait timed out (device may still be erasing)\n");
-	return -1;
+	return 0;
 }
 
 /* ------------------------------------------------------------------ */
@@ -425,8 +422,7 @@ static int ezp_do_erase(void)
 
 int ezp_enable_pins(bool enable)
 {
-	if (debug_enabled)
-		fprintf(stderr, "[DEBUG] ezp_enable_pins: %s\n", enable ? "CS_LOW" : "CS_HIGH");
+	EZP_DEBUG("ezp_enable_pins: %s\n", enable ? "CS_LOW" : "CS_HIGH");
 
 	if (enable) {
 		/* CS going low: start of new SPI transaction, clear buffer */
@@ -435,11 +431,12 @@ int ezp_enable_pins(bool enable)
 		/* CS going high: end of transaction, execute if write/erase */
 		if (ezp_cmd_len > 0) {
 			uint8_t opcode = ezp_cmd_buf[0];
-			if (opcode == 0x02 || opcode == 0x32) {
+			if (opcode == _SPI_NAND_OP_PROGRAM_LOAD_SINGLE ||
+			    opcode == _SPI_NAND_OP_PROGRAM_LOAD_QUAD) {
 				/* Page Program / Quad Page Program */
 				uint32_t addr;
 				int addr_offset;
-				if (opcode == 0x02) {
+				if (opcode == _SPI_NAND_OP_PROGRAM_LOAD_SINGLE) {
 					/* Standard PP: opcode + 3 addr bytes */
 					addr = ((uint32_t)ezp_cmd_buf[1] << 16) |
 					       ((uint32_t)ezp_cmd_buf[2] << 8) |
@@ -454,25 +451,28 @@ int ezp_enable_pins(bool enable)
 				}
 				uint32_t data_len = ezp_cmd_len - addr_offset;
 				if (data_len > 0) {
-					if (debug_enabled)
-						fprintf(stderr, "[DEBUG] ezp: executing WRITE addr=0x%08x len=%u\n",
-							addr, data_len);
+					EZP_DEBUG("ezp: executing WRITE addr=0x%08x len=%u\n",
+						addr, data_len);
 					ezp_do_write(addr, data_len, ezp_cmd_buf + addr_offset);
 				}
 			} else if (opcode == 0x01 || opcode == 0x31 || opcode == 0x11) {
 				/* Write status register - handled by EZP internally, no-op */
-				if (debug_enabled)
-					fprintf(stderr, "[DEBUG] ezp: WRSR (no-op)\n");
-			} else if (opcode == 0x9F || opcode == 0x90 || opcode == 0xAB || opcode == 0x05 ||
-				   opcode == 0x35 || opcode == 0x15 || opcode == 0x06 || opcode == 0x04) {
+				EZP_DEBUG("ezp: WRSR (no-op)\n");
+			} else if (opcode == _SPI_NAND_OP_READ_ID ||
+				   opcode == _SPI_NAND_OP_READ_ID_2 ||
+				   opcode == _SPI_NAND_OP_RES ||
+				   opcode == OPCODE_RDSR ||
+				   opcode == 0x35 || opcode == 0x15 ||
+				   opcode == _SPI_NAND_OP_WRITE_ENABLE ||
+				   opcode == _SPI_NAND_OP_WRITE_DISABLE) {
 				/* Read/status/probe commands, handled during read phase, no-op here */
-		} else if (opcode == 0xC7 || opcode == 0x60) {
+		} else if (opcode == OPCODE_BE1 || opcode == OPCODE_BE) {
 			/* Bulk/chip erase */
 			fprintf(stderr, "[EZP] Chip erase (opcode 0x%02x)\n", opcode);
-			if (debug_enabled)
-				fprintf(stderr, "[DEBUG] ezp: executing BULK ERASE\n");
+			EZP_DEBUG("ezp: executing BULK ERASE\n");
 			ezp_do_erase();
-		} else if (opcode == 0xD8 || opcode == 0x20 || opcode == 0x40) {
+		} else if (opcode == _SPI_NAND_OP_BLOCK_ERASE ||
+			   opcode == 0x20 || opcode == 0x40) {
 			/* Sector/block erase - EZP only supports full chip erase.
 			 * Extract address from buffer to report what was requested. */
 			uint32_t er_addr = 0;
@@ -485,9 +485,9 @@ int ezp_enable_pins(bool enable)
 				"EZP only supports full chip erase, erasing entire chip\n",
 				opcode, er_addr);
 			ezp_do_erase();
-		} else if (debug_enabled) {
-				fprintf(stderr, "[DEBUG] ezp: unknown opcode 0x%02x on CS high\n", opcode);
-			}
+		} else {
+			EZP_DEBUG("ezp: unknown opcode 0x%02x on CS high\n", opcode);
+		}
 		}
 		ezp_cmd_len = 0;
 	}
@@ -497,8 +497,7 @@ int ezp_enable_pins(bool enable)
 int ezp_config_stream(unsigned int speed)
 {
 	(void)speed;
-	if (debug_enabled)
-		fprintf(stderr, "[DEBUG] ezp_config_stream: speed=0x%x (no-op for EZP)\n", speed);
+	EZP_DEBUG("ezp_config_stream: speed=0x%x (no-op for EZP)\n", speed);
 	return 0;
 }
 
@@ -533,10 +532,9 @@ int ezp2019_spi_send_command(unsigned int writecnt, unsigned int readcnt,
 
 		uint8_t opcode = ezp_cmd_buf[0];
 
-		if (opcode == 0x9F) {
+		if (opcode == _SPI_NAND_OP_READ_ID) {
 			/* JEDEC READ ID */
-			if (debug_enabled)
-				fprintf(stderr, "[DEBUG] ezp: RDID (0x9F) detected\n");
+			EZP_DEBUG("ezp: RDID (0x9F) detected\n");
 			ret = ezp_do_connect();
 			if (ret < 0) {
 				memset(readarr, 0xFF, readcnt);
@@ -551,10 +549,9 @@ int ezp2019_spi_send_command(unsigned int writecnt, unsigned int readcnt,
 			if (readcnt >= 3) readarr[2] = ezp_chip_id & 0xFF;          /* capacity */
 			/* buf[3], buf[4] stay 0 (from memset) */
 			trace_dump("SPI READ (RDID)", readarr, readcnt);
-		} else if (opcode == 0x90) {
+		} else if (opcode == _SPI_NAND_OP_READ_ID_2) {
 			/* READ Manufacturer/Device ID */
-			if (debug_enabled)
-				fprintf(stderr, "[DEBUG] ezp: READ_ID (0x90) detected\n");
+			EZP_DEBUG("ezp: READ_ID (0x90) detected\n");
 			ret = ezp_do_connect();
 			if (ret < 0) {
 				memset(readarr, 0xFF, readcnt);
@@ -564,17 +561,17 @@ int ezp2019_spi_send_command(unsigned int writecnt, unsigned int readcnt,
 			if (readcnt >= 1) readarr[0] = (ezp_chip_id >> 16) & 0xFF;
 			if (readcnt >= 2) readarr[1] = (ezp_chip_id >> 8) & 0xFF;
 			trace_dump("SPI READ (READ_ID)", readarr, readcnt);
-		} else if (opcode == 0x05 || opcode == 0x35 || opcode == 0x15) {
+		} else if (opcode == OPCODE_RDSR || opcode == 0x35 || opcode == 0x15) {
 			/* Read Status Register - return not-busy */
 			memset(readarr, 0, readcnt);
-			if (debug_enabled)
-				fprintf(stderr, "[DEBUG] ezp: RDSR (0x%02x) returning 0x00\n", opcode);
+			EZP_DEBUG("ezp: RDSR (0x%02x) returning 0x00\n", opcode);
 			trace_dump("SPI READ (RDSR)", readarr, readcnt);
-		} else if (opcode == 0x03 || opcode == 0x0B || opcode == 0x3B ||
-			   opcode == 0x6B || opcode == 0xBB || opcode == 0xEB) {
+		} else if (opcode == OPCODE_READ || opcode == OPCODE_FAST_READ ||
+			   opcode == 0x3B || opcode == 0x6B ||
+			   opcode == 0xBB || opcode == 0xEB) {
 			/* READ / FAST READ / Dual/Quad read */
 			uint32_t addr;
-			if (opcode == 0x03 || opcode == 0x0B) {
+			if (opcode == OPCODE_READ || opcode == OPCODE_FAST_READ) {
 				if (ezp_cmd_len < 4) {
 					fprintf(stderr, "EZP: READ with insufficient address bytes\n");
 					return -1;
@@ -588,18 +585,16 @@ int ezp2019_spi_send_command(unsigned int writecnt, unsigned int readcnt,
 				       ((uint32_t)ezp_cmd_buf[2] << 8) |
 				        (uint32_t)ezp_cmd_buf[3];
 			}
-			if (debug_enabled)
-				fprintf(stderr, "[DEBUG] ezp: READ (0x%02x) addr=0x%08x len=%u\n",
-					opcode, addr, readcnt);
+			EZP_DEBUG("ezp: READ (0x%02x) addr=0x%08x len=%u\n",
+				opcode, addr, readcnt);
 			ret = ezp_do_read(addr, readcnt, readarr);
 			if (ret < 0)
 				return -1;
 			trace_dump("SPI READ (DATA)", readarr, readcnt);
-		} else if (opcode == 0xAB) {
+		} else if (opcode == _SPI_NAND_OP_RES) {
 			/* Read Electronic Signature */
 			memset(readarr, 0, readcnt);
-			if (debug_enabled)
-				fprintf(stderr, "[DEBUG] ezp: RES (0xAB) returning 0x00\n");
+			EZP_DEBUG("ezp: RES (0xAB) returning 0x00\n");
 		} else {
 			fprintf(stderr, "EZP: unhandled read opcode 0x%02x (cmd_len=%u readcnt=%u)\n",
 				opcode, ezp_cmd_len, readcnt);
@@ -618,18 +613,13 @@ int ezp2019_spi_send_command(unsigned int writecnt, unsigned int readcnt,
 
 int ezp2019_spi_shutdown(void)
 {
-	if (debug_enabled)
-		fprintf(stderr, "[DEBUG] ezp2019_spi_shutdown: shutting down EZP2019\n");
+	EZP_DEBUG("ezp2019_spi_shutdown: shutting down EZP2019\n");
 
 	if (ezp_handle == NULL)
 		return 0;
 
 	/* Finalize any pending write stream */
-	if (ezp_write_session) {
-		usleep(100000);
-		ezp_wait_ready();
-		ezp_write_session = false;
-	}
+	ezp_finalize_write_session();
 
 	ezp_reset_device();
 
@@ -641,8 +631,7 @@ int ezp2019_spi_shutdown(void)
 	ezp_chip_configured = false;
 	ezp_chip_id = 0;
 
-	if (debug_enabled)
-		fprintf(stderr, "[DEBUG] ezp2019_spi_shutdown: shutdown complete\n");
+	EZP_DEBUG("ezp2019_spi_shutdown: shutdown complete\n");
 	return 0;
 }
 
@@ -651,8 +640,7 @@ int ezp2019_spi_init(void)
 	int ret;
 	struct libusb_device_descriptor desc;
 
-	if (debug_enabled)
-		fprintf(stderr, "[DEBUG] ezp2019_spi_init: initializing EZP2019\n");
+	EZP_DEBUG("ezp2019_spi_init: initializing EZP2019\n");
 
 	ret = libusb_init(NULL);
 	if (ret < 0) {
@@ -660,10 +648,12 @@ int ezp2019_spi_init(void)
 		return -1;
 	}
 
+#ifdef EZP_DEBUG_ENABLED
 #if LIBUSB_API_VERSION >= 0x01000106
-	libusb_set_option(NULL, LIBUSB_OPTION_LOG_LEVEL, debug_enabled ? 3 : 0);
+	libusb_set_option(NULL, LIBUSB_OPTION_LOG_LEVEL, 3);
 #else
-	libusb_set_debug(NULL, debug_enabled ? 3 : 0);
+	libusb_set_debug(NULL, 3);
+#endif
 #endif
 
 	ezp_handle = libusb_open_device_with_vid_pid(NULL, EZP2019_VID, EZP2019_PID);
@@ -678,9 +668,10 @@ int ezp2019_spi_init(void)
 
 	/* Set auto-detach so libusb handles kernel driver automatically */
 	ret = libusb_set_auto_detach_kernel_driver(ezp_handle, 1);
-	if (ret != 0 && ret != LIBUSB_ERROR_NOT_SUPPORTED && debug_enabled)
-		fprintf(stderr, "[DEBUG] ezp2019_spi_init: auto_detach not supported: %s\n",
+	if (ret != 0 && ret != LIBUSB_ERROR_NOT_SUPPORTED) {
+		EZP_DEBUG("ezp2019_spi_init: auto_detach not supported: %s\n",
 			libusb_error_name(ret));
+	}
 
 	/* Read string descriptors — some EZP models require this before
 	 * they will accept commands on the bulk endpoints. */
@@ -730,8 +721,7 @@ int ezp2019_spi_init(void)
 	ezp_chip_protocol = 0;
 	ezp_chip_timeout = 1000;
 
-	if (debug_enabled)
-		fprintf(stderr, "[DEBUG] ezp2019_spi_init: initialization complete\n");
+	EZP_DEBUG("ezp2019_spi_init: initialization complete\n");
 
 	return 0;
 }

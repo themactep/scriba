@@ -16,12 +16,13 @@
 
 struct flash_cmd
 {
-	int (*flash_read)(unsigned char *buf, unsigned long from, unsigned long len);
-	int (*flash_erase)(unsigned long offs, unsigned long len);
-	int (*flash_write)(unsigned char *buf, unsigned long to, unsigned long len);
+ 	int (*flash_read)(unsigned char *buf, unsigned long from, unsigned long len);
+ 	int (*flash_erase)(unsigned long offs, unsigned long len);
+ 	int (*flash_write)(unsigned char *buf, unsigned long to, unsigned long len);
 };
 
 long flash_cmd_init(struct flash_cmd *cmd);
 void support_flash_list(void);
+int flashcmd_verify(const unsigned char *data, unsigned long addr, unsigned long len, unsigned long file_len);
 
 #endif /* __FLASHCMD_API_H__ */

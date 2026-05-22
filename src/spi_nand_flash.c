@@ -1,8 +1,21 @@
-/*
- * spi_nand_flash.c
- * SPI NAND Access interface.
- * SPDX-License-Identifier: GPL-2.0-or-later
+/**
+ * @file spi_nand_flash.c
+ * @brief SPI NAND flash access interface implementation
+ * 
+ * This module provides low-level SPI NAND flash operations including:
+ * - Page read/write operations
+ * - Block erase operations
+ * - ECC (Error Correction Code) management
+ * - Flash chip initialization and detection
+ * - OOB (Out-of-Band) data handling
+ * 
+ * Key features:
+ * - Supports multiple SPI NAND flash manufacturers
+ * - Handles ECC failure detection and bad block management
+ * - Provides die selection for multi-die flash devices
+ * - Implements software caching for efficient read/write operations
  */
+
 #include <string.h>
 #include <stdarg.h>
 #include <stdint.h>

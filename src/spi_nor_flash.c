@@ -501,6 +501,62 @@ static int snor_read_devid(u8 *rxbuf, int n_rx)
 }
 
 /*
+ * Binary search to find chip in sorted table (O(log n) vs O(n))
+ * Optimizes chip detection from linear search to binary search
+ */
+static struct chip_info *chip_prob_binary_search(u8 *buf);
+
+/*
+ * Helper function to call binary search from chip_prob
+ */
+static struct chip_info *chip_prob_binary_search(u8 *buf)
+{
+	u32 jedec, jedec_strip;
+	int left, right, mid;
+	struct chip_info *info;
+
+	snor_read_devid(buf, 5);
+	jedec = (u32)((u32)(buf[1] << 24) | ((u32)buf[2] << 16) | ((u32)buf[3] <<8) | (u32)buf[4]);
+	jedec_strip = jedec & 0xffff0000;
+
+	printf("spi device id: %x %x %x %x %x (%x)\n", buf[0], buf[1], buf[2], buf[3], buf[4], jedec);
+
+	left = 0;
+	right = sizeof(chips_data)/sizeof(chips_data[0]) - 1;
+
+	while (left <= right) {
+		mid = (left + right) / 2;
+		info = &chips_data[mid];
+
+		if (info->id == buf[0]) {
+			if ((info->jedec_id == jedec) || ((info->jedec_id & 0xffff0000) == jedec_strip)) {
+				long int size = (info->sector_size * info->n_sectors);
+				if ((size >> 10) >= 1024) {
+					printf("Detected SPI NOR Flash: %s, Flash Size: %ld MB\n", info->name, size >> 20);
+				} else {
+					printf("Detected SPI NOR Flash: %s, Flash Size: %ld KB\n", info->name, size >> 10);
+				}
+				return info;
+			}
+
+			if (jedec_strip == (info->jedec_id & 0xffff0000)) {
+				left = mid + 1;
+			} else if (jedec_strip > (info->jedec_id & 0xffff0000)) {
+				left = mid + 1;
+			} else {
+				right = mid - 1;
+			}
+		} else if (info->id > buf[0]) {
+			right = mid - 1;
+		} else {
+			left = mid + 1;
+		}
+	}
+
+	return NULL;
+}
+
+/*
  * read status register
  */
 int snor_read_sr(u8 *val)
@@ -555,8 +611,8 @@ struct chip_info *chip_prob(void)
 			}
 		}
 	}
-	printf("SPI NOR Flash Not Detected!\n");
-	match = NULL; /* Not support JEDEC calculate info */
+	// Use binary search for O(log n) complexity
+	match = chip_prob_binary_search(buf);
 
 	return match;
 }

@@ -40,6 +40,156 @@ static u32 ecc_size = 0;
 u32 bsize = 0;
 
 static u32 _current_page_num = 0xFFFFFFFF;
+
+typedef struct {
+	u8 mfr_id;
+	u16 dev_id;
+	u8 mask;
+	u8 shift;
+	u8 expected_value;
+	u8 expected_shift;
+} ecc_check_table_entry;
+
+#define ECC_CHECK_TABLE_END {0, 0, 0, 0, 0, 0}
+
+static const ecc_check_table_entry ecc_check_table[] = {
+	/* GigaDevice Type 1 - uses 0x30 mask, value 0x2 */
+	{_SPI_NAND_MANUFACTURER_ID_GIGADEVICE, _SPI_NAND_DEVICE_ID_GD5F1GQ4UAYIG, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_GIGADEVICE, _SPI_NAND_DEVICE_ID_GD5F2GQ4UAYIG, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_GIGADEVICE, _SPI_NAND_DEVICE_ID_GD5F1GQ4UBYIG, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_GIGADEVICE, _SPI_NAND_DEVICE_ID_GD5F1GQ4REYIG, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_GIGADEVICE, _SPI_NAND_DEVICE_ID_GD5F1GQ4UEYIS, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_GIGADEVICE, _SPI_NAND_DEVICE_ID_GD5F1GQ5UEYIG, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_GIGADEVICE, _SPI_NAND_DEVICE_ID_GD5F1GQ5REYIG, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_GIGADEVICE, _SPI_NAND_DEVICE_ID_GD5F2GQ4UBYIG, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_GIGADEVICE, _SPI_NAND_DEVICE_ID_GD5F2GQ4UE9IS, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_GIGADEVICE, _SPI_NAND_DEVICE_ID_GD5F4GQ4UBYIG, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_GIGADEVICE, _SPI_NAND_DEVICE_ID_GD5F2GQ5UEYIG, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_GIGADEVICE, _SPI_NAND_DEVICE_ID_GD5F2GQ5REYIG, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_GIGADEVICE, _SPI_NAND_DEVICE_ID_GD5F1GM7UEYIG, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_GIGADEVICE, _SPI_NAND_DEVICE_ID_GD5F1GM7REYIG, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_GIGADEVICE, _SPI_NAND_DEVICE_ID_GD5F2GM7UEYIG, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_GIGADEVICE, _SPI_NAND_DEVICE_ID_GD5F2GM7REYIG, 0x30, 4, 0x2, 4},
+
+	/* GigaDevice Type 2 - uses 0x70 mask, value 0x7 (3-bit) */
+	{_SPI_NAND_MANUFACTURER_ID_GIGADEVICE, _SPI_NAND_DEVICE_ID_GD5F1GQ4UCYIG, 0x70, 4, 0x7, 4},
+	{_SPI_NAND_MANUFACTURER_ID_GIGADEVICE, _SPI_NAND_DEVICE_ID_GD5F2GQ4UCYIG, 0x70, 4, 0x7, 4},
+	{_SPI_NAND_MANUFACTURER_ID_GIGADEVICE, _SPI_NAND_DEVICE_ID_GD5F4GQ4UCYIG, 0x70, 4, 0x7, 4},
+
+	/* Macron (MXIC) - uses 0x30 mask, value 0x2 */
+	{_SPI_NAND_MANUFACTURER_ID_MXIC, 0, 0x30, 4, 0x2, 4},
+
+	/* Winbond - uses 0x30 mask, value 0x2 */
+	{_SPI_NAND_MANUFACTURER_ID_WINBOND, 0, 0x30, 4, 0x2, 4},
+
+	/* ESMT */
+	{_SPI_NAND_MANUFACTURER_ID_ESMT, _SPI_NAND_DEVICE_ID_F50D1G41LB, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_ESMT, _SPI_NAND_DEVICE_ID_F50L512M41A, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_ESMT, _SPI_NAND_DEVICE_ID_F50L1G41A0, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_ESMT, _SPI_NAND_DEVICE_ID_F50L1G41LB, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_ESMT, _SPI_NAND_DEVICE_ID_F50L2G41LB, 0x30, 4, 0x2, 4},
+
+	/* Zentel */
+	{_SPI_NAND_MANUFACTURER_ID_ZENTEL, _SPI_NAND_DEVICE_ID_A5U12A21ASC, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_ZENTEL, _SPI_NAND_DEVICE_ID_A5U1GA21BWS, 0x30, 4, 0x2, 4},
+
+	/* Etron */
+	{_SPI_NAND_MANUFACTURER_ID_ETRON, 0, 0x30, 4, 0x2, 4},
+
+	/* Toshiba */
+	{_SPI_NAND_MANUFACTURER_ID_TOSHIBA, 0, 0x30, 4, 0x2, 4},
+
+	/* Micron - uses 0x70 mask, value 0x2 */
+	{_SPI_NAND_MANUFACTURER_ID_MICRON, 0, 0x70, 4, 0x2, 4},
+
+	/* Heyang */
+	{_SPI_NAND_MANUFACTURER_ID_HEYANG, 0, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_HEYANG_2, 0, 0x30, 4, 0x2, 4},
+
+	/* PN */
+	{_SPI_NAND_MANUFACTURER_ID_PN, _SPI_NAND_DEVICE_ID_PN26G01AWSIUG, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_PN, _SPI_NAND_DEVICE_ID_PN26G02AWSIUG, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_PN, _SPI_NAND_DEVICE_ID_PN26Q01AWSIUG, 0x30, 4, 0x2, 4},
+
+	/* ATO */
+	{_SPI_NAND_MANUFACTURER_ID_ATO, _SPI_NAND_DEVICE_ID_ATO25D2GA, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_ATO_2, _SPI_NAND_DEVICE_ID_ATO25D2GB, 0x30, 4, 0x2, 4},
+
+	/* FMS */
+	{_SPI_NAND_MANUFACTURER_ID_FM, _SPI_NAND_DEVICE_ID_FM25S01, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_FM, _SPI_NAND_DEVICE_ID_FM25S01A, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_FM, _SPI_NAND_DEVICE_ID_FM25S02A, 0x30, 4, 0x2, 4},
+
+	/* FMS (Type 2) */
+	{_SPI_NAND_MANUFACTURER_ID_FM, _SPI_NAND_DEVICE_ID_FM25G01B, 0x70, 4, 0x7, 4},
+	{_SPI_NAND_MANUFACTURER_ID_FM, _SPI_NAND_DEVICE_ID_FM25G02B, 0x70, 4, 0x7, 4},
+	{_SPI_NAND_MANUFACTURER_ID_FM, _SPI_NAND_DEVICE_ID_FM25G02C, 0x70, 4, 0x7, 4},
+
+	/* XTX */
+	{_SPI_NAND_MANUFACTURER_ID_XTX, _SPI_NAND_DEVICE_ID_XT26G02B, 0x70, 4, 0x7, 4},
+	{_SPI_NAND_MANUFACTURER_ID_XTX, _SPI_NAND_DEVICE_ID_XT26G01C, 0xF0, 4, 0xF, 4},
+	{_SPI_NAND_MANUFACTURER_ID_XTX, _SPI_NAND_DEVICE_ID_XT26G02C, 0xF0, 4, 0xF, 4},
+	{_SPI_NAND_MANUFACTURER_ID_XTX, _SPI_NAND_DEVICE_ID_XT26G01A, 0x3C, 2, 0x8, 2},
+	{_SPI_NAND_MANUFACTURER_ID_XTX, _SPI_NAND_DEVICE_ID_XT26G02A, 0x30, 4, 0x2, 4},
+
+	/* MIRA */
+	{_SPI_NAND_MANUFACTURER_ID_MIRA, _SPI_NAND_DEVICE_ID_PSU1GS20BN, 0x30, 4, 0x2, 4},
+
+	/* Biwin */
+	{_SPI_NAND_MANUFACTURER_ID_BIWIN, _SPI_NAND_DEVICE_ID_BWJX08U, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_BIWIN, _SPI_NAND_DEVICE_ID_BWET08U, 0x30, 4, 0x2, 4},
+
+	/* Foresee */
+	{_SPI_NAND_MANUFACTURER_ID_FORESEE, _SPI_NAND_DEVICE_ID_FS35ND02GS2F1, 0x70, 4, 0x7, 4},
+	{_SPI_NAND_MANUFACTURER_ID_FORESEE, _SPI_NAND_DEVICE_ID_FS35ND02GD1F1, 0x70, 4, 0x7, 4},
+	{_SPI_NAND_MANUFACTURER_ID_FORESEE, _SPI_NAND_DEVICE_ID_FS35ND01GS1F1, 0x70, 4, 0x7, 4},
+	{_SPI_NAND_MANUFACTURER_ID_FORESEE, _SPI_NAND_DEVICE_ID_FS35ND01GD1F1, 0x70, 4, 0x7, 4},
+	{_SPI_NAND_MANUFACTURER_ID_FORESEE, _SPI_NAND_DEVICE_ID_FS35ND01GS1Y2, 0x70, 4, 0x7, 4},
+	{_SPI_NAND_MANUFACTURER_ID_FORESEE, _SPI_NAND_DEVICE_ID_FS35ND02GS3Y2, 0x70, 4, 0x7, 4},
+	{_SPI_NAND_MANUFACTURER_ID_FORESEE, _SPI_NAND_DEVICE_ID_FS35ND04GS2Y2, 0x70, 4, 0x7, 4},
+	{_SPI_NAND_MANUFACTURER_ID_FORESEE, _SPI_NAND_DEVICE_ID_F35UQA512M, 0x70, 4, 0x7, 4},
+	{_SPI_NAND_MANUFACTURER_ID_FORESEE, _SPI_NAND_DEVICE_ID_F35UQA001G, 0x70, 4, 0x7, 4},
+	{_SPI_NAND_MANUFACTURER_ID_FORESEE, _SPI_NAND_DEVICE_ID_F35UQA002G, 0x70, 4, 0x7, 4},
+	{_SPI_NAND_MANUFACTURER_ID_FORESEE, _SPI_NAND_DEVICE_ID_F35SQA512M, 0x70, 4, 0x7, 4},
+	{_SPI_NAND_MANUFACTURER_ID_FORESEE, _SPI_NAND_DEVICE_ID_F35SQA001G, 0x70, 4, 0x7, 4},
+	{_SPI_NAND_MANUFACTURER_ID_FORESEE, _SPI_NAND_DEVICE_ID_F35SQA002G, 0x70, 4, 0x7, 4},
+
+	/* DS */
+	{_SPI_NAND_MANUFACTURER_ID_DS, _SPI_NAND_DEVICE_ID_DS35Q2GA, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_DS, _SPI_NAND_DEVICE_ID_DS35M2GA, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_DS, _SPI_NAND_DEVICE_ID_DS35Q1GA, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_DS, _SPI_NAND_DEVICE_ID_DS35M1GA, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_DS, _SPI_NAND_DEVICE_ID_DS35Q2GB, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_DS, _SPI_NAND_DEVICE_ID_DS35M2GB, 0x30, 4, 0x2, 4},
+
+	/* Fison */
+	{_SPI_NAND_MANUFACTURER_ID_FISON, _SPI_NAND_DEVICE_ID_CS11G0T0A0AA, 0x70, 4, 0x7, 4},
+	{_SPI_NAND_MANUFACTURER_ID_FISON, _SPI_NAND_DEVICE_ID_CS11G1T0A0AA, 0x70, 4, 0x7, 4},
+	{_SPI_NAND_MANUFACTURER_ID_FISON, _SPI_NAND_DEVICE_ID_CS11G0G0A0AA, 0x70, 4, 0x7, 4},
+
+	/* TYM */
+	{_SPI_NAND_MANUFACTURER_ID_TYM, _SPI_NAND_DEVICE_ID_TYM25D2GA01, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_TYM, _SPI_NAND_DEVICE_ID_TYM25D2GA02, 0x30, 4, 0x2, 4},
+	{_SPI_NAND_MANUFACTURER_ID_TYM, _SPI_NAND_DEVICE_ID_TYM25D1GA03, 0x30, 4, 0x2, 4},
+
+	ECC_CHECK_TABLE_END
+};
+
+static const ecc_check_table_entry *spi_nand_find_ecc_entry(u8 mfr_id, u16 dev_id)
+{
+	const ecc_check_table_entry *entry;
+
+	for (entry = ecc_check_table; entry->mfr_id != 0; entry++) {
+		if (entry->mfr_id == mfr_id) {
+			if (entry->dev_id == 0 || entry->dev_id == dev_id) {
+				return entry;
+			}
+		}
+	}
+
+	return NULL;
+}
+
 static u8 _current_cache_page[_SPI_NAND_CACHE_SIZE];
 static u8 _current_cache_page_data[_SPI_NAND_PAGE_SIZE];
 static u8 _current_cache_page_oob[_SPI_NAND_OOB_SIZE];
@@ -89,6 +239,7 @@ static void spi_nand_select_die(u32 page_number)
 static SPI_NAND_FLASH_RTN_T ecc_fail_check(u32 page_number)
 {
 	u8 status;
+	const ecc_check_table_entry *entry;
 	struct SPI_NAND_FLASH_INFO_T *ptr_dev_info_t;
 	SPI_NAND_FLASH_RTN_T rtn_status = SPI_NAND_FLASH_RTN_NO_ERROR;
 	ptr_dev_info_t = _SPI_NAND_GET_DEVICE_INFO_PTR;
@@ -97,257 +248,14 @@ static SPI_NAND_FLASH_RTN_T ecc_fail_check(u32 page_number)
 
 	_SPI_NAND_DEBUG_PRINTF(SPI_NAND_FLASH_DEBUG_LEVEL_1, "ecc_fail_check: status = 0x%x\n", status);
 
-	if ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_GIGADEVICE) &&
-	    ((ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F1GQ4UAYIG) ||
-	     (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F2GQ4UAYIG) ||
-	     (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F1GQ4UBYIG) ||
-	     (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F1GQ4REYIG) ||
-	     (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F1GQ4UCYIG) ||
-	     (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F1GQ4UEYIS) ||
-	     (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F1GQ5UEYIG) ||
-	     (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F1GQ5REYIG) ||
-	     (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F2GQ4UBYIG) ||
-	     (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F2GQ4UE9IS) ||
-	     (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F2GQ4UCYIG) ||
-	     (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F4GQ4UBYIG) ||
-	     (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F4GQ4UCYIG) ||
-	     (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F2GQ5UEYIG) ||
-	     (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F2GQ5REYIG) ||
-	     (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F1GM7UEYIG) ||
-	     (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F1GM7REYIG) ||
-	     (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F2GM7UEYIG) ||
-	     (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F2GM7REYIG)))
-	{
-		// GigaDevice Type 1 ECC Check (Uses 0x30 mask)
-		if ((ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F1GQ4UAYIG) ||
-		    (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F2GQ4UAYIG) ||
-		    (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F1GQ4UBYIG) ||
-		    (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F1GQ4REYIG) ||
-		    (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F1GQ4UEYIS) ||
-		    (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F1GQ5UEYIG) ||
-		    (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F1GQ5REYIG) ||
-		    (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F2GQ4UBYIG) ||
-		    (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F2GQ4UE9IS) ||
-		    (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F4GQ4UBYIG) ||
-		    (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F2GQ5UEYIG) ||
-		    (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F2GQ5REYIG) ||
-		    (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F1GM7UEYIG) ||
-		    (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F1GM7REYIG) ||
-		    (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F2GM7UEYIG) ||
-		    (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F2GM7REYIG))
-		{
-			if (((status & _SPI_NAND_VAL_ECC_STATUS_MASK_30) >> _SPI_NAND_VAL_ECC_STATUS_SHIFT_4) == _SPI_NAND_VAL_ECC_UNCORRECTABLE_2BIT)
-			{
-				rtn_status = SPI_NAND_FLASH_RTN_DETECTED_BAD_BLOCK;
-			}
-		}
-		// GigaDevice Type 2 ECC Check (Uses 0x70 mask)
-		else if ((ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F1GQ4UCYIG) ||
-			 (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F2GQ4UCYIG) ||
-			 (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_GD5F4GQ4UCYIG))
-		{
-			if (((status & _SPI_NAND_VAL_ECC_STATUS_MASK_70) >> _SPI_NAND_VAL_ECC_STATUS_SHIFT_4) == _SPI_NAND_VAL_ECC_UNCORRECTABLE_3BIT)
-			{
-				rtn_status = SPI_NAND_FLASH_RTN_DETECTED_BAD_BLOCK;
-			}
-		}
-	}
-	else if (ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_MXIC)
-	{
-		if (((status & _SPI_NAND_VAL_ECC_STATUS_MASK_30) >> _SPI_NAND_VAL_ECC_STATUS_SHIFT_4) == _SPI_NAND_VAL_ECC_UNCORRECTABLE_2BIT)
-		{
-			rtn_status = SPI_NAND_FLASH_RTN_DETECTED_BAD_BLOCK;
-		}
-	}
-	else if (ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_WINBOND)
-	{
-		if (((status & _SPI_NAND_VAL_ECC_STATUS_MASK_30) >> _SPI_NAND_VAL_ECC_STATUS_SHIFT_4) == _SPI_NAND_VAL_ECC_UNCORRECTABLE_2BIT)
-		{
-			rtn_status = SPI_NAND_FLASH_RTN_DETECTED_BAD_BLOCK;
-		}
-	}
-	else if ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_ESMT) &&
-		 ((ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_F50D1G41LB) ||
-		  (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_F50L512M41A) ||
-		  (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_F50L1G41A0) ||
-		  (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_F50L1G41LB) ||
-		  (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_F50L2G41LB)))
-	{
-		if (((status & _SPI_NAND_VAL_ECC_STATUS_MASK_30) >> _SPI_NAND_VAL_ECC_STATUS_SHIFT_4) == _SPI_NAND_VAL_ECC_UNCORRECTABLE_2BIT)
-		{
-			rtn_status = SPI_NAND_FLASH_RTN_DETECTED_BAD_BLOCK;
-		}
-	}
-	else if ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_ZENTEL) &&
-		 ((ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_A5U12A21ASC) ||
-		  (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_A5U1GA21BWS)))
-	{
-		if (((status & _SPI_NAND_VAL_ECC_STATUS_MASK_30) >> _SPI_NAND_VAL_ECC_STATUS_SHIFT_4) == _SPI_NAND_VAL_ECC_UNCORRECTABLE_2BIT)
-		{
-			rtn_status = SPI_NAND_FLASH_RTN_DETECTED_BAD_BLOCK;
-		}
-	}
-	else if (ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_ETRON)
-	{
-		if (((status & _SPI_NAND_VAL_ECC_STATUS_MASK_30) >> _SPI_NAND_VAL_ECC_STATUS_SHIFT_4) == _SPI_NAND_VAL_ECC_UNCORRECTABLE_2BIT)
-		{
-			rtn_status = SPI_NAND_FLASH_RTN_DETECTED_BAD_BLOCK;
-		}
-	}
-	else if (ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_TOSHIBA)
-	{
-		if (((status & _SPI_NAND_VAL_ECC_STATUS_MASK_30) >> _SPI_NAND_VAL_ECC_STATUS_SHIFT_4) == _SPI_NAND_VAL_ECC_UNCORRECTABLE_2BIT)
-		{
-			rtn_status = SPI_NAND_FLASH_RTN_DETECTED_BAD_BLOCK;
-		}
-	}
-	else if (ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_MICRON)
-	{
-		// Micron uses 0x70 mask, but value 0x2 indicates uncorrectable
-		if (((status & _SPI_NAND_VAL_ECC_STATUS_MASK_70) >> _SPI_NAND_VAL_ECC_STATUS_SHIFT_4) == 0x2)
-		{
-			rtn_status = SPI_NAND_FLASH_RTN_DETECTED_BAD_BLOCK;
-		}
-	}
-	else if ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_HEYANG) ||
-		 (ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_HEYANG_2))
-	{
-		if (((status & _SPI_NAND_VAL_ECC_STATUS_MASK_30) >> _SPI_NAND_VAL_ECC_STATUS_SHIFT_4) == _SPI_NAND_VAL_ECC_UNCORRECTABLE_2BIT)
-		{
-			rtn_status = SPI_NAND_FLASH_RTN_DETECTED_BAD_BLOCK;
-		}
-	}
-	else if (((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_PN) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_PN26G01AWSIUG)) ||
-		 ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_PN) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_PN26G02AWSIUG)) ||
-		 ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_PN) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_PN26Q01AWSIUG)))
-	{
-		if (((status & _SPI_NAND_VAL_ECC_STATUS_MASK_30) >> _SPI_NAND_VAL_ECC_STATUS_SHIFT_4) == _SPI_NAND_VAL_ECC_UNCORRECTABLE_2BIT)
-		{
-			rtn_status = SPI_NAND_FLASH_RTN_DETECTED_BAD_BLOCK;
-		}
-	}
-	else if (((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_ATO) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_ATO25D2GA)) ||
-		 ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_ATO_2) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_ATO25D2GB)))
-	{
-		if (((status & _SPI_NAND_VAL_ECC_STATUS_MASK_30) >> _SPI_NAND_VAL_ECC_STATUS_SHIFT_4) == _SPI_NAND_VAL_ECC_UNCORRECTABLE_2BIT)
-		{
-			rtn_status = SPI_NAND_FLASH_RTN_DETECTED_BAD_BLOCK;
-		}
-	}
-	else if (((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_FM) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_FM25S01)) ||
-		 ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_FM) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_FM25S01A)) ||
-		 ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_FM) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_FM25S02A)))
-	{
-		if (((status & _SPI_NAND_VAL_ECC_STATUS_MASK_30) >> _SPI_NAND_VAL_ECC_STATUS_SHIFT_4) == _SPI_NAND_VAL_ECC_UNCORRECTABLE_2BIT)
-		{
-			rtn_status = SPI_NAND_FLASH_RTN_DETECTED_BAD_BLOCK;
-		}
-	}
-	else if (((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_FM) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_FM25G01B)) ||
-		 ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_FM) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_FM25G02B)) ||
-		 ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_FM) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_FM25G02C)))
-	{
-		if (((status & _SPI_NAND_VAL_ECC_STATUS_MASK_70) >> _SPI_NAND_VAL_ECC_STATUS_SHIFT_4) == _SPI_NAND_VAL_ECC_UNCORRECTABLE_3BIT)
-		{
-			rtn_status = SPI_NAND_FLASH_RTN_DETECTED_BAD_BLOCK;
-		}
-	}
-	else if (((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_XTX) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_XT26G02B)))
-	{
-		if (((status & _SPI_NAND_VAL_ECC_STATUS_MASK_70) >> _SPI_NAND_VAL_ECC_STATUS_SHIFT_4) == _SPI_NAND_VAL_ECC_UNCORRECTABLE_3BIT)
-		{
-			rtn_status = SPI_NAND_FLASH_RTN_DETECTED_BAD_BLOCK;
-		}
-	}
-	else if (((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_XTX) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_XT26G01C)))
-	{
-		if (((status & _SPI_NAND_VAL_ECC_STATUS_MASK_F0) >> _SPI_NAND_VAL_ECC_STATUS_SHIFT_4) == _SPI_NAND_VAL_ECC_UNCORRECTABLE_XTX_C)
-		{
-			rtn_status = SPI_NAND_FLASH_RTN_DETECTED_BAD_BLOCK;
-		}
-	}
-	else if (((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_XTX) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_XT26G02C)))
-	{
-		if (((status & _SPI_NAND_VAL_ECC_STATUS_MASK_F0) >> _SPI_NAND_VAL_ECC_STATUS_SHIFT_4) == _SPI_NAND_VAL_ECC_UNCORRECTABLE_XTX_C)
-		{
-			rtn_status = SPI_NAND_FLASH_RTN_DETECTED_BAD_BLOCK;
-		}
-	}
-	else if (((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_XTX) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_XT26G01A)))
-	{
-		if (((status & _SPI_NAND_VAL_ECC_STATUS_MASK_3C) >> _SPI_NAND_VAL_ECC_STATUS_SHIFT_2) == _SPI_NAND_VAL_ECC_UNCORRECTABLE_XTX_A)
-		{
-			rtn_status = SPI_NAND_FLASH_RTN_DETECTED_BAD_BLOCK;
-		}
-	}
-	else if (((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_XTX) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_XT26G02A)))
-	{
-		if (((status & _SPI_NAND_VAL_ECC_STATUS_MASK_30) >> _SPI_NAND_VAL_ECC_STATUS_SHIFT_4) == _SPI_NAND_VAL_ECC_UNCORRECTABLE_2BIT)
-		{
-			rtn_status = SPI_NAND_FLASH_RTN_DETECTED_BAD_BLOCK;
-		}
-	}
-	else if (((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_MIRA) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_PSU1GS20BN)))
-	{
-		if (((status & _SPI_NAND_VAL_ECC_STATUS_MASK_30) >> _SPI_NAND_VAL_ECC_STATUS_SHIFT_4) == _SPI_NAND_VAL_ECC_UNCORRECTABLE_2BIT)
-		{
-			rtn_status = SPI_NAND_FLASH_RTN_DETECTED_BAD_BLOCK;
-		}
-	}
-	else if (((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_BIWIN) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_BWJX08U)) ||
-		 ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_BIWIN) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_BWET08U)))
-	{
-		if (((status & _SPI_NAND_VAL_ECC_STATUS_MASK_30) >> _SPI_NAND_VAL_ECC_STATUS_SHIFT_4) == _SPI_NAND_VAL_ECC_UNCORRECTABLE_2BIT)
-		{
-			rtn_status = SPI_NAND_FLASH_RTN_DETECTED_BAD_BLOCK;
-		}
-	}
-	else if (((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_FORESEE) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_FS35ND02GS2F1)) ||
-		 ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_FORESEE) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_FS35ND02GD1F1)) ||
-		 ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_FORESEE) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_FS35ND01GS1F1)) ||
-		 ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_FORESEE) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_FS35ND01GD1F1)) ||
-		 ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_FORESEE) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_FS35ND01GS1Y2)) ||
-		 ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_FORESEE) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_FS35ND02GS3Y2)) ||
-		 ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_FORESEE) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_FS35ND04GS2Y2)) ||
-		 ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_FORESEE) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_F35UQA512M)) ||
-		 ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_FORESEE) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_F35UQA001G)) ||
-		 ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_FORESEE) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_F35UQA002G)) ||
-		 ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_FORESEE) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_F35SQA512M)) ||
-		 ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_FORESEE) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_F35SQA001G)) ||
-		 ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_FORESEE) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_F35SQA002G)))
-	{
-		if (((status & _SPI_NAND_VAL_ECC_STATUS_MASK_70) >> _SPI_NAND_VAL_ECC_STATUS_SHIFT_4) == _SPI_NAND_VAL_ECC_UNCORRECTABLE_3BIT)
-		{
-			rtn_status = SPI_NAND_FLASH_RTN_DETECTED_BAD_BLOCK;
-		}
-	}
-	else if (((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_DS) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_DS35Q2GA)) ||
-		 ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_DS) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_DS35M2GA)) ||
-		 ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_DS) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_DS35Q1GA)) ||
-		 ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_DS) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_DS35M1GA)) ||
-		 ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_DS) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_DS35Q2GB)) ||
-		 ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_DS) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_DS35M2GB)))
-	{
-		if (((status & _SPI_NAND_VAL_ECC_STATUS_MASK_30) >> _SPI_NAND_VAL_ECC_STATUS_SHIFT_4) == _SPI_NAND_VAL_ECC_UNCORRECTABLE_2BIT)
-		{
-			rtn_status = SPI_NAND_FLASH_RTN_DETECTED_BAD_BLOCK;
-		}
-	}
-	else if (((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_FISON) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_CS11G0T0A0AA)) ||
-		 ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_FISON) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_CS11G1T0A0AA)) ||
-		 ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_FISON) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_CS11G0G0A0AA)))
-	{
-		if (((status & _SPI_NAND_VAL_ECC_STATUS_MASK_70) >> _SPI_NAND_VAL_ECC_STATUS_SHIFT_4) == _SPI_NAND_VAL_ECC_UNCORRECTABLE_3BIT)
-		{
-			rtn_status = SPI_NAND_FLASH_RTN_DETECTED_BAD_BLOCK;
-		}
-	}
-	else if (((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_TYM) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_TYM25D2GA01)) ||
-		 ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_TYM) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_TYM25D2GA02)) ||
-		 ((ptr_dev_info_t->mfr_id == _SPI_NAND_MANUFACTURER_ID_TYM) && (ptr_dev_info_t->dev_id == _SPI_NAND_DEVICE_ID_TYM25D1GA03)))
-	{
-		if (((status & _SPI_NAND_VAL_ECC_STATUS_MASK_30) >> _SPI_NAND_VAL_ECC_STATUS_SHIFT_4) == _SPI_NAND_VAL_ECC_UNCORRECTABLE_2BIT)
-		{
+	entry = spi_nand_find_ecc_entry(ptr_dev_info_t->mfr_id, ptr_dev_info_t->dev_id);
+
+	if (entry) {
+		u8 mask = entry->mask;
+		u8 shift = entry->shift;
+		u8 value_shifted = (status & mask) >> shift;
+
+		if (value_shifted == entry->expected_value) {
 			rtn_status = SPI_NAND_FLASH_RTN_DETECTED_BAD_BLOCK;
 		}
 	}
@@ -357,7 +265,7 @@ static SPI_NAND_FLASH_RTN_T ecc_fail_check(u32 page_number)
 		fprintf(stderr, "[ecc_fail_check] : ECC cannot recover detected!, page = 0x%x\n", page_number);
 	}
 
-	return (rtn_status);
+return (rtn_status);
 }
 
 /* To load page into SPI NAND chip. */
@@ -496,12 +404,10 @@ static SPI_NAND_FLASH_RTN_T spi_nand_erase_internal(u32 addr, u32 len)
 			/* 2.7 Erase next block if needed */
 			addr += _current_flash_info_t.erase_size;
 			erase_len += _current_flash_info_t.erase_size;
-			if (timer_progress())
-			{
-				printf("\bErase %d%% [%u] of [%u] bytes      ", 100 * (erase_len / 1024) / (len / 1024), erase_len, len);
-				printf("\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b");
-				fflush(stdout);
-			}
+	if (timer_progress())
+		{
+			timer_print_progress("Erase", erase_len, len);
+		}
 		}
 		printf("Erase 100%% [%u] of [%u] bytes      \n", erase_len, len);
 	}
@@ -762,9 +668,7 @@ static SPI_NAND_FLASH_RTN_T spi_nand_write_internal(u32 dst_addr, u32 len, u32 *
 		ptr_rtn_len += data_len;
 		if (timer_progress())
 		{
-			printf("\bWritten %d%% [%u] of [%u] bytes      ", 100 * ((len - remain_len) / 1024) / (len / 1024), len - remain_len, len);
-			printf("\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b");
-			fflush(stdout);
+			timer_print_progress("Written", len - remain_len, len);
 		}
 	}
 	printf("Written 100%% [%u] of [%u] bytes      \n", len - remain_len, len);
@@ -832,9 +736,7 @@ static SPI_NAND_FLASH_RTN_T spi_nand_read_internal(u32 addr, u32 len, u8 *ptr_rt
 		}
 		if (timer_progress())
 		{
-			printf("\bRead %d%% [%u] of [%u] bytes      ", 100 * ((len - remain_len) / 1024) / (len / 1024), len - remain_len, len);
-			printf("\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b");
-			fflush(stdout);
+			timer_print_progress("Read", len - remain_len, len);
 		}
 	}
 	printf("Read 100%% [%u] of [%u] bytes      \n", len - remain_len, len);

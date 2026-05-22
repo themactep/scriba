@@ -7,9 +7,12 @@
 #include <time.h>
 
 #include "timer.h"
+#include "types.h"
 
 static time_t start_time = 0;
 static time_t print_time = 0;
+
+static volatile int progress_printed = 0;
 
 void timer_start(void)
 {
@@ -44,4 +47,14 @@ int timer_progress(void)
 		return 1;
 	}
 	return 0;
+}
+
+void timer_print_progress(const char *msg, u32 current, u32 total)
+{
+	if (!progress_printed) {
+		printf("\b%s %d%% [%u] of [%u] bytes      ", msg, 100 * (current / 1024) / (total / 1024), current, total);
+		progress_printed = 1;
+	}
+	printf("\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b");
+	fflush(stdout);
 }

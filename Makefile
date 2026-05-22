@@ -109,7 +109,16 @@ clean:
 strip: $(TARGET_BIN)
 	$(STRIP) $(TARGET_BIN)
 
-install: $(TARGET_BIN)
+install: $(TARGET_BIN) install-rules
 	$(INSTALL) -m 0755 -D $(TARGET_BIN) $(DESTDIR)$(BINDIR)/scriba
+	@echo "Install complete."
+
+install-rules:
 	$(INSTALL) -m 0664 -D $(SRC_DIR)/40-persistent-ch341a.rules $(DESTDIR)/etc/udev/rules.d/40-persistent-ch341a.rules
 	$(INSTALL) -m 0664 -D $(SRC_DIR)/40-persistent-ezp2019.rules $(DESTDIR)/etc/udev/rules.d/40-persistent-ezp2019.rules
+	@if [ -z "$(DESTDIR)" ]; then \
+		echo "Reloading udev rules..."; \
+		udevadm control --reload-rules 2>/dev/null || true; \
+		udevadm trigger 2>/dev/null || true; \
+		echo "Done. Unplug and replug your programmer if already connected."; \
+	fi

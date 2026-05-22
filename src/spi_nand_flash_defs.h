@@ -286,10 +286,10 @@
 #define _SPI_NAND_SEMAPHORE_UNLOCK() /* Enable interrupt  */
 #define _SPI_NAND_PRINTF printf	     /* Always print information */
 #if !defined(SPI_NAND_FLASH_DEBUG)
-#define _SPI_NAND_DEBUG_PRINTF(level, fmt, args...)
+#define _SPI_NAND_DEBUG_PRINTF(level, fmt, ...)
 #define _SPI_NAND_DEBUG_PRINTF_ARRAY(level, array, len)
 #else
-#define _SPI_NAND_DEBUG_PRINTF(level, fmt, args...) printf(fmt, ##args)
+#define _SPI_NAND_DEBUG_PRINTF(level, fmt, ...) printf(fmt, ##__VA_ARGS__)
 void _SPI_NAND_DEBUG_PRINTF_ARRAY(int level, u8 *array, int len)
 {
 	for (int i = 0; i < len; i++)

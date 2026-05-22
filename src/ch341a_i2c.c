@@ -13,8 +13,8 @@
 #include <assert.h>
 #include "ch341a_i2c.h"
 
-#define dprintf(args...)
-// #define dprintf(args...) do { if (1) printf(args); } while(0)
+#define dprintf(...)
+// #define dprintf(...)
 
 extern struct libusb_device_handle *handle;
 unsigned char *readbuf;
@@ -56,32 +56,47 @@ void ch341ReadCmdMarshall(uint8_t *buffer, uint32_t addr, struct EEPROM *eeprom_
 	*ptr++ = mCH341A_CMD_I2C_STM_OUT | 1;			 // 7/6
 	*ptr++ = ((EEPROM_I2C_BUS_ADDRESS | msb_addr) << 1) | 1; // 8/7: Read command
 
-	// Configuration?
-	*ptr++ = 0xE0; // 9/8
-	*ptr++ = 0x00; // 10/9
+	static const unsigned char i2c_cfg_tail[] = {
+		0x00, 0x06, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+	};
+	static const unsigned char i2c_cfg_mid[] = {
+		0x00, 0x00, 0x11, 0x4d, 0x40, 0x77, 0xcd, 0xab, 0xba, 0xdc
+	};
+	static const unsigned char i2c_frame2[] = {
+		0xe0, 0x00, 0x00, 0xc4, 0xf1, 0x12, 0x00, 0x11,
+		0x4d, 0x40, 0x77, 0xf0, 0xf1, 0x12, 0x00,
+		0xd9, 0x8b, 0x41, 0x7e, 0x00, 0xe0, 0xfd, 0x7f,
+		0xf0, 0xf1, 0x12, 0x00, 0x5a, 0x88, 0x41, 0x7e
+	};
+	static const unsigned char i2c_frame3[] = {
+		0xe0, 0x00, 0x00, 0x2a, 0x88, 0x41, 0x7e, 0x06,
+		0x04, 0x00, 0x00, 0x11, 0x4d, 0x40, 0x77,
+		0xe8, 0xf3, 0x12, 0x00, 0x14, 0x00, 0x00, 0x00,
+		0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+	};
+
+	/* Configuration */
+	*ptr++ = 0xE0;
+	*ptr++ = 0x00;
 	if ((*eeprom_info).addr_size < 2)
-		*ptr++ = 0x10; // x/10
-	memcpy(ptr, "\x00\x06\x04\x00\x00\x00\x00\x00\x00", 9);
-	ptr += 9; // 10
+		*ptr++ = 0x10;
+	memcpy(ptr, i2c_cfg_tail, sizeof(i2c_cfg_tail));
+	ptr += sizeof(i2c_cfg_tail);
 	size_kb = (*eeprom_info).size / 1024;
-	*ptr++ = size_kb & 0xFF;	// 19
-	*ptr++ = (size_kb >> 8) & 0xFF; // 20
-	memcpy(ptr, "\x00\x00\x11\x4d\x40\x77\xcd\xab\xba\xdc", 10);
-	ptr += 10;
+	*ptr++ = size_kb & 0xFF;
+	*ptr++ = (size_kb >> 8) & 0xFF;
+	memcpy(ptr, i2c_cfg_mid, sizeof(i2c_cfg_mid));
+	ptr += sizeof(i2c_cfg_mid);
 
-	// Frame 2
+	/* Frame 2 */
 	*ptr++ = mCH341A_CMD_I2C_STREAM;
-	memcpy(ptr, "\xe0\x00\x00\xc4\xf1\x12\x00\x11\x4d\x40\x77\xf0\xf1\x12\x00"
-		    "\xd9\x8b\x41\x7e\x00\xe0\xfd\x7f\xf0\xf1\x12\x00\x5a\x88\x41\x7e",
-	       31);
-	ptr += 31;
+	memcpy(ptr, i2c_frame2, sizeof(i2c_frame2));
+	ptr += sizeof(i2c_frame2);
 
-	// Frame 3
+	/* Frame 3 */
 	*ptr++ = mCH341A_CMD_I2C_STREAM;
-	memcpy(ptr, "\xe0\x00\x00\x2a\x88\x41\x7e\x06\x04\x00\x00\x11\x4d\x40\x77"
-		    "\xe8\xf3\x12\x00\x14\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00",
-	       31);
-	ptr += 31;
+	memcpy(ptr, i2c_frame3, sizeof(i2c_frame3));
+	ptr += sizeof(i2c_frame3);
 
 	// Finalize
 	*ptr++ = mCH341A_CMD_I2C_STREAM;  // 0xAA
@@ -140,7 +155,7 @@ int32_t ch341readEEPROM(uint8_t *buffer, uint32_t bytestoread, struct EEPROM *ee
 		fflush(stdout);
 		ret = libusb_handle_events_timeout(NULL, &tv);
 
-		if (ret < 0 || getnextpkt == -1)
+			if (ret < 0 || (int32_t)getnextpkt == -1)
 		{								       // indicates an error
 			fprintf(stderr, "ret from libusb_handle_timeout = %d\n", ret); // Use stderr
 			fprintf(stderr, "getnextpkt = %d\n", getnextpkt);	       // Use stderr
@@ -198,8 +213,9 @@ void cbBulkIn(struct libusb_transfer *transfer)
 
 		for (i = 0; i < transfer->actual_length; i++)
 		{
-			if (!(i % 16))
-				dprintf("\n   ");
+				if (!(i % 16)) {
+					dprintf("\n   ");
+				}
 			dprintf("%02x ", transfer->buffer[i]);
 		}
 		dprintf("\n");
@@ -215,7 +231,7 @@ void cbBulkIn(struct libusb_transfer *transfer)
 }
 
 // Callback function for async bulk out comms
-void cbBulkOut(struct libusb_transfer *transfer)
+void cbBulkOut(struct libusb_transfer *transfer __attribute__((unused)))
 {
 	syncackpkt = 1;
 	dprintf("\ncbBulkOut(): Sync/Ack received: status %d\n", transfer->status);
@@ -223,7 +239,7 @@ void cbBulkOut(struct libusb_transfer *transfer)
 }
 
 // Write N bytes to 24c32/24c64 device (in packets of 32 bytes)
-int32_t ch341writeEEPROM(uint8_t *buffer, uint32_t bytesum, struct EEPROM *eeprom_info)
+int32_t ch341writeEEPROM(uint8_t *buffer __attribute__((unused)), uint32_t bytesum, struct EEPROM *eeprom_info __attribute__((unused)))
 {
 	uint32_t bytes = bytesum;
 

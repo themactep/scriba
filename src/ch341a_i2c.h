@@ -362,7 +362,7 @@ struct EEPROM
    uint8_t i2c_addr_mask;
 };
 
-const static struct EEPROM eepromlist[] = {
+static const struct EEPROM eepromlist[] = {
     {"24c01", 128, 8, 1, 0x00},   // 16 pages of 8 bytes each = 128 bytes
     {"24c02", 256, 8, 1, 0x00},   // 32 pages of 8 bytes each = 256 bytes
     {"24c04", 512, 16, 1, 0x01},  // 32 pages of 16 bytes each = 512 bytes
@@ -374,7 +374,7 @@ const static struct EEPROM eepromlist[] = {
     {"24c256", 32768, 32 /*64*/, 2, 0x00},
     {"24c512", 65536, 32 /*128*/, 2, 0x00},
     {"24c1024", 131072, 32 /*128*/, 2, 0x01},
-    {0, 0, 0, 0}};
+    {0, 0, 0, 0, 0}};
 
 int32_t ch341readEEPROM(uint8_t *buf, uint32_t bytes, struct EEPROM *eeprom_info);
 int32_t ch341writeEEPROM(uint8_t *buf, uint32_t bytes, struct EEPROM *eeprom_info);

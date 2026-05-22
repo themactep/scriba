@@ -22,7 +22,7 @@ struct spi_eeprom
 	uint8_t addr_bits;    /* Number of address bit */
 };
 
-const static struct spi_eeprom seepromlist[] = {
+static const struct spi_eeprom seepromlist[] = {
     {"25010", 128, 7},
     {"25020", 256, 8},
     {"25040", 512, 9},

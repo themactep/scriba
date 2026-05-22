@@ -4,12 +4,19 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 #include "flashcmd_api.h"
+#ifdef EEPROM_SUPPORT
+#include "i2c_eeprom_api.h"
+#include "mw_eeprom_api.h"
+#include "spi_eeprom_api.h"
+#endif
 #include <stdio.h>
+ 	#include <stdlib.h>
+ 	#include <string.h>
 
-#define __EEPROM___ "or EEPROM"
-extern int eepromsize;
-extern int mw_eepromsize;
-extern int seepromsize;
+ 	#define __EEPROM___ "or EEPROM"
+ 	extern int eepromsize;
+ 	extern int mw_eepromsize;
+ 	extern int seepromsize;
 
 long flash_cmd_init(struct flash_cmd *cmd)
 {
@@ -55,17 +62,51 @@ long flash_cmd_init(struct flash_cmd *cmd)
 		fprintf(stderr, "\nFlash" __EEPROM___ " not found!!!!\n\n"); // Use stderr for errors
 
 	return flen;
-}
+ }
 
-void support_flash_list(void)
-{
-	support_snand_list();
-	printf("\n");
-	support_snor_list();
-	printf("\n");
-	support_i2c_eeprom_list();
-	printf("\n");
-	support_mw_eeprom_list();
-	printf("\n");
-	support_spi_eeprom_list();
+ int flashcmd_verify(const unsigned char *data, unsigned long addr, unsigned long len, unsigned long file_len __attribute__((unused)))
+ {
+ 	int ret;
+ 	unsigned char *verify_buf = NULL;
+
+ 	if (!data || !len)
+ 		return 0;
+
+ 	verify_buf = (unsigned char *)malloc(len);
+ 	if (!verify_buf)
+ 	{
+ 		fprintf(stderr, "Malloc failed for verify buffer: len=%ld.\n", len);
+ 		return 0;
+ 	}
+
+ 	ret = snand_read(verify_buf, addr, len);
+ 	if (ret < 0)
+ 	{
+ 		fprintf(stderr, "Verify Read Status: BAD(%d)\n", ret);
+ 		free(verify_buf);
+ 		return 0;
+ 	}
+
+ 	if (memcmp(verify_buf, data, len) != 0)
+ 	{
+ 		fprintf(stderr, "Verify Status: BAD - Data mismatch\n");
+ 		free(verify_buf);
+ 		return 0;
+ 	}
+
+ 	free(verify_buf);
+ 	return 1;
+ }
+
+ void support_flash_list(void)
+ {
+ 	support_snand_list();
+ 	printf("\n");
+ 	support_snor_list();
+ 	printf("\n");
+ 	support_i2c_eeprom_list();
+ 	printf("\n");
+ 	support_mw_eeprom_list();
+ 	printf("\n");
+ 	support_spi_eeprom_list();
 }

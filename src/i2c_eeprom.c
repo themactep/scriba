@@ -48,7 +48,7 @@ int i2c_eeprom_erase(unsigned long offs, unsigned long len)
 	memset(ebuf, 0xff, sizeof(ebuf));
 	pbuf = ebuf;
 
-	if (offs || len < eepromsize)
+	if (offs || len < (unsigned long)eepromsize)
 	{
 		if (ch341readEEPROM(pbuf, eepromsize, &eeprom_info) < 0)
 		{
@@ -81,7 +81,7 @@ int i2c_eeprom_write(unsigned char *buf, unsigned long to, unsigned long len)
 	memset(ebuf, 0xff, sizeof(ebuf));
 	pbuf = ebuf;
 
-	if (to || len < eepromsize)
+	if (to || len < (unsigned long)eepromsize)
 	{
 		if (ch341readEEPROM(pbuf, eepromsize, &eeprom_info) < 0)
 		{
@@ -126,7 +126,7 @@ void support_i2c_eeprom_list(void)
 	int i;
 
 	printf("I2C EEPROM Support List:\n");
-	for (i = 0; i < (sizeof(eepromlist) / sizeof(struct EEPROM)); i++)
+	for (i = 0; (unsigned long)i < (sizeof(eepromlist) / sizeof(struct EEPROM)); i++)
 	{
 		if (!eepromlist[i].size)
 			break;

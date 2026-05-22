@@ -245,7 +245,7 @@ void Erase_EEPROM_3wire(int size_eeprom)
 	clock_1();
 	delay_ms(1);
 	i = 0;
-	while (!get_data() && i < 10000)
+	while (!get_data() && i < MW_BUSY_WAIT_LIMIT)
 	{
 		clock_0();
 		delay_ms(1);
@@ -254,7 +254,7 @@ void Erase_EEPROM_3wire(int size_eeprom)
 		i++;
 	}
 
-	if (i == 10000)
+	if (i == MW_BUSY_WAIT_LIMIT)
 	{
 		chip_busy();
 		return;
@@ -357,7 +357,7 @@ int Write_EEPROM_3wire(unsigned char *buffer, int size_eeprom)
 		clock_1();
 		delay_ms(1);
 		i = 0;
-		while (!get_data() && i < 10000)
+		while (!get_data() && i < MW_BUSY_WAIT_LIMIT)
 		{
 			clock_0();
 			delay_ms(1);
@@ -365,7 +365,7 @@ int Write_EEPROM_3wire(unsigned char *buffer, int size_eeprom)
 			delay_ms(1);
 			i++;
 		}
-		if (i == 10000)
+		if (i == MW_BUSY_WAIT_LIMIT)
 		{
 			printf("\n");
 			chip_busy();

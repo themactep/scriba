@@ -1,6 +1,7 @@
 /*
  * main.c
  * Copyright (C) 2018-2022 McMCC <mcmcc@mail.ru>
+ * Copyright (C) 2025-2026 Paul Philippov <paul@themactep.com>
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 #include <stdint.h>
@@ -329,7 +330,7 @@ int main(int argc, char *argv[])
 		buf = (unsigned char *)malloc(len);
 		if (!buf)
 		{
-			fprintf(stderr, "Malloc failed for program buffer.\n");
+			fprintf(stderr, "Malloc failed for program buffer: len=%lld.\n", len);
 			goto out;
 		}
 
@@ -366,40 +367,43 @@ int main(int argc, char *argv[])
 
 		// Step 3: Verify
 		printf("Step 3/3 - VERIFY:\n");
-		memset(buf, 0, len);
-		printf("Read addr = 0x%016llX, len = 0x%016llX\n", addr, len);
-		ret = prog.flash_read(buf, addr, len);
-		if (ret < 0)
+
+		unsigned char *verify_buf = (unsigned char *)malloc(len);
+		if (!verify_buf)
 		{
-			fprintf(stderr, "Verify Read Status: BAD(%d)\n", ret);
+			fprintf(stderr, "Malloc failed for verify buffer: len=%lld.\n", len);
 			fclose(fp);
 			free(buf);
 			goto out;
 		}
 
-		// Compare with original file
-		unsigned char ch1;
-		int i = 0;
-
 		fseek(fp, 0, SEEK_SET);
-		ch1 = (unsigned char)getc(fp);
-
-		while ((ch1 != EOF) && (i < len - 1) && (ch1 == buf[i++]))
-			ch1 = (unsigned char)getc(fp);
-
-		if (ch1 == buf[i])
+		wlen = fread(verify_buf, 1, len, fp);
+		if (ferror(fp))
 		{
-			printf("Verify Status: OK\n");
-			printf("Write Status: OK - All operations completed successfully\n");
+			fprintf(stderr, "Error reading file [%s]\n", fname);
 			fclose(fp);
+			free(verify_buf);
 			free(buf);
-			goto okout;
+			goto out;
 		}
-		else
+
+		ret = prog.flash_read(buf, addr, len);
+		if (ret < 0)
+		{
+			fprintf(stderr, "Verify Read Status: BAD(%d)\n", ret);
+			fclose(fp);
+			free(verify_buf);
+			free(buf);
+			goto out;
+		}
+
+		if (memcmp(verify_buf, buf, len) != 0)
 		{
 			fprintf(stderr, "Verify Status: BAD - Data mismatch\n");
 			fprintf(stderr, "Write Status: FAILED\n");
 			fclose(fp);
+			free(verify_buf);
 			free(buf);
 			goto out;
 		}
@@ -423,7 +427,7 @@ int main(int argc, char *argv[])
 		unsigned char *buf2 = (unsigned char *)malloc(len);
 		if (!buf1 || !buf2)
 		{
-			fprintf(stderr, "Malloc failed for check buffers.\n");
+			fprintf(stderr, "Malloc failed for check buffers: len=%lld.\n", len);
 			if (buf1) free(buf1);
 			if (buf2) free(buf2);
 			goto out;
@@ -455,26 +459,33 @@ int main(int argc, char *argv[])
 		}
 		printf("Second Read Status: OK\n");
 
-		// Compare the two reads
-		printf("Comparing reads...\n");
-		int mismatch_count = 0;
-		long long first_mismatch = -1;
-
-		for (long long i = 0; i < len; i++)
+		if (memcmp(buf1, buf2, len) != 0)
 		{
-			if (buf1[i] != buf2[i])
-			{
-				if (first_mismatch == -1)
-					first_mismatch = i;
-				mismatch_count++;
-			}
-		}
+			long long mismatch_count = 0;
+			long long first_mismatch = -1;
 
-		if (mismatch_count == 0)
+			for (long long i = 0; i < len; i++)
+			{
+				if (buf1[i] != buf2[i])
+				{
+					if (first_mismatch == -1)
+						first_mismatch = i;
+					mismatch_count++;
+				}
+			}
+
+			fprintf(stderr, "Compare Status: BAD - Found %lld mismatched bytes\n", mismatch_count);
+			fprintf(stderr, "First mismatch at address 0x%016llX (byte1=0x%02X, byte2=0x%02X)\n",
+					addr + first_mismatch, buf1[first_mismatch], buf2[first_mismatch]);
+			fprintf(stderr, "Read Status: FAILED - Flash may be unreliable\n");
+			free(buf1);
+			free(buf2);
+			goto out;
+		}
+		else
 		{
 			printf("Compare Status: OK - Both reads are identical\n");
 
-			// Save the verified data to file
 			fp = fopen(fname, "wb");
 			if (!fp)
 			{
@@ -499,16 +510,6 @@ int main(int argc, char *argv[])
 			free(buf2);
 			goto okout;
 		}
-		else
-		{
-			fprintf(stderr, "Compare Status: BAD - Found %d mismatched bytes\n", mismatch_count);
-			fprintf(stderr, "First mismatch at address 0x%016llX (byte1=0x%02X, byte2=0x%02X)\n",
-					addr + first_mismatch, buf1[first_mismatch], buf2[first_mismatch]);
-			fprintf(stderr, "Read Status: FAILED - Flash may be unreliable\n");
-			free(buf1);
-			free(buf2);
-			goto out;
-		}
 	}
 
 	if ((op == 'r') || (op == 'w'))
@@ -524,7 +525,7 @@ int main(int argc, char *argv[])
 		buf = (unsigned char *)malloc(len);
 		if (!buf)
 		{
-			fprintf(stderr, "Malloc failed for read buffer.\n");
+			fprintf(stderr, "Malloc failed for read buffer: len=%lld.\n", len);
 			goto out;
 		}
 	}
@@ -586,27 +587,41 @@ very:
 		}
 		if (svr)
 		{
-			unsigned char ch1;
-			int i = 0;
+			unsigned char *verify_buf = (unsigned char *)malloc(len);
+			if (!verify_buf)
+			{
+				fprintf(stderr, "Malloc failed for verify buffer: len=%lld.\n", len);
+				free(buf);
+				goto out;
+			}
 
 			fseek(fp, 0, SEEK_SET);
-			ch1 = (unsigned char)getc(fp);
+			wlen = fread(verify_buf, 1, len, fp);
+			if (ferror(fp))
+			{
+				fprintf(stderr, "Error reading file [%s]\n", fname);
+				fclose(fp);
+				free(verify_buf);
+				free(buf);
+				goto out;
+			}
 
-			while ((ch1 != EOF) && (i < len - 1) && (ch1 == buf[i++]))
-				ch1 = (unsigned char)getc(fp);
-
-			if (ch1 == buf[i])
+			if (memcmp(verify_buf, buf, len) != 0)
+			{
+				fprintf(stderr, "Status: BAD\n");
+				fclose(fp);
+				free(verify_buf);
+				free(buf);
+				goto out;
+			}
+			else
 			{
 				printf("Status: OK\n");
 				fclose(fp);
+				free(verify_buf);
 				free(buf);
 				goto okout;
 			}
-			else
-				fprintf(stderr, "Status: BAD\n");
-			fclose(fp);
-			free(buf);
-			goto out;
 		}
 		fp = fopen(fname, "wb");
 		if (!fp)

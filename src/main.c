@@ -1,6 +1,7 @@
 /*
  * main.c
  * Copyright (C) 2018-2022 McMCC <mcmcc@mail.ru>
+ * Copyright (C) 2025-2026 Paul Philippov <paul@themactep.com>
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 #include <stdint.h>
@@ -10,6 +11,13 @@
 #include <string.h>
 #include <getopt.h>
 #include <time.h>
+
+#ifndef GIT_COMMIT_DATE
+#define GIT_COMMIT_DATE "unknown"
+#endif
+#ifndef GIT_COMMIT_HASH
+#define GIT_COMMIT_HASH "unknown"
+#endif
 
 #include "flashcmd_api.h"
 #include "ch341a_spi.h"
@@ -35,6 +43,31 @@ extern int seepromsize;
 extern int mw_eepromsize;
 extern int spage_size;
 extern int org;
+
+static int do_verify(const unsigned char *expected, unsigned long addr, unsigned long len)
+{
+	unsigned char *verify_buf = (unsigned char *)malloc(len);
+
+	if (!verify_buf) {
+		fprintf(stderr, "Malloc failed for verify buffer: len=%ld.\n", len);
+		return 0;
+	}
+
+	if (prog.flash_read(verify_buf, addr, len) < 0) {
+		fprintf(stderr, "Verify Read Status: BAD\n");
+		free(verify_buf);
+		return 0;
+	}
+
+	if (memcmp(verify_buf, expected, len) != 0) {
+		fprintf(stderr, "Verify Status: BAD - Data mismatch\n");
+		free(verify_buf);
+		return 0;
+	}
+
+	free(verify_buf);
+	return 1;
+}
 
 void title(void)
 {
@@ -98,11 +131,12 @@ void usage(const char *program_name)
 
 int main(int argc, char *argv[])
 {
-	int c, vr = 0, svr = 0, ret = 0;
-	char *fname = NULL, op = 0;
-	unsigned char *buf;
-	int long long len = 0, addr = 0, flen = 0, wlen = 0;
-	FILE *fp;
+ 	int c, vr = 0, ret = 0;
+ 	char op = 0;
+ 	const char *op_arg = NULL;
+ 	unsigned char *buf = NULL;
+ 	int long long len = 0, addr = 0, flen = 0, wlen = 0;
+ 	FILE *fp;
 
 	/* Long options */
 	static struct option long_options[] = {
@@ -232,7 +266,7 @@ int main(int argc, char *argv[])
 			if (!op)
 			{
 				op = c;
-				fname = optarg;
+				op_arg = optarg;
 			}
 			else
 				op = 'x';
@@ -368,233 +402,200 @@ int main(int argc, char *argv[])
 		goto out;
 	}
 
-	if (op == 'W')
-	{
-		printf("WRITE (Erase + Write + Verify):\n");
+if (op == 'W')
+ 	{
+ 		printf("WRITE (Erase + Write + Verify):\n");
 
-		// Step 1: Erase
-		printf("Step 1/3 - ERASE:\n");
-		if (addr && !len)
-			len = flen - addr;
-		else if (!addr && !len)
-		{
-			len = flen;
-			printf("Set full erase chip!\n");
-		}
-		if (bsize > 0 && (len % bsize))
-		{
-			fprintf(stderr, "Please set len = 0x%016llX multiple of the block size 0x%08X\n", len, bsize);
-			goto out;
-		}
-		printf("Erase addr = 0x%016llX, len = 0x%016llX\n", addr, len);
-		ret = prog.flash_erase(addr, len);
-		if (ret)
-		{
-			printf("Erase Status: BAD(%d)\n", ret);
-			goto out;
-		}
-		printf("Erase Status: OK\n");
+ 		// Step 1: Erase
+ 		printf("Step 1/3 - ERASE:\n");
+ 		if (addr && !len)
+ 			len = flen - addr;
+ 		else if (!addr && !len)
+ 		{
+ 			len = flen;
+ 			printf("Set full erase chip!\n");
+ 		}
+ 		if (bsize > 0 && (len % bsize))
+ 		{
+ 			fprintf(stderr, "Please set len = 0x%016llX multiple of the block size 0x%08X\n", len, bsize);
+ 			goto out;
+ 		}
+ 		printf("Erase addr = 0x%016llX, len = 0x%016llX\n", addr, len);
+ 		ret = prog.flash_erase(addr, len);
+ 		if (ret)
+ 		{
+ 			printf("Erase Status: BAD(%d)\n", ret);
+ 			goto out;
+ 		}
+ 		printf("Erase Status: OK\n");
 
-		// Allocate buffer for write and verify operations
-		buf = (unsigned char *)malloc(len);
-		if (!buf)
-		{
-			fprintf(stderr, "Malloc failed for program buffer.\n");
-			goto out;
-		}
+ 		// Allocate buffer for write and verify operations
+ 		buf = (unsigned char *)malloc(len);
+ 		if (!buf)
+ 		{
+ 			fprintf(stderr, "Malloc failed for program buffer: len=%lld.\n", len);
+ 			goto out;
+ 		}
 
-		// Step 2: Write
-		printf("Step 2/3 - WRITE:\n");
-		fp = fopen(fname, "rb");
-		if (!fp)
-		{
-			fprintf(stderr, "Couldn't open file %s for reading.\n", fname);
-			free(buf);
-			goto out;
-		}
-		wlen = fread(buf, 1, len, fp);
-		if (ferror(fp))
-		{
-			fprintf(stderr, "Error reading file [%s]\n", fname);
-			fclose(fp);
-			free(buf);
-			goto out;
-		}
+ 		// Step 2: Write
+ 		printf("Step 2/3 - WRITE:\n");
+ 		fp = fopen(op_arg, "rb");
+ 		if (!fp)
+ 		{
+ 			fprintf(stderr, "Couldn't open file %s for reading.\n", op_arg);
+ 			free(buf);
+ 			goto out;
+ 		}
+ 		wlen = fread(buf, 1, len, fp);
+ 		if (ferror(fp))
+ 		{
+ 			fprintf(stderr, "Error reading file [%s]\n", op_arg);
+ 			fclose(fp);
+ 			free(buf);
+ 			goto out;
+ 		}
 
-		if (len == flen)
-			len = wlen;
-		printf("Write addr = 0x%016llX, len = 0x%016llX\n", addr, len);
-		ret = prog.flash_write(buf, addr, len);
-		if (ret <= 0)
-		{
-			printf("Write Status: BAD(%d)\n", ret);
-			fclose(fp);
-			free(buf);
-			goto out;
-		}
-		printf("Write Status: OK\n");
+ 		if (len == flen)
+ 			len = wlen;
+ 		printf("Write addr = 0x%016llX, len = 0x%016llX\n", addr, len);
+ 		ret = prog.flash_write(buf, addr, len);
+ 		if (ret <= 0)
+ 		{
+ 			printf("Write Status: BAD(%d)\n", ret);
+ 			fclose(fp);
+ 			free(buf);
+ 			goto out;
+ 		}
+ 		printf("Write Status: OK\n");
 
-		// Step 3: Verify
-		printf("Step 3/3 - VERIFY:\n");
-		memset(buf, 0, len);
-		printf("Read addr = 0x%016llX, len = 0x%016llX\n", addr, len);
-		ret = prog.flash_read(buf, addr, len);
-		if (ret < 0)
-		{
-			fprintf(stderr, "Verify Read Status: BAD(%d)\n", ret);
-			fclose(fp);
-			free(buf);
-			goto out;
-		}
+  		// Step 3: Verify
+  		printf("Step 3/3 - VERIFY:\n");
+  		if (!do_verify(buf, addr, len))
+  		{
+  			fprintf(stderr, "Write Status: FAILED\n");
+  			fclose(fp);
+  			free(buf);
+  			goto out;
+  		}
+  		printf("Verify Status: OK\n");
+  		fclose(fp);
+  		free(buf);
+  		goto okout;
+ 	}
 
-		// Compare with original file
-		unsigned char ch1;
-		int i = 0;
+if (op == 'R')
+ 	{
+ 		printf("READ (Read twice and compare):\n");
 
-		fseek(fp, 0, SEEK_SET);
-		ch1 = (unsigned char)getc(fp);
+ 		// Set up length and address
+ 		if (addr && !len)
+ 			len = flen - addr;
+ 		else if (!addr && !len)
+ 		{
+ 			len = flen;
+ 			printf("Set full chip check!\n");
+ 		}
 
-		while ((ch1 != EOF) && (i < len - 1) && (ch1 == buf[i++]))
-			ch1 = (unsigned char)getc(fp);
+ 		// Allocate buffers for both reads
+ 		unsigned char *buf1 = (unsigned char *)malloc(len);
+ 		unsigned char *buf2 = (unsigned char *)malloc(len);
+ 		if (!buf1 || !buf2)
+ 		{
+ 			fprintf(stderr, "Malloc failed for check buffers: len=%lld.\n", len);
+ 			if (buf1) free(buf1);
+ 			if (buf2) free(buf2);
+ 			goto out;
+ 		}
 
-		if (ch1 == buf[i])
-		{
-			printf("Verify Status: OK\n");
-			printf("Write Status: OK - All operations completed successfully\n");
-			fclose(fp);
-			free(buf);
-			goto okout;
-		}
-		else
-		{
-			fprintf(stderr, "Verify Status: BAD - Data mismatch\n");
-			fprintf(stderr, "Write Status: FAILED\n");
-			fclose(fp);
-			free(buf);
-			goto out;
-		}
-	}
+ 		// First read
+ 		printf("Step 1/2 - First READ:\n");
+ 		printf("Read addr = 0x%016llX, len = 0x%016llX\n", addr, len);
+ 		ret = prog.flash_read(buf1, addr, len);
+ 		if (ret < 0)
+ 		{
+ 			fprintf(stderr, "First Read Status: BAD(%d)\n", ret);
+ 			free(buf1);
+ 			free(buf2);
+ 			goto out;
+ 		}
+ 		printf("First Read Status: OK\n");
 
-	if (op == 'R')
-	{
-		printf("READ (Read twice and compare):\n");
+ 		// Second read
+ 		printf("Step 2/2 - Second READ:\n");
+ 		printf("Read addr = 0x%016llX, len = 0x%016llX\n", addr, len);
+ 		ret = prog.flash_read(buf2, addr, len);
+ 		if (ret < 0)
+ 		{
+ 			fprintf(stderr, "Second Read Status: BAD(%d)\n", ret);
+ 			free(buf1);
+ 			free(buf2);
+ 			goto out;
+ 		}
+ 		printf("Second Read Status: OK\n");
 
-		// Set up length and address
-		if (addr && !len)
-			len = flen - addr;
-		else if (!addr && !len)
-		{
-			len = flen;
-			printf("Set full chip check!\n");
-		}
+ 		if (memcmp(buf1, buf2, len) != 0)
+ 		{
+ 			long long mismatch_count = 0;
+ 			long long first_mismatch = -1;
 
-		// Allocate buffers for both reads
-		unsigned char *buf1 = (unsigned char *)malloc(len);
-		unsigned char *buf2 = (unsigned char *)malloc(len);
-		if (!buf1 || !buf2)
-		{
-			fprintf(stderr, "Malloc failed for check buffers.\n");
-			if (buf1) free(buf1);
-			if (buf2) free(buf2);
-			goto out;
-		}
+ 			for (long long i = 0; i < len; i++)
+ 			{
+ 				if (buf1[i] != buf2[i])
+ 				{
+ 					if (first_mismatch == -1)
+ 						first_mismatch = i;
+ 					mismatch_count++;
+ 				}
+ 			}
 
-		// First read
-		printf("Step 1/2 - First READ:\n");
-		printf("Read addr = 0x%016llX, len = 0x%016llX\n", addr, len);
-		ret = prog.flash_read(buf1, addr, len);
-		if (ret < 0)
-		{
-			fprintf(stderr, "First Read Status: BAD(%d)\n", ret);
-			free(buf1);
-			free(buf2);
-			goto out;
-		}
-		printf("First Read Status: OK\n");
+ 			fprintf(stderr, "Compare Status: BAD - Found %lld mismatched bytes\n", mismatch_count);
+ 			fprintf(stderr, "First mismatch at address 0x%016llX (byte1=0x%02X, byte2=0x%02X)\n",
+ 					addr + first_mismatch, buf1[first_mismatch], buf2[first_mismatch]);
+ 			fprintf(stderr, "Read Status: FAILED - Flash may be unreliable\n");
+ 			free(buf1);
+ 			free(buf2);
+ 			goto out;
+ 		}
+ 		else
+ 		{
+ 			printf("Compare Status: OK - Both reads are identical\n");
 
-		// Second read
-		printf("Step 2/2 - Second READ:\n");
-		printf("Read addr = 0x%016llX, len = 0x%016llX\n", addr, len);
-		ret = prog.flash_read(buf2, addr, len);
-		if (ret < 0)
-		{
-			fprintf(stderr, "Second Read Status: BAD(%d)\n", ret);
-			free(buf1);
-			free(buf2);
-			goto out;
-		}
-		printf("Second Read Status: OK\n");
+ 			fp = fopen(op_arg, "wb");
+ 			if (!fp)
+ 			{
+ 				fprintf(stderr, "Couldn't open file %s for writing.\n", op_arg);
+ 				free(buf1);
+ 				free(buf2);
+ 				goto out;
+ 			}
+ 			fwrite(buf1, 1, len, fp);
+ 			if (ferror(fp))
+ 			{
+ 				fprintf(stderr, "Error writing file [%s]\n", op_arg);
+ 				fclose(fp);
+ 				free(buf1);
+ 				free(buf2);
+ 				goto out;
+ 			}
+ 			fclose(fp);
 
-		// Compare the two reads
-		printf("Comparing reads...\n");
-		int mismatch_count = 0;
-		long long first_mismatch = -1;
-
-		for (long long i = 0; i < len; i++)
-		{
-			if (buf1[i] != buf2[i])
-			{
-				if (first_mismatch == -1)
-					first_mismatch = i;
-				mismatch_count++;
-			}
-		}
-
-		if (mismatch_count == 0)
-		{
-			printf("Compare Status: OK - Both reads are identical\n");
-
-			// Save the verified data to file
-			fp = fopen(fname, "wb");
-			if (!fp)
-			{
-				fprintf(stderr, "Couldn't open file %s for writing.\n", fname);
-				free(buf1);
-				free(buf2);
-				goto out;
-			}
-			fwrite(buf1, 1, len, fp);
-			if (ferror(fp))
-			{
-				fprintf(stderr, "Error writing file [%s]\n", fname);
-				fclose(fp);
-				free(buf1);
-				free(buf2);
-				goto out;
-			}
-			fclose(fp);
-
-			printf("Read Status: OK - Verified data saved to %s\n", fname);
-			free(buf1);
-			free(buf2);
-			goto okout;
-		}
-		else
-		{
-			fprintf(stderr, "Compare Status: BAD - Found %d mismatched bytes\n", mismatch_count);
-			fprintf(stderr, "First mismatch at address 0x%016llX (byte1=0x%02X, byte2=0x%02X)\n",
-					addr + first_mismatch, buf1[first_mismatch], buf2[first_mismatch]);
-			fprintf(stderr, "Read Status: FAILED - Flash may be unreliable\n");
-			free(buf1);
-			free(buf2);
-			goto out;
-		}
-	}
+ 			printf("Read Status: OK - Verified data saved to %s\n", op_arg);
+ 			free(buf1);
+ 			free(buf2);
+ 			goto okout;
+ 		}
+ 	}
 
 	if ((op == 'r') || (op == 'w'))
 	{
 		if (addr && !len)
 			len = flen - addr;
 		else if (!addr && !len)
-		{
 			len = flen;
-		}
-		// Allocate exactly len bytes, +1 is unnecessary unless null-terminating
-		// (which isn't done here)
 		buf = (unsigned char *)malloc(len);
 		if (!buf)
 		{
-			fprintf(stderr, "Malloc failed for read buffer.\n");
+			fprintf(stderr, "Malloc failed for read buffer: len=%lld.\n", len);
 			goto out;
 		}
 	}
@@ -602,17 +603,17 @@ int main(int argc, char *argv[])
 	if (op == 'w')
 	{
 		printf("WRITE:\n");
-		fp = fopen(fname, "rb");
+		fp = fopen(op_arg, "rb");
 		if (!fp)
 		{
-			fprintf(stderr, "Couldn't open file %s for reading.\n", fname);
+			fprintf(stderr, "Couldn't open file %s for reading.\n", op_arg);
 			free(buf);
 			goto out;
 		}
 		wlen = fread(buf, 1, len, fp);
 		if (ferror(fp))
 		{
-			fprintf(stderr, "Error reading file [%s]\n", fname);
+			fprintf(stderr, "Error reading file [%s]\n", op_arg);
 			fclose(fp);
 			free(buf);
 			goto out;
@@ -627,10 +628,15 @@ int main(int argc, char *argv[])
 			printf("Status: OK\n");
 			if (vr)
 			{
-				op = 'r';
-				svr = 1;
 				printf("VERIFY:\n");
-				goto very;
+				if (!do_verify(buf, addr, len))
+				{
+					fprintf(stderr, "Status: BAD\n");
+					fclose(fp);
+					free(buf);
+					goto out;
+				}
+				printf("Status: OK\n");
 			}
 		}
 		else
@@ -639,13 +645,9 @@ int main(int argc, char *argv[])
 		free(buf);
 	}
 
-very:
 	if (op == 'r')
 	{
-		if (!svr)
-			printf("READ:\n");
-		else
-			memset(buf, 0, len);
+		printf("READ:\n");
 		printf("Read addr = 0x%016llX, len = 0x%016llX\n", addr, len);
 		ret = prog.flash_read(buf, addr, len);
 		if (ret < 0)
@@ -654,46 +656,21 @@ very:
 			free(buf);
 			goto out;
 		}
-		if (svr)
-		{
-			unsigned char ch1;
-			int i = 0;
-
-			fseek(fp, 0, SEEK_SET);
-			ch1 = (unsigned char)getc(fp);
-
-			while ((ch1 != EOF) && (i < len - 1) && (ch1 == buf[i++]))
-				ch1 = (unsigned char)getc(fp);
-
-			if (ch1 == buf[i])
-			{
-				printf("Status: OK\n");
-				fclose(fp);
-				free(buf);
-				goto okout;
-			}
-			else
-				fprintf(stderr, "Status: BAD\n");
-			fclose(fp);
-			free(buf);
-			goto out;
-		}
-		fp = fopen(fname, "wb");
+		fp = fopen(op_arg, "wb");
 		if (!fp)
 		{
-			fprintf(stderr, "Couldn't open file %s for writing.\n", fname);
+			fprintf(stderr, "Couldn't open file %s for writing.\n", op_arg);
 			free(buf);
 			goto out;
 		}
 		fwrite(buf, 1, len, fp);
 		if (ferror(fp))
 		{
-			fprintf(stderr, "Error writing file [%s]\n", fname);
+			fprintf(stderr, "Error writing file [%s]\n", op_arg);
 			fclose(fp);
 			free(buf);
 			goto out;
 		}
-
 		fclose(fp);
 		free(buf);
 		printf("Status: OK\n");

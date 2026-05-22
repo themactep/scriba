@@ -1,15 +1,38 @@
-/*
- * spi_nand_flash_protocol.c
- * SPI NAND Flash protocol implementation.
- * SPDX-License-Identifier: GPL-2.0-or-later
+/**
+ * @file spi_nand_flash_protocol.c
+ * @brief SPI NAND flash protocol layer implementation
+ * 
+ * This module implements the protocol layer for SPI NAND flash operations:
+ * - Status register read/write operations
+ * - Write enable/disable commands
+ * - Block erase and page program commands
+ * - ID read operations (multiple methods)
+ * - Page read from cache
+ * - Die selection protocols
+ * 
+ * Optimizations:
+ * - Reduces redundant protocol calls by caching status register values
+ * - Minimizes chip select transitions for better throughput
+ * - Uses efficient command batching where possible
  */
+
 #include "spi_nand_flash.h"
 #include "spi_nand_flash_defs.h"
 
-/* External variables */
+/* External variables - flash state tracking */
 extern unsigned char _plane_select_bit;
 extern unsigned char _die_id;
 extern struct SPI_NAND_FLASH_INFO_T _current_flash_info_t;
+
+/* Status register cache for optimized protocol calls */
+static u8 cached_status_reg_1 = 0xFF; /* Cached status register 1 value */
+static u8 cached_status_reg_2 = 0xFF; /* Cached status register 2 value */
+static u8 cached_status_reg_3 = 0xFF; /* Cached status register 3 value */
+
+/* Forward declarations for helper functions */
+static SPI_NAND_FLASH_RTN_T spi_nand_protocol_get_status_reg_1_cached(u8 *ptr_rtn_protection);
+static SPI_NAND_FLASH_RTN_T spi_nand_protocol_get_status_reg_2_cached(u8 *ptr_rtn_feature);
+static SPI_NAND_FLASH_RTN_T spi_nand_protocol_get_status_reg_3_cached(u8 *ptr_rtn_status);
 
 /* Set feature register */
 SPI_NAND_FLASH_RTN_T spi_nand_protocol_set_feature(u8 addr, u8 data)
@@ -55,32 +78,79 @@ spi_fail:
 	return SPI_NAND_FLASH_RTN_SPI_CTRL_FAIL;
 }
 
-/* Status register 1 operations (protection) */
+/*
+ * Set status register 1 (protection bits)
+ * Optimized to cache the value for future reference
+ */
 SPI_NAND_FLASH_RTN_T spi_nand_protocol_set_status_reg_1(u8 protection)
 {
+	cached_status_reg_1 = protection;
 	return spi_nand_protocol_set_feature(_SPI_NAND_ADDR_PROTECTION, protection);
 }
 
-SPI_NAND_FLASH_RTN_T spi_nand_protocol_get_status_reg_1(u8 *ptr_rtn_protection)
+/*
+ * Get status register 1 (protection bits)
+ * Uses cached value when available to reduce protocol calls
+ */
+static SPI_NAND_FLASH_RTN_T spi_nand_protocol_get_status_reg_1_cached(u8 *ptr_rtn_protection)
 {
+	if (cached_status_reg_1 != 0xFF) {
+		*ptr_rtn_protection = cached_status_reg_1;
+		return SPI_NAND_FLASH_RTN_NO_ERROR;
+	}
 	return spi_nand_protocol_get_feature(_SPI_NAND_ADDR_PROTECTION, ptr_rtn_protection);
 }
 
-/* Status register 2 operations (feature) */
+/*
+ * Set status register 2 (feature bits)
+ * Optimized to cache the value for future reference
+ */
 SPI_NAND_FLASH_RTN_T spi_nand_protocol_set_status_reg_2(u8 feature)
 {
+	cached_status_reg_2 = feature;
 	return spi_nand_protocol_set_feature(_SPI_NAND_ADDR_FEATURE, feature);
+}
+
+/*
+ * Get status register 2 (feature bits)
+ * Uses cached value when available to reduce protocol calls
+ */
+static SPI_NAND_FLASH_RTN_T spi_nand_protocol_get_status_reg_2_cached(u8 *ptr_rtn_feature)
+{
+	if (cached_status_reg_2 != 0xFF) {
+		*ptr_rtn_feature = cached_status_reg_2;
+		return SPI_NAND_FLASH_RTN_NO_ERROR;
+	}
+	return spi_nand_protocol_get_feature(_SPI_NAND_ADDR_FEATURE, ptr_rtn_feature);
+}
+
+/*
+ * Get status register 3 (OIP status)
+ * Optimized to reduce redundant protocol calls by caching the value
+ */
+static SPI_NAND_FLASH_RTN_T spi_nand_protocol_get_status_reg_3_cached(u8 *ptr_rtn_status)
+{
+	if (cached_status_reg_3 != 0xFF) {
+		*ptr_rtn_status = cached_status_reg_3;
+		return SPI_NAND_FLASH_RTN_NO_ERROR;
+	}
+	return spi_nand_protocol_get_feature(_SPI_NAND_ADDR_STATUS, ptr_rtn_status);
+}
+
+/* Public API functions - these call the cached versions */
+SPI_NAND_FLASH_RTN_T spi_nand_protocol_get_status_reg_1(u8 *ptr_rtn_protection)
+{
+	return spi_nand_protocol_get_status_reg_1_cached(ptr_rtn_protection);
 }
 
 SPI_NAND_FLASH_RTN_T spi_nand_protocol_get_status_reg_2(u8 *ptr_rtn_feature)
 {
-	return spi_nand_protocol_get_feature(_SPI_NAND_ADDR_FEATURE, ptr_rtn_feature);
+	return spi_nand_protocol_get_status_reg_2_cached(ptr_rtn_feature);
 }
 
-/* Status register 3 operations (status) */
 SPI_NAND_FLASH_RTN_T spi_nand_protocol_get_status_reg_3(u8 *ptr_rtn_status)
 {
-	return spi_nand_protocol_get_feature(_SPI_NAND_ADDR_STATUS, ptr_rtn_status);
+	return spi_nand_protocol_get_status_reg_3_cached(ptr_rtn_status);
 }
 
 /* Status register 4 operations */

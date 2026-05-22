@@ -51,7 +51,7 @@ int mw_eeprom_erase(unsigned long offs, unsigned long len)
 	memset(ebuf, 0xff, sizeof(ebuf));
 	pbuf = ebuf;
 
-	if (offs || len < mw_eepromsize)
+	if (offs || len < (unsigned long)mw_eepromsize)
 	{
 		Read_EEPROM_3wire(pbuf, mw_eepromsize);
 		memset(pbuf + offs, 0xff, len);
@@ -59,7 +59,7 @@ int mw_eeprom_erase(unsigned long offs, unsigned long len)
 
 	Erase_EEPROM_3wire(mw_eepromsize);
 
-	if (offs || len < mw_eepromsize)
+	if (offs || len < (unsigned long)mw_eepromsize)
 	{
 		if (Write_EEPROM_3wire(pbuf, mw_eepromsize) < 0)
 		{
@@ -85,7 +85,7 @@ int mw_eeprom_write(unsigned char *buf, unsigned long to, unsigned long len)
 	memset(ebuf, 0xff, sizeof(ebuf));
 	pbuf = ebuf;
 
-	if (to || len < mw_eepromsize)
+	if (to || len < (unsigned long)mw_eepromsize)
 	{
 		Read_EEPROM_3wire(pbuf, mw_eepromsize);
 	}
@@ -174,7 +174,7 @@ void support_mw_eeprom_list(void)
 	int i;
 
 	printf("Microwire EEPROM Support List:\n");
-	for (i = 0; i < (sizeof(mw_eepromlist) / sizeof(struct MW_EEPROM)); i++)
+	for (i = 0; (unsigned long)i < (sizeof(mw_eepromlist) / sizeof(struct MW_EEPROM)); i++)
 	{
 		if (!mw_eepromlist[i].size)
 			break;

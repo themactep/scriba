@@ -1,157 +1,125 @@
-Scriba - Thingino Programming App
-=================================
+# Scriba
 
-Scriba is a version of SNANDer that doesn't include any code that isn't used in
-Linux. It has been reorganized and streamlined to serve one sole purpose:
-to work with flash chips in IP cameras that are used with the Thingino project.
+A command-line flash programming tool for IP camera chips. Scriba reads, writes,
+erases, and verifies SPI NOR, SPI NAND, and EEPROM memory using inexpensive USB
+programmers. Built for the [Thingino](https://github.com/themactep/thingino-firmware) firmware project.
 
-### Supported Programmers
+## Quick Start
 
-Scriba supports two programmer types and auto-detects the connected one:
+```bash
+# Build
+git clone https://github.com/themactep/scriba.git && cd scriba
+make && sudo make install
 
-| Programmer | VID:PID | Notes |
-|---|---|---|
-| **CH341A** | 1a86:5512 | First generation only, must be modified for 3.3 V |
-| **EZP2019** | 1fc8:310b | Also supports EZP2019+ (1fc8:310c) and EZP2023 (1fc8:310d) |
+# Identify the flash chip
+scriba -i
 
-For CH341A voltage modification details, see
-https://github.com/themactep/thingino-firmware/wiki/CH341A-Programmer.
+# Save a backup
+scriba -R backup.bin
 
-You can force a specific programmer with `-P`:
+# Write new firmware
+scriba -W firmware.bin
 ```
+
+## Supported Programmers
+
+Scriba auto-detects the connected programmer — no configuration needed.
+
+| Programmer | VID:PID | |
+|---|---|---|
+| **CH341A** (black PCB) | `1a86:5512` | Must be modified for 3.3 V; see [CH341A guide](https://github.com/themactep/thingino-firmware/wiki/CH341A-Programmer) |
+| **EZP2019** / **EZP2019+** | `1fc8:310b` / `310c` | Works out of the box |
+| **EZP2023** | `1fc8:310d` | |
+
+Force a specific programmer with `-P`:
+
+```bash
 scriba -P ch341a -i
 scriba -P ezp2019 -i
 ```
 
-Building
---------
+## Build & Install
 
-### Prerequisites
+**Prerequisites:** GCC, libusb-1.0 development files, make
 
-- GCC compiler
-- libusb-1.0 development files
-- make
-
-### Build Options
-
-# Standard build (dynamically linked)
-```
-make
+```bash
+make              # dynamic linking (needs libusb-1.0 installed)
+make static       # static build (bundles libusb)
+sudo make install # installs binary + udev rules, reloads udev
 ```
 
-### Static build (includes libusb)
-```
-make static
-```
+`make install` copies udev rules for both programmers and reloads them. If your
+programmer was already plugged in, unplug and replug it after installation.
 
-### Install
-```
-sudo make install
-```
-
-Configuration
--------------
-
-### USB Permissions
-
-Scriba installs two udev rules automatically via `make install`:
-
-- `40-persistent-ch341a.rules` — grants access to CH341A USB devices
-- `40-persistent-ezp2019.rules` — grants access to EZP2019/EZP2019+/EZP2023 devices
-
-`make install` also reloads udev rules. If the programmer is already connected,
-unplug and replug it after installation for the rules to take effect.
-
-Usage
------
+## Usage
 
 ```
 scriba [options]
 
 Automation:
-  -R <file>      Read chip (read twice and compare)
-  -W <file>      Write chip (erase + write + verify)
+  -R <file>    Read chip twice and compare — reliable backup
+  -W <file>    Erase + write + verify — safe flash
 
-Single operations:
-  -i             Read chip ID
-  -e             Erase chip
-  -r <file>      Read chip to file
-  -w <file>      Write file to chip
-  -v             Verify after write
+Operations:
+  -i           Read chip ID
+  -e           Erase chip
+  -r <file>    Read chip to file
+  -w <file>    Write file to chip
+  -v           Verify after write (use with -w)
 
-Granularity:
-  -a <address>   Set address
-  -l <bytes>     Set length
+Options:
+  -a <addr>    Start address (hex or decimal)
+  -l <bytes>   Length in bytes
+  -L           List all supported chips
 
 SPI NAND:
-  -d             Disable internal ECC
-  -o <bytes>     Set OOB size
-  -I             Ignore ECC errors
-  -k             Skip BAD pages
+  -d           Disable on-die ECC
+  -o <bytes>   Set OOB size (64–256)
+  -I           Ignore ECC errors during read
+  -k           Skip bad pages
 
 EEPROM:
-  -E <chip>      Select EEPROM type
-  -8             Set 8-bit organization
-  -f <bits>      Set address size
-  -s <bytes>     Set page size
+  -E <chip>    EEPROM type, e.g. 24c32, 93c46, 25q64
+  -8           8-bit organization (Microwire)
+  -f <bits>    Address size (Microwire)
+  -s <bytes>   Page size (SPI EEPROM)
 
 General:
-  -h             Display help
-  -L             List supported chips
-  -P <prog>      Programmer type: ch341a, ezp2019, auto (default: auto)
-  --debug        Enable debug messages for USB communication
-  --trace        Dump SPI commands and data (implies --debug)
+  -P <prog>    Programmer: ch341a, ezp2019, auto (default)
+  --debug      USB debug output
+  --trace      Dump all SPI traffic
+  -h           Help
 ```
 
-Examples
---------
+## Examples
 
-### Get flash info
-```
+```bash
+# Identify the chip
 scriba -i
-```
 
-### Read and save flash
-```
-scriba -r output.bin
-```
+# Reliable backup — reads twice, compares, saves if identical
+scriba -R backup.bin
 
-### Write and verify
-```
-scriba -w data.bin -v
-```
-
-### Write chip (automatic erase + write + verify)
-```
+# Safe flash — erases, writes, then verifies
 scriba -W firmware.bin
-```
 
-### Read chip (read twice and compare)
-```
-scriba -R verified_backup.bin
-```
+# Single operations
+scriba -r dump.bin -a 0 -l 0x400000    # read 4 MB from offset 0
+scriba -w bootloader.bin -v            # write and verify
+scriba -e                              # full chip erase
 
-### EEPROM operations
-```
+# Debugging
+scriba --debug -i                      # see USB communication
+scriba --trace -r dump.bin             # dump every SPI byte
+
+# EEPROM
 scriba -E 93c46 -r eeprom.bin
+scriba -E 24c32 -w eeprom.bin
 ```
 
-### Force programmer type
-```
-scriba -P ezp2019 -i
-scriba -P ch341a -r backup.bin
-```
+---
 
-### Debug USB communication
-```
-scriba --debug -i
-scriba --trace -r dump.bin
-```
-
-
-Authors
--------
-
-Original code by [McMCC](https://github.com/McMCCRU/SNANDer),
-modified by [Droid-MAX](https://github.com/Droid-MAX/),
-modified by [Paul Philippov](https://github.com/themactep).
+Scriba began as a streamlined fork of [SNANDer](https://github.com/McMCCRU/SNANDer)
+by McMCC, later modified by Droid-MAX, and has since been heavily reworked by
+[Paul Philippov](https://github.com/themactep) with EZP2019 support, code
+optimizations, and structural improvements.

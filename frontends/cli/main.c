@@ -472,8 +472,20 @@ int main(int argc, char *argv[]) {
       fprintf(stderr, "Couldn't open file %s for reading.\n", op_arg);
       goto out;
     }
-    if (!addr && !len)
+    /* Reject if file larger than chip when doing a full-chip write */
+    if (!addr && !len) {
+      if (fseek(fp, 0, SEEK_END) == 0) {
+        long long file_size = ftell(fp);
+        rewind(fp);
+        if (file_size > flen) {
+          fprintf(stderr, "File size %lld exceeds chip capacity %lld.\n",
+                  file_size, flen);
+          fclose(fp);
+          goto out;
+        }
+      }
       len = flen;
+    }
     if (bsize > 0 && (len % bsize)) {
       fprintf(stderr,
               "Please set len = 0x%08llX multiple of the block size 0x%08X\n",

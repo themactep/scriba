@@ -126,6 +126,9 @@ int libusb_reset_device(libusb_device_handle *handle);
 
 const char *libusb_error_name(int errcode);
 
+/* Clear USB endpoint halt (custom, used in ch341a_spi.c) */
+int usb_clear_halt(libusb_device_handle *handle, int endpoint);
+
 /* Bidirectional bulk transfer for devices that require concurrent OUT/IN */
 int usb_bulk_pair(libusb_device_handle *handle,
     unsigned char ep_out, unsigned char *data_out, int out_len,

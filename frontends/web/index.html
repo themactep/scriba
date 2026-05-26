@@ -1,4 +1,9 @@
 <!DOCTYPE html>
+<!--
+  web/index.html — Scriba Web SPI Flasher frontend.
+  Copyright (C) 2025-2026 Josh at WLTechBlog <wltechblog@wanderlounge.net>
+  SPDX-License-Identifier: GPL-2.0-or-later
+-->
 <html lang="en" data-bs-theme="dark">
 <head>
     <meta charset="utf-8">
@@ -8,7 +13,7 @@
     <style>
         :root { --bs-font-sans-serif: system-ui, -apple-system, sans-serif; }
         body { min-height: 100vh; display: flex; flex-direction: column; align-items: center; background: #0d1117; }
-        .flasher-card { width: 100%; max-width: 720px; }
+        .flasher-card { width: 100%; max-width: 720px; position: relative; }
         .card-title { color: #58a6ff !important; }
         #log {
             height: 280px;
@@ -122,6 +127,49 @@
                 <small class="text-secondary" id="progress-label">Initializing...</small>
             </div>
         </div>
+
+        <!-- Operation modal — blocks all interaction during flash ops -->
+        <div id="op-modal" class="d-none"
+             style="position: fixed; inset: 0; z-index: 1030;">
+            <div style="position: fixed; inset: 0; background: rgba(0,0,0,0.55);"></div>
+            <div style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+                        width: min(92%, 640px); max-height: 85vh; display: flex; flex-direction: column;">
+                <div class="card" style="max-height: inherit;">
+                    <div class="card-header d-flex align-items-center gap-2">
+                        <h5 class="card-title mb-0 fs-6">
+                            <i class="bi bi-gear-wide-connected me-1"></i>Operation in Progress
+                        </h5>
+                        <span class="badge bg-warning ms-auto" id="op-status">Running</span>
+                    </div>
+                    <div class="card-body" style="flex: 1 1 auto; overflow: hidden; display: flex; flex-direction: column; gap: 0.6rem;">
+                        <div id="op-progress">
+                            <div class="progress" style="height: 8px;">
+                                <div class="progress-bar bg-warning progress-bar-striped progress-bar-animated"
+                                     id="op-progress-fill" style="width: 0%"></div>
+                            </div>
+                            <small class="text-secondary" id="op-progress-label">Starting...</small>
+                        </div>
+                        <div id="op-log" style="flex: 1 1 auto; overflow-y: auto; min-height: 120px; max-height: 45vh;
+                             font-family: 'Courier New', monospace; font-size: 0.78rem; line-height: 1.4;
+                             white-space: pre-wrap; word-break: break-all;
+                             background: #010409; border: 1px solid #30363d; border-radius: 6px; padding: 0.6rem;">
+                        </div>
+                        <div class="text-danger small text-center" style="animation: pulse-warn 1.5s infinite;">
+                            <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                            Do not close, refresh, or navigate away from this page
+                        </div>
+                    </div>
+                    <div class="card-footer d-flex flex-wrap align-items-center gap-2">
+                        <button class="btn btn-outline-secondary btn-sm" onclick="toggleEraseDebug()" id="op-btn-debug">
+                            <i class="bi bi-bug me-1"></i> Debug
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="saveLog()" id="op-btn-save-log">
+                            <i class="bi bi-save me-1"></i> Save Log
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Log -->
@@ -130,9 +178,13 @@
             <h2 class="card-title mb-0 fs-6">
                 <i class="bi bi-terminal me-1"></i> Log
             </h2>
-            <button class="btn btn-outline-secondary btn-sm ms-auto" onclick="toggleEraseDebug()"
+            <button class="btn btn-outline-secondary btn-sm" onclick="toggleEraseDebug()"
                 id="btn-erase-debug" title="Toggle erase/USB debug logging">
                 <i class="bi bi-bug me-1"></i>Debug
+            </button>
+            <button class="btn btn-outline-secondary btn-sm d-none" onclick="saveLog()"
+                id="btn-save-log" title="Save log to text file">
+                <i class="bi bi-save me-1"></i> Save Log
             </button>
         </div>
         <div class="card-body p-2">
@@ -151,7 +203,7 @@
     WebUSB requires <strong>HTTPS</strong> (or localhost) and <strong>Chrome</strong> or <strong>Edge</strong>.
 </div>
 
-<script src="/wasm/scriba.js"></script>
-<script type="module" src="/src/main.js"></script>
+<script src="./wasm/scriba.js"></script>
+<script type="module" src="./src/main.js"></script>
 </body>
 </html>

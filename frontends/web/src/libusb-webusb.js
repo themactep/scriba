@@ -1,3 +1,9 @@
+/*
+ * web/src/libusb-webusb.js — libusb → WebUSB shim for Emscripten.
+ * Copyright (C) 2025-2026 Josh at WLTechBlog <wltechblog@wanderlounge.net>
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 /**
  * libusb → WebUSB shim for Emscripten
  *
@@ -66,6 +72,9 @@ mergeInto(LibraryManager.library, {
                     webusb_state.device_descriptors.push({
                         idVendor: devices[i].vendorId,
                         idProduct: devices[i].productId,
+                        bcdDevice: (devices[i].deviceVersionMajor << 8) |
+                                   (devices[i].deviceVersionMinor << 4) |
+                                    devices[i].deviceVersionSubminor,
                         bNumConfigurations: devices[i].configurations ? devices[i].configurations.length : 1,
                     });
                 }
@@ -104,6 +113,7 @@ mergeInto(LibraryManager.library, {
         for (var i = 0; i < 18; i++) {{{ makeSetValue('desc_ptr', 'i', '0', 'i8') }}};
         {{{ makeSetValue('desc_ptr', '8', 'd.idVendor', 'i16') }}};
         {{{ makeSetValue('desc_ptr', '10', 'd.idProduct', 'i16') }}};
+        {{{ makeSetValue('desc_ptr', '12', 'd.bcdDevice || 0', 'i16') }}};
         {{{ makeSetValue('desc_ptr', '17', 'd.bNumConfigurations', 'i8') }}};
         return 0;
     },
@@ -191,18 +201,19 @@ mergeInto(LibraryManager.library, {
                 var idx = webusb_state.devices.indexOf(match);
                 if (idx === -1) {
                     webusb_state.devices.push(match);
-                    webusb_state.device_descriptors.push({
-                        idVendor: match.vendorId,
-                        idProduct: match.productId,
-                        bNumConfigurations: match.configurations ? match.configurations.length : 1,
-                    });
+                webusb_state.device_descriptors.push({
+                    idVendor: match.vendorId,
+                    idProduct: match.productId,
+                    bcdDevice: (match.deviceVersionMajor << 8) |
+                               (match.deviceVersionMinor << 4) |
+                                match.deviceVersionSubminor,
+                    bNumConfigurations: match.configurations ? match.configurations.length : 1,
+                });
                     idx = webusb_state.devices.length - 1;
                 }
 
                 var p = match.opened ? Promise.resolve() : match.open();
                 return p.then(function() {
-                    return match.claimInterface(0);
-                }).then(function() {
                     var handle_id = webusb_state.next_handle_id++;
                     webusb_state.handles[handle_id] = match;
                     webusb_state.handle_device_map[handle_id] = idx;

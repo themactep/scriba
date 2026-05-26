@@ -1,6 +1,7 @@
 /.vscode/
 /build/
 /dl/
+/frontends/web/node-modules/
 CLAUDE.md
 *.bin
 

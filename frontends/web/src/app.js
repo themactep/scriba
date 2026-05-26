@@ -1,3 +1,9 @@
+/*
+ * web/src/app.js — Scriba Web Flasher application logic.
+ * Copyright (C) 2025-2026 Josh at WLTechBlog <wltechblog@wanderlounge.net>
+ * SPDX-License-Identifier: GPL-2.0-or-later
+ */
+
 /**
  * Scriba Web Flasher - Application Logic
  *
@@ -16,6 +22,22 @@ var firmwareData = null;
 var firmwareFileName = '';
 var flashSize = 0;
 var wasmBusy = false;
+var logEntries = [];
+var hadFlashOp = false;
+
+var BUSY_STATES = ['connecting', 'detecting', 'reading', 'writing', 'erasing'];
+var FLASH_OP_STATES = ['reading', 'writing', 'erasing'];
+
+function isBusy() { return BUSY_STATES.indexOf(currentState) !== -1; }
+function isFlashOp() { return FLASH_OP_STATES.indexOf(currentState) !== -1; }
+
+/* Prevent accidental navigation during active operations */
+window.addEventListener('beforeunload', function(e) {
+    if (isFlashOp()) {
+        e.preventDefault();
+        e.returnValue = 'A flash operation is in progress. Are you sure?';
+    }
+});
 
 async function wasmCall(name, returnType, argTypes, args) {
     var deadline = Date.now() + 10000;
@@ -41,7 +63,13 @@ async function wasmCall(name, returnType, argTypes, args) {
 
 function log(msg, level) {
     level = level || 'info';
-    var el = document.getElementById('log');
+    logEntries.push({ time: new Date().toISOString(), level: level, msg: msg });
+    appendToLog(document.getElementById('log'), msg, level);
+    appendToLog(document.getElementById('op-log'), msg, level);
+}
+
+function appendToLog(el, msg, level) {
+    if (!el) return;
     var line = document.createElement('div');
     line.className = level;
     line.textContent = msg;
@@ -51,33 +79,84 @@ function log(msg, level) {
 
 function toggleEraseDebug() {
     window.__eraseDebug = !window.__eraseDebug;
-    var btn = document.getElementById('btn-erase-debug');
-    if (window.__eraseDebug) {
-        btn.classList.remove('btn-outline-secondary');
-        btn.classList.add('btn-warning');
-        log('Erase debug logging ENABLED (check browser console for USB traffic)', 'warn');
-    } else {
-        btn.classList.remove('btn-warning');
-        btn.classList.add('btn-outline-secondary');
-        log('Erase debug logging disabled', 'info');
+    var els = ['btn-erase-debug', 'op-btn-debug'];
+    for (var i = 0; i < els.length; i++) {
+        var btn = document.getElementById(els[i]);
+        if (!btn) continue;
+        if (window.__eraseDebug) {
+            btn.classList.remove('btn-outline-secondary');
+            btn.classList.add('btn-warning');
+        } else {
+            btn.classList.remove('btn-warning');
+            btn.classList.add('btn-outline-secondary');
+        }
     }
+    if (window.__eraseDebug)
+        log('USB debug logging ENABLED', 'warn');
+    else
+        log('USB debug logging disabled', 'info');
 }
 
 Object.assign(window, { toggleEraseDebug: toggleEraseDebug });
+
+/* Route USB debug messages from browser console to the visible log */
+(function() {
+    var origLog = console.log;
+    console.log = function() {
+        var text = Array.prototype.join.call(arguments, ' ');
+        origLog.apply(console, arguments);
+        if (text.indexOf('[USB-DBG]') !== -1 || text.indexOf('[ERASE-DBG]') !== -1)
+            log(text, 'debug');
+    };
+})();
+
+function saveLog() {
+    var text = logEntries.map(function(e) { return e.time + ' [' + e.level + '] ' + e.msg; }).join('\n');
+    var blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'scriba-log.txt';
+    a.click();
+    URL.revokeObjectURL(url);
+    log('Log saved to scriba-log.txt', 'info');
+}
 
 /* ------------------------------------------------------------------ */
 /*  Progress                                                           */
 /* ------------------------------------------------------------------ */
 
+function setProgress(elId, percent, label) {
+    var fill = document.getElementById(elId + '-fill');
+    var lbl = document.getElementById(elId + '-label');
+    if (fill) fill.style.width = percent + '%';
+    if (lbl) lbl.textContent = label || '';
+}
+
 function showProgress(percent, label) {
-    var container = document.getElementById('progress');
-    container.classList.remove('d-none');
-    document.getElementById('progress-fill').style.width = percent + '%';
-    document.getElementById('progress-label').textContent = label || '';
+    var c = document.getElementById('progress');
+    if (c) c.classList.remove('d-none');
+    setProgress('progress', percent, label);
+    setProgress('op-progress', percent, label);
+    var opFill = document.getElementById('op-progress-fill');
+    if (opFill && percent === 100) {
+        opFill.classList.remove('progress-bar-animated');
+        opFill.classList.add('bg-success');
+    }
 }
 
 function hideProgress() {
-    document.getElementById('progress').classList.add('d-none');
+    var c = document.getElementById('progress');
+    if (c) c.classList.add('d-none');
+    var opEl = document.getElementById('op-progress');
+    if (opEl) {
+        var fill = document.getElementById('op-progress-fill');
+        if (fill) {
+            fill.style.width = '0%';
+            fill.classList.add('progress-bar-animated');
+            fill.classList.remove('bg-success');
+        }
+    }
 }
 
 /* ------------------------------------------------------------------ */
@@ -102,10 +181,24 @@ function setState(state) {
     badge.textContent = info[0];
     badge.className = 'badge bg-' + info[1] + ' ms-auto';
 
-    var busy = ['connecting', 'detecting', 'reading', 'writing', 'erasing'].indexOf(state) !== -1;
+    var busy = isBusy();
+    var flashOp = isFlashOp();
+    if (flashOp) hadFlashOp = true;
     var warn = document.getElementById('op-warning');
     if (busy) warn.classList.remove('d-none');
     else warn.classList.add('d-none');
+
+    var modal = document.getElementById('op-modal');
+    if (flashOp) modal.classList.remove('d-none');
+    else modal.classList.add('d-none');
+
+    var saveBtn = document.getElementById('btn-save-log');
+    if (state === 'idle') {
+        hadFlashOp = false;
+        if (saveBtn) saveBtn.classList.add('d-none');
+    } else if ((state === 'done' || state === 'error') && hadFlashOp) {
+        if (saveBtn) saveBtn.classList.remove('d-none');
+    }
 
     document.getElementById('btn-connect').disabled = busy;
     document.getElementById('btn-read-id').disabled = busy;
@@ -568,7 +661,7 @@ async function doErase() {
 
 Object.assign(window, {
     connectDevice, readChipId, selectFirmware, firmwareSelected,
-    doRead, doWrite, doErase
+    doRead, doWrite, doErase, saveLog
 });
 
 (function() {

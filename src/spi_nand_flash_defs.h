@@ -1,74 +1,102 @@
 /*
  * spi_nand_flash_defs.h
  * Definitions for SPI NAND Access interface.
+ * Copyright (C) 2018-2021 McMCC <mcmcc@mail.ru>
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 #ifndef _SPI_NAND_FLASH_DEFS_H_
 #define _SPI_NAND_FLASH_DEFS_H_
 
-#include <string.h>
+#include "nandcmd_api.h"
+#include "spi_controller.h"
+#include "timer.h"
+#include "types.h"
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
-#include <stdbool.h>
-#include "types.h"
-#include "spi_controller.h"
-#include "nandcmd_api.h"
-#include "timer.h"
 
 /* SPI NAND Command Set */
-#define _SPI_NAND_OP_GET_FEATURE 0x0F                 /* Get Feature */
-#define _SPI_NAND_OP_SET_FEATURE 0x1F                 /* Set Feature */
-#define _SPI_NAND_OP_PAGE_READ 0x13                   /* Load page data into cache of SPI NAND chip */
-#define _SPI_NAND_OP_READ_FROM_CACHE_SINGLE 0x03      /* Read data from cache of SPI NAND chip, single speed*/
-#define _SPI_NAND_OP_READ_FROM_CACHE_DUAL 0x3B        /* Read data from cache of SPI NAND chip, dual speed*/
-#define _SPI_NAND_OP_READ_FROM_CACHE_QUAD 0x6B        /* Read data from cache of SPI NAND chip, quad speed*/
-#define _SPI_NAND_OP_WRITE_ENABLE 0x06                /* Enable write data to  SPI NAND chip */
-#define _SPI_NAND_OP_WRITE_DISABLE 0x04               /* Resetting the Write Enable Latch (WEL) */
-#define _SPI_NAND_OP_PROGRAM_LOAD_SINGLE 0x02         /* Write data into cache of SPI NAND chip with cache reset, single speed */
-#define _SPI_NAND_OP_PROGRAM_LOAD_QUAD 0x32           /* Write data into cache of SPI NAND chip with cache reset, quad speed */
-#define _SPI_NAND_OP_PROGRAM_LOAD_RAMDOM_SINGLE 0x84  /* Write data into cache of SPI NAND chip, single speed */
-#define _SPI_NAND_OP_PROGRAM_LOAD_RAMDOM_QUAD 0x34    /* Write data into cache of SPI NAND chip, quad speed */
+#define _SPI_NAND_OP_GET_FEATURE 0x0F /* Get Feature */
+#define _SPI_NAND_OP_SET_FEATURE 0x1F /* Set Feature */
+#define _SPI_NAND_OP_PAGE_READ                                                 \
+  0x13 /* Load page data into cache of SPI NAND chip */
+#define _SPI_NAND_OP_READ_FROM_CACHE_SINGLE                                    \
+  0x03 /* Read data from cache of SPI NAND chip, single speed*/
+#define _SPI_NAND_OP_READ_FROM_CACHE_DUAL                                      \
+  0x3B /* Read data from cache of SPI NAND chip, dual speed*/
+#define _SPI_NAND_OP_READ_FROM_CACHE_QUAD                                      \
+  0x6B /* Read data from cache of SPI NAND chip, quad speed*/
+#define _SPI_NAND_OP_WRITE_ENABLE                                              \
+  0x06 /* Enable write data to  SPI NAND chip                                  \
+        */
+#define _SPI_NAND_OP_WRITE_DISABLE                                             \
+  0x04 /* Resetting the Write Enable Latch (WEL) */
+#define _SPI_NAND_OP_PROGRAM_LOAD_SINGLE                                       \
+  0x02 /* Write data into cache of SPI NAND chip with cache reset, single      \
+          speed */
+#define _SPI_NAND_OP_PROGRAM_LOAD_QUAD                                         \
+  0x32 /* Write data into cache of SPI NAND chip with cache reset, quad speed  \
+        */
+#define _SPI_NAND_OP_PROGRAM_LOAD_RAMDOM_SINGLE                                \
+  0x84 /* Write data into cache of SPI NAND chip, single speed */
+#define _SPI_NAND_OP_PROGRAM_LOAD_RAMDOM_QUAD                                  \
+  0x34 /* Write data into cache of SPI NAND chip, quad speed */
 
-#define _SPI_NAND_OP_PROGRAM_EXECUTE 0x10             /* Write data from cache into SPI NAND chip */
-#define _SPI_NAND_OP_READ_ID 0x9F                     /* Read Manufacture ID and Device ID */
-#define _SPI_NAND_OP_BLOCK_ERASE 0xD8                 /* Erase Block */
-#define _SPI_NAND_OP_RESET 0xFF                       /* Reset */
-#define _SPI_NAND_OP_DIE_SELECT 0xC2                  /* Die Select */
+#define _SPI_NAND_OP_PROGRAM_EXECUTE                                           \
+  0x10                            /* Write data from cache into SPI NAND chip */
+#define _SPI_NAND_OP_READ_ID 0x9F /* Read Manufacture ID and Device ID */
+#define _SPI_NAND_OP_BLOCK_ERASE 0xD8 /* Erase Block */
+#define _SPI_NAND_OP_RESET 0xFF       /* Reset */
+#define _SPI_NAND_OP_DIE_SELECT 0xC2  /* Die Select */
 
 /* SPI NAND register address of command set */
-#define _SPI_NAND_ADDR_ECC 0x90                       /* Address of ECC Config */
-#define _SPI_NAND_ADDR_PROTECTION 0xA0                /* Address of protection */
-#define _SPI_NAND_ADDR_FEATURE 0xB0                   /* Address of feature */
-#define _SPI_NAND_ADDR_STATUS 0xC0                    /* Address of status */
-#define _SPI_NAND_ADDR_FEATURE_4 0xD0                 /* Address of status 4 */
-#define _SPI_NAND_ADDR_STATUS_5 0xE0                  /* Address of status 5 */
-#define _SPI_NAND_ADDR_MANUFACTURE_ID 0x00            /* Address of Manufacture ID */
-#define _SPI_NAND_ADDR_DEVICE_ID 0x01                 /* Address of Device ID */
+#define _SPI_NAND_ADDR_ECC 0x90            /* Address of ECC Config */
+#define _SPI_NAND_ADDR_PROTECTION 0xA0     /* Address of protection */
+#define _SPI_NAND_ADDR_FEATURE 0xB0        /* Address of feature */
+#define _SPI_NAND_ADDR_STATUS 0xC0         /* Address of status */
+#define _SPI_NAND_ADDR_FEATURE_4 0xD0      /* Address of status 4 */
+#define _SPI_NAND_ADDR_STATUS_5 0xE0       /* Address of status 5 */
+#define _SPI_NAND_ADDR_MANUFACTURE_ID 0x00 /* Address of Manufacture ID */
+#define _SPI_NAND_ADDR_DEVICE_ID 0x01      /* Address of Device ID */
 
 /* SPI NAND value of register address of command set */
-#define _SPI_NAND_VAL_DISABLE_PROTECTION 0x0          /* Value for disable write protection */
-#define _SPI_NAND_VAL_ENABLE_PROTECTION 0x38          /* Value for enable write protection */
-#define _SPI_NAND_VAL_OIP 0x1                         /* OIP = Operation In Progress */
-#define _SPI_NAND_VAL_ERASE_FAIL 0x4                  /* E_FAIL = Erase Fail */
-#define _SPI_NAND_VAL_PROGRAM_FAIL 0x8                /* P_FAIL = Program Fail */
-#define _SPI_NAND_VAL_ECC_ENABLE 0x10                 /* ECC Enable bit */
-/* ECC Status bits (Status Register C0h) - Note: Interpretation varies by manufacturer! */
-#define _SPI_NAND_VAL_ECC_STATUS_MASK_30 0x30         /* Common mask for 2-bit ECC status */
-#define _SPI_NAND_VAL_ECC_STATUS_MASK_70 0x70         /* Common mask for 3-bit ECC status */
-#define _SPI_NAND_VAL_ECC_STATUS_MASK_F0 0xF0         /* Mask for 4-bit ECC status (e.g., XTX C-series) */
-#define _SPI_NAND_VAL_ECC_STATUS_MASK_3C 0x3C         /* Mask for ECC status (e.g., XTX A-series) */
-#define _SPI_NAND_VAL_ECC_STATUS_SHIFT_4 4            /* Common shift for ECC status */
-#define _SPI_NAND_VAL_ECC_STATUS_SHIFT_2 2            /* Shift for ECC status (e.g., XTX A-series) */
-#define _SPI_NAND_VAL_ECC_UNCORRECTABLE_2BIT 0x2      /* Common value indicating uncorrectable error (for 0x30 mask) */
-#define _SPI_NAND_VAL_ECC_UNCORRECTABLE_3BIT 0x7      /* Common value indicating uncorrectable error (for 0x70 mask) */
-#define _SPI_NAND_VAL_ECC_UNCORRECTABLE_XTX_A 0x8     /* Value indicating uncorrectable error (for 0x3C mask) */
-#define _SPI_NAND_VAL_ECC_UNCORRECTABLE_XTX_C 0xF     /* Value indicating uncorrectable error (for 0xF0 mask) */
+#define _SPI_NAND_VAL_DISABLE_PROTECTION                                       \
+  0x0 /* Value for disable write protection */
+#define _SPI_NAND_VAL_ENABLE_PROTECTION                                        \
+  0x38                                 /* Value for enable write protection */
+#define _SPI_NAND_VAL_OIP 0x1          /* OIP = Operation In Progress */
+#define _SPI_NAND_VAL_ERASE_FAIL 0x4   /* E_FAIL = Erase Fail */
+#define _SPI_NAND_VAL_PROGRAM_FAIL 0x8 /* P_FAIL = Program Fail */
+#define _SPI_NAND_VAL_ECC_ENABLE 0x10  /* ECC Enable bit */
+/* ECC Status bits (Status Register C0h) - Note: Interpretation varies by
+ * manufacturer! */
+#define _SPI_NAND_VAL_ECC_STATUS_MASK_30                                       \
+  0x30 /* Common mask for 2-bit ECC status */
+#define _SPI_NAND_VAL_ECC_STATUS_MASK_70                                       \
+  0x70 /* Common mask for 3-bit ECC status */
+#define _SPI_NAND_VAL_ECC_STATUS_MASK_F0                                       \
+  0xF0 /* Mask for 4-bit ECC status (e.g., XTX C-series) */
+#define _SPI_NAND_VAL_ECC_STATUS_MASK_3C                                       \
+  0x3C /* Mask for ECC status (e.g., XTX A-series) */
+#define _SPI_NAND_VAL_ECC_STATUS_SHIFT_4 4 /* Common shift for ECC status */
+#define _SPI_NAND_VAL_ECC_STATUS_SHIFT_2                                       \
+  2 /* Shift for ECC status (e.g., XTX A-series) */
+#define _SPI_NAND_VAL_ECC_UNCORRECTABLE_2BIT                                   \
+  0x2 /* Common value indicating uncorrectable error (for 0x30 mask) */
+#define _SPI_NAND_VAL_ECC_UNCORRECTABLE_3BIT                                   \
+  0x7 /* Common value indicating uncorrectable error (for 0x70 mask) */
+#define _SPI_NAND_VAL_ECC_UNCORRECTABLE_XTX_A                                  \
+  0x8 /* Value indicating uncorrectable error (for 0x3C mask) */
+#define _SPI_NAND_VAL_ECC_UNCORRECTABLE_XTX_C                                  \
+  0xF /* Value indicating uncorrectable error (for 0xF0 mask) */
 
 /* Die Select Bits (Specific to certain manufacturers/methods) */
-#define _SPI_NAND_VAL_DIE_SELECT_BIT_MICRON 0x40      /* Bit used for die select in Micron status reg 4 method */
+#define _SPI_NAND_VAL_DIE_SELECT_BIT_MICRON                                    \
+  0x40 /* Bit used for die select in Micron status reg 4 method */
 
 /* SPI NAND Size Define */
 #define _SPI_NAND_PAGE_SIZE_512 0x0200
@@ -278,35 +306,36 @@
 #define EMPTY_OOB (0)
 #define NONE_EMPTY_OOB (1)
 
-#define _SPI_NAND_BLOCK_ALIGNED_CHECK(__addr__, __block_size__) ((__addr__) & (__block_size__ - 1))
+#define _SPI_NAND_BLOCK_ALIGNED_CHECK(__addr__, __block_size__)                \
+  ((__addr__) & (__block_size__ - 1))
 #define _SPI_NAND_GET_DEVICE_INFO_PTR &(_current_flash_info_t)
 
 /* Porting Replacement */
-#define _SPI_NAND_SEMAPHORE_LOCK()      /* Disable interrupt */
-#define _SPI_NAND_SEMAPHORE_UNLOCK()    /* Enable interrupt  */
-#define _SPI_NAND_PRINTF printf         /* Always print information */
+#define _SPI_NAND_SEMAPHORE_LOCK()   /* Disable interrupt */
+#define _SPI_NAND_SEMAPHORE_UNLOCK() /* Enable interrupt  */
+#define _SPI_NAND_PRINTF printf      /* Always print information */
 #if !defined(SPI_NAND_FLASH_DEBUG)
 #define _SPI_NAND_DEBUG_PRINTF(level, fmt, ...)
 #define _SPI_NAND_DEBUG_PRINTF_ARRAY(level, array, len)
 #else
 #define _SPI_NAND_DEBUG_PRINTF(level, fmt, ...) printf(fmt, ##__VA_ARGS__)
-void _SPI_NAND_DEBUG_PRINTF_ARRAY(int level, u8 *array, int len)
-{
-    for (int i = 0; i < len; i++)
-    {
-        _SPI_NAND_DEBUG_PRINTF(level, "  %02X", array[i]);
-        if ((i % 16) == 15)
-            _SPI_NAND_DEBUG_PRINTF(level, "\n");
-    }
-    if ((len % 16) != 0)
-        _SPI_NAND_DEBUG_PRINTF(level, "\n");
+void _SPI_NAND_DEBUG_PRINTF_ARRAY(int level, u8 *array, int len) {
+  for (int i = 0; i < len; i++) {
+    _SPI_NAND_DEBUG_PRINTF(level, "  %02X", array[i]);
+    if ((i % 16) == 15)
+      _SPI_NAND_DEBUG_PRINTF(level, "\n");
+  }
+  if ((len % 16) != 0)
+    _SPI_NAND_DEBUG_PRINTF(level, "\n");
 }
 #endif
 #define _SPI_NAND_ENABLE_MANUAL_MODE SPI_CONTROLLER_Enable_Manual_Mode
 #define _SPI_NAND_WRITE_ONE_BYTE SPI_CONTROLLER_Write_One_Byte
 // Remove speed argument from macro calls
-#define _SPI_NAND_WRITE_NBYTE(ptr, len, speed) SPI_CONTROLLER_Write_NByte(ptr, len)
-#define _SPI_NAND_READ_NBYTE(ptr, len, speed) SPI_CONTROLLER_Read_NByte(ptr, len)
+#define _SPI_NAND_WRITE_NBYTE(ptr, len, speed)                                 \
+  SPI_CONTROLLER_Write_NByte(ptr, len)
+#define _SPI_NAND_READ_NBYTE(ptr, len, speed)                                  \
+  SPI_CONTROLLER_Read_NByte(ptr, len)
 #define _SPI_NAND_READ_CHIP_SELECT_HIGH SPI_CONTROLLER_Chip_Select_High
 #define _SPI_NAND_READ_CHIP_SELECT_LOW SPI_CONTROLLER_Chip_Select_Low
 
@@ -324,12 +353,19 @@ SPI_NAND_FLASH_RTN_T spi_nand_protocol_get_status_reg_5(u8 *ptr_rtn_status);
 SPI_NAND_FLASH_RTN_T spi_nand_protocol_write_enable(void);
 SPI_NAND_FLASH_RTN_T spi_nand_protocol_write_disable(void);
 SPI_NAND_FLASH_RTN_T spi_nand_protocol_block_erase(u32 block_idx);
-SPI_NAND_FLASH_RTN_T spi_nand_protocol_read_id(struct SPI_NAND_FLASH_INFO_T *ptr_rtn_flash_id);
-SPI_NAND_FLASH_RTN_T spi_nand_protocol_read_id_2(struct SPI_NAND_FLASH_INFO_T *ptr_rtn_flash_id);
-SPI_NAND_FLASH_RTN_T spi_nand_protocol_read_id_3(struct SPI_NAND_FLASH_INFO_T *ptr_rtn_flash_id);
+SPI_NAND_FLASH_RTN_T
+spi_nand_protocol_read_id(struct SPI_NAND_FLASH_INFO_T *ptr_rtn_flash_id);
+SPI_NAND_FLASH_RTN_T
+spi_nand_protocol_read_id_2(struct SPI_NAND_FLASH_INFO_T *ptr_rtn_flash_id);
+SPI_NAND_FLASH_RTN_T
+spi_nand_protocol_read_id_3(struct SPI_NAND_FLASH_INFO_T *ptr_rtn_flash_id);
 SPI_NAND_FLASH_RTN_T spi_nand_protocol_page_read(u32 page_number);
-SPI_NAND_FLASH_RTN_T spi_nand_protocol_read_from_cache(u32 data_offset, u32 len, u8 *ptr_rtn_buf, u32 read_mode, SPI_NAND_FLASH_READ_DUMMY_BYTE_T dummy_mode);
-SPI_NAND_FLASH_RTN_T spi_nand_protocol_program_load(u32 addr, u8 *ptr_data, u32 len, u32 write_mode);
+SPI_NAND_FLASH_RTN_T
+spi_nand_protocol_read_from_cache(u32 data_offset, u32 len, u8 *ptr_rtn_buf,
+                                  u32 read_mode,
+                                  SPI_NAND_FLASH_READ_DUMMY_BYTE_T dummy_mode);
+SPI_NAND_FLASH_RTN_T spi_nand_protocol_program_load(u32 addr, u8 *ptr_data,
+                                                    u32 len, u32 write_mode);
 SPI_NAND_FLASH_RTN_T spi_nand_protocol_program_execute(u32 addr);
 SPI_NAND_FLASH_RTN_T spi_nand_protocol_die_select_1(u8 die_id);
 SPI_NAND_FLASH_RTN_T spi_nand_protocol_die_select_2(u8 die_id);

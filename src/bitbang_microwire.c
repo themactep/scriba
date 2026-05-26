@@ -5,11 +5,11 @@
  * Copyright (C) 2005-2021 Mokrushin I.V. aka McMCC mcmcc@mail.ru
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
-#include <unistd.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
 #include "bitbang_microwire.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
 
 struct gpio_cmd bb_func;
 
@@ -24,382 +24,351 @@ int fix_addr_len = 0;
 
 static unsigned char data = 0;
 
-static void delay_ms(int n)
-{
-	usleep(n);
+static void delay_ms(int n) {
+  usleep(n);
 }
 
-static void data_1()
-{
-	data = data | DI;
-	if (bb_func.gpio_setbits)
-		bb_func.gpio_setbits(data);
+static void data_1() {
+  data = data | DI;
+  if (bb_func.gpio_setbits)
+    bb_func.gpio_setbits(data);
 }
 
-static void data_0()
-{
-	data = data & (~DI);
-	if (bb_func.gpio_setbits)
-		bb_func.gpio_setbits(data);
+static void data_0() {
+  data = data & (~DI);
+  if (bb_func.gpio_setbits)
+    bb_func.gpio_setbits(data);
 }
 
-static void org_1()
-{
-	//
+static void org_1() {
+  //
 }
 
-static void org_0()
-{
-	//
+static void org_0() {
+  //
 }
 
-static void csel_1()
-{
-	data = data | CSEL;
-	if (bb_func.gpio_setbits)
-		bb_func.gpio_setbits(data);
+static void csel_1() {
+  data = data | CSEL;
+  if (bb_func.gpio_setbits)
+    bb_func.gpio_setbits(data);
 }
 
-static void csel_0()
-{
-	data = data & (~CSEL);
-	if (bb_func.gpio_setbits)
-		bb_func.gpio_setbits(data);
+static void csel_0() {
+  data = data & (~CSEL);
+  if (bb_func.gpio_setbits)
+    bb_func.gpio_setbits(data);
 }
 
-static void clock_1()
-{
-	data = data | CLK;
-	if (bb_func.gpio_setbits)
-		bb_func.gpio_setbits(data);
+static void clock_1() {
+  data = data | CLK;
+  if (bb_func.gpio_setbits)
+    bb_func.gpio_setbits(data);
 }
 
-static void clock_0()
-{
-	data = data & (~CLK);
-	if (bb_func.gpio_setbits)
-		bb_func.gpio_setbits(data);
+static void clock_0() {
+  data = data & (~CLK);
+  if (bb_func.gpio_setbits)
+    bb_func.gpio_setbits(data);
 }
 
-static unsigned int get_data()
-{
-	unsigned char b = 0;
-	if (bb_func.gpio_getbits)
-		bb_func.gpio_getbits(&b);
-	return ((b & DO) == DO);
+static unsigned int get_data() {
+  unsigned char b = 0;
+  if (bb_func.gpio_getbits)
+    bb_func.gpio_getbits(&b);
+  return ((b & DO) == DO);
 }
 
-static int addr_nbits(const char *func, int size)
-{
-	int i = 0;
+static int addr_nbits(const char *func, int size) {
+  int i = 0;
 
-	if (fix_addr_len)
-	{
-		printf("%s: Set address len %d bits\n", func, fix_addr_len);
-		return fix_addr_len;
-	}
+  if (fix_addr_len) {
+    printf("%s: Set address len %d bits\n", func, fix_addr_len);
+    return fix_addr_len;
+  }
 
-	switch (size)
-	{
-	case 128: /* 93c46 */
-		i = org ? 6 : 7;
-		break;
-	case 256: /* 93c56 */
-	case 512: /* 93c66 */
-		i = org ? 8 : 9;
-		break;
-	case 1024: /* 93c76 */
-	case 2048: /* 93c86 */
-		i = org ? 10 : 11;
-		break;
-	case 4096: /* 93c96(not original name) */
-		i = org ? 12 : 13;
-		break;
-	default:
-		i = 6; /* 93c06 and 93c16(not original name) */
-		break;
-	}
+  switch (size) {
+  case 128: /* 93c46 */
+    i = org ? 6 : 7;
+    break;
+  case 256: /* 93c56 */
+  case 512: /* 93c66 */
+    i = org ? 8 : 9;
+    break;
+  case 1024: /* 93c76 */
+  case 2048: /* 93c86 */
+    i = org ? 10 : 11;
+    break;
+  case 4096: /* 93c96(not original name) */
+    i = org ? 12 : 13;
+    break;
+  default:
+    i = 6; /* 93c06 and 93c16(not original name) */
+    break;
+  }
 
-	printf("%s: Set address len %d bits\n", func, i);
+  printf("%s: Set address len %d bits\n", func, i);
 
-	return i;
+  return i;
 }
 
-static int convert_size(int eeprom_size)
-{
-	int k = 1;
+static int convert_size(int eeprom_size) {
+  int k = 1;
 
-	org_0();
-	delay_ms(1);
-	if (org)
-	{
-		org_1();
-		delay_ms(1);
-		k = 2;
-	}
-	eeprom_size = eeprom_size / k;
+  org_0();
+  delay_ms(1);
+  if (org) {
+    org_1();
+    delay_ms(1);
+    k = 2;
+  }
+  eeprom_size = eeprom_size / k;
 
-	return eeprom_size;
+  return eeprom_size;
 }
 
-static void send_to_di(unsigned int val, int nbit)
-{
-	int b = 0, i = 0;
+static void send_to_di(unsigned int val, int nbit) {
+  int b = 0, i = 0;
 
-	while (i < nbit)
-	{
-		b = val & (1 << ((nbit - i++) - 1));
-		clock_0();
-		if (b)
-			data_1();
-		else
-			data_0();
-		delay_ms(1);
-		clock_1();
-		delay_ms(1);
-	}
+  while (i < nbit) {
+    b = val & (1 << ((nbit - i++) - 1));
+    clock_0();
+    if (b)
+      data_1();
+    else
+      data_0();
+    delay_ms(1);
+    clock_1();
+    delay_ms(1);
+  }
 }
 
-static unsigned char get_from_do()
-{
-	unsigned char val = 0;
-	int b = 0, i = 0;
-	while (i < 8)
-	{
-		clock_0();
-		delay_ms(1);
-		b = get_data();
-		clock_1();
-		delay_ms(1);
-		val |= (b << (7 - i++));
-	}
-	return val;
+static unsigned char get_from_do() {
+  unsigned char val = 0;
+  int b = 0, i = 0;
+  while (i < 8) {
+    clock_0();
+    delay_ms(1);
+    b = get_data();
+    clock_1();
+    delay_ms(1);
+    val |= (b << (7 - i++));
+  }
+  return val;
 }
 
-static void enable_write_3wire(int num_bit)
-{
-	csel_0();
-	clock_0();
-	delay_ms(1);
-	data_1();
-	csel_1();
-	delay_ms(1);
-	clock_1();
-	delay_ms(1);
+static void enable_write_3wire(int num_bit) {
+  csel_0();
+  clock_0();
+  delay_ms(1);
+  data_1();
+  csel_1();
+  delay_ms(1);
+  clock_1();
+  delay_ms(1);
 
-	send_to_di(3, 4);
-	send_to_di(0, num_bit - 2);
+  send_to_di(3, 4);
+  send_to_di(0, num_bit - 2);
 
-	data_0();
-	delay_ms(1);
-	csel_0();
-	delay_ms(1);
+  data_0();
+  delay_ms(1);
+  csel_0();
+  delay_ms(1);
 }
 
-static void disable_write_3wire(int num_bit)
-{
-	csel_1();
-	delay_ms(1);
-	clock_0();
-	delay_ms(1);
-	data_1();
-	delay_ms(1);
-	clock_1();
-	delay_ms(1);
-	send_to_di(0, 4);
-	send_to_di(0, num_bit - 2);
-	csel_0();
-	delay_ms(1);
+static void disable_write_3wire(int num_bit) {
+  csel_1();
+  delay_ms(1);
+  clock_0();
+  delay_ms(1);
+  data_1();
+  delay_ms(1);
+  clock_1();
+  delay_ms(1);
+  send_to_di(0, 4);
+  send_to_di(0, num_bit - 2);
+  csel_0();
+  delay_ms(1);
 }
 
-static void chip_busy(void)
-{
-	printf("Error: Always BUSY! Communication problem...The broken microwire chip?\n");
+static void chip_busy(void) {
+  printf("Error: Always BUSY! Communication problem...The broken microwire "
+         "chip?\n");
 }
 
-void Erase_EEPROM_3wire(int size_eeprom)
-{
-	int i, num_bit;
+void Erase_EEPROM_3wire(int size_eeprom) {
+  int i, num_bit;
 
-	num_bit = addr_nbits(__func__, size_eeprom);
+  num_bit = addr_nbits(__func__, size_eeprom);
 
-	enable_write_3wire(num_bit);
-	csel_0();
-	clock_0();
-	delay_ms(1);
-	data_1();
-	csel_1();
-	delay_ms(1);
-	clock_1();
-	delay_ms(1);
+  enable_write_3wire(num_bit);
+  csel_0();
+  clock_0();
+  delay_ms(1);
+  data_1();
+  csel_1();
+  delay_ms(1);
+  clock_1();
+  delay_ms(1);
 
-	send_to_di(2, 4);
-	send_to_di(0, num_bit - 2);
-	clock_0();
-	data_0();
-	delay_ms(1);
-	csel_0();
-	delay_ms(1);
-	csel_1();
-	delay_ms(1);
-	clock_1();
-	delay_ms(1);
-	i = 0;
-	while (!get_data() && i < MW_BUSY_WAIT_LIMIT)
-	{
-		clock_0();
-		delay_ms(1);
-		clock_1();
-		delay_ms(1);
-		i++;
-	}
+  send_to_di(2, 4);
+  send_to_di(0, num_bit - 2);
+  clock_0();
+  data_0();
+  delay_ms(1);
+  csel_0();
+  delay_ms(1);
+  csel_1();
+  delay_ms(1);
+  clock_1();
+  delay_ms(1);
+  i = 0;
+  while (!get_data() && i < MW_BUSY_WAIT_LIMIT) {
+    clock_0();
+    delay_ms(1);
+    clock_1();
+    delay_ms(1);
+    i++;
+  }
 
-	if (i == MW_BUSY_WAIT_LIMIT)
-	{
-		chip_busy();
-		return;
-	}
+  if (i == MW_BUSY_WAIT_LIMIT) {
+    chip_busy();
+    return;
+  }
 
-	csel_0();
-	delay_ms(1);
-	clock_0();
-	delay_ms(1);
-	clock_1();
-	delay_ms(1);
+  csel_0();
+  delay_ms(1);
+  clock_0();
+  delay_ms(1);
+  clock_1();
+  delay_ms(1);
 
-	disable_write_3wire(num_bit);
+  disable_write_3wire(num_bit);
 }
 
-int Read_EEPROM_3wire(unsigned char *buffer, int size_eeprom)
-{
-	int address, num_bit, l;
+int Read_EEPROM_3wire(unsigned char *buffer, int size_eeprom) {
+  int address, num_bit, l;
 
-	num_bit = addr_nbits(__func__, size_eeprom);
-	size_eeprom = convert_size(size_eeprom);
+  num_bit = addr_nbits(__func__, size_eeprom);
+  size_eeprom = convert_size(size_eeprom);
 
-	address = 0;
+  address = 0;
 
-	for (l = 0; l < size_eeprom; l++)
-	{
-		csel_0();
-		clock_0();
-		delay_ms(1);
-		data_1();
-		csel_1();
-		delay_ms(1);
-		clock_1();
-		delay_ms(1);
+  for (l = 0; l < size_eeprom; l++) {
+    csel_0();
+    clock_0();
+    delay_ms(1);
+    data_1();
+    csel_1();
+    delay_ms(1);
+    clock_1();
+    delay_ms(1);
 
-		send_to_di(2, 2);
-		send_to_di(l, num_bit);
+    send_to_di(2, 2);
+    send_to_di(l, num_bit);
 
-		data_0();
-		clock_0();
-		delay_ms(1);
-		clock_1();
-		delay_ms(1);
-		buffer[address] = get_from_do();
-		if (org)
-		{
-			address++;
-			buffer[address] = get_from_do();
-		}
-		csel_0();
-		delay_ms(1);
-		clock_0();
-		delay_ms(1);
-		clock_1();
-		delay_ms(1);
-		printf("\bRead %d%% [%d] of [%d] bytes      ", 100 * l / size_eeprom, l, size_eeprom);
-		printf("\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b");
-		fflush(stdout);
-		address++;
-	}
-	printf("Read 100%% [%d] of [%d] bytes      \n", l, size_eeprom);
-	return 0;
+    data_0();
+    clock_0();
+    delay_ms(1);
+    clock_1();
+    delay_ms(1);
+    buffer[address] = get_from_do();
+    if (org) {
+      address++;
+      buffer[address] = get_from_do();
+    }
+    csel_0();
+    delay_ms(1);
+    clock_0();
+    delay_ms(1);
+    clock_1();
+    delay_ms(1);
+    printf("\bRead %d%% [%d] of [%d] bytes      ", 100 * l / size_eeprom, l,
+           size_eeprom);
+    printf("\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b"
+           "\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b");
+    fflush(stdout);
+    address++;
+  }
+  printf("Read 100%% [%d] of [%d] bytes      \n", l, size_eeprom);
+  return 0;
 }
 
-int Write_EEPROM_3wire(unsigned char *buffer, int size_eeprom)
-{
-	int i, l, address, num_bit;
+int Write_EEPROM_3wire(unsigned char *buffer, int size_eeprom) {
+  int i, l, address, num_bit;
 
-	num_bit = addr_nbits(__func__, size_eeprom);
-	size_eeprom = convert_size(size_eeprom);
+  num_bit = addr_nbits(__func__, size_eeprom);
+  size_eeprom = convert_size(size_eeprom);
 
-	enable_write_3wire(num_bit);
-	address = 0;
+  enable_write_3wire(num_bit);
+  address = 0;
 
-	for (l = 0; l < size_eeprom; l++)
-	{
-		csel_0();
-		clock_0();
-		delay_ms(1);
-		data_1();
-		csel_1();
-		delay_ms(1);
-		clock_1();
-		delay_ms(1);
-		send_to_di(1, 2);
-		send_to_di(l, num_bit);
-		send_to_di(buffer[address], 8);
-		if (org)
-		{
-			address++;
-			send_to_di(buffer[address], 8);
-		}
-		clock_0();
-		data_0();
-		delay_ms(1);
-		csel_0();
-		delay_ms(1);
-		csel_1();
-		delay_ms(1);
-		clock_1();
-		delay_ms(1);
-		i = 0;
-		while (!get_data() && i < MW_BUSY_WAIT_LIMIT)
-		{
-			clock_0();
-			delay_ms(1);
-			clock_1();
-			delay_ms(1);
-			i++;
-		}
-		if (i == MW_BUSY_WAIT_LIMIT)
-		{
-			printf("\n");
-			chip_busy();
-			return -1;
-		}
+  for (l = 0; l < size_eeprom; l++) {
+    csel_0();
+    clock_0();
+    delay_ms(1);
+    data_1();
+    csel_1();
+    delay_ms(1);
+    clock_1();
+    delay_ms(1);
+    send_to_di(1, 2);
+    send_to_di(l, num_bit);
+    send_to_di(buffer[address], 8);
+    if (org) {
+      address++;
+      send_to_di(buffer[address], 8);
+    }
+    clock_0();
+    data_0();
+    delay_ms(1);
+    csel_0();
+    delay_ms(1);
+    csel_1();
+    delay_ms(1);
+    clock_1();
+    delay_ms(1);
+    i = 0;
+    while (!get_data() && i < MW_BUSY_WAIT_LIMIT) {
+      clock_0();
+      delay_ms(1);
+      clock_1();
+      delay_ms(1);
+      i++;
+    }
+    if (i == MW_BUSY_WAIT_LIMIT) {
+      printf("\n");
+      chip_busy();
+      return -1;
+    }
 
-		csel_0();
-		delay_ms(1);
-		clock_0();
-		delay_ms(1);
-		clock_1();
-		delay_ms(1);
-		printf("\bWritten %d%% [%d] of [%d] bytes      ", 100 * l / size_eeprom, l, size_eeprom);
-		printf("\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b");
-		fflush(stdout);
-		address++;
-	}
-	printf("Written 100%% [%d] of [%d] bytes      \n", l, size_eeprom);
-	disable_write_3wire(num_bit);
+    csel_0();
+    delay_ms(1);
+    clock_0();
+    delay_ms(1);
+    clock_1();
+    delay_ms(1);
+    printf("\bWritten %d%% [%d] of [%d] bytes      ", 100 * l / size_eeprom, l,
+           size_eeprom);
+    printf("\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b"
+           "\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b");
+    fflush(stdout);
+    address++;
+  }
+  printf("Written 100%% [%d] of [%d] bytes      \n", l, size_eeprom);
+  disable_write_3wire(num_bit);
 
-	return 0;
+  return 0;
 }
 
-int deviceSize_3wire(char *eepromname)
-{
-	int i;
+int deviceSize_3wire(char *eepromname) {
+  int i;
 
-	for (i = 0; mw_eepromlist[i].size; i++)
-	{
-		if (strstr(mw_eepromlist[i].name, eepromname))
-		{
-			return (mw_eepromlist[i].size);
-		}
-	}
+  for (i = 0; mw_eepromlist[i].size; i++) {
+    if (strstr(mw_eepromlist[i].name, eepromname)) {
+      return (mw_eepromlist[i].size);
+    }
+  }
 
-	return -1;
+  return -1;
 }

@@ -448,9 +448,6 @@ static uint8_t swap_byte(uint8_t x)
  *	D6/21	unused	(DIN2)
  *	D7/22	SO/2	(DIN)
  */
-#ifdef __EMSCRIPTEN__
-extern int usb_clear_halt(void *handle_ptr, int endpoint);
-#endif
 
 int enable_pins(bool enable)
 {
@@ -461,7 +458,7 @@ int enable_pins(bool enable)
 	uint8_t buf[] = {
 	    CH341A_CMD_UIO_STREAM,
 	    CH341A_CMD_UIO_STM_OUT | (enable ? CH341A_UIO_STATE_CS0_LOW_SCK_LOW : CH341A_UIO_STATE_CS_HIGH_SCK_LOW),
-	    CH341A_CMD_UIO_STM_DIR | CH341A_UIO_DIR_ALL_OUTPUT,
+	    CH341A_CMD_UIO_STM_DIR | (enable ? CH341A_UIO_DIR_ALL_OUTPUT : CH341A_UIO_DIR_INPUT),
 	    CH341A_CMD_UIO_STM_END,
 	};
 #else
@@ -839,7 +836,6 @@ int ch341a_spi_reinit(void)
 {
 	if (!handle)
 		return -1;
-	extern int usb_clear_halt(void *handle, int endpoint);
 	usb_clear_halt(handle, READ_EP);
 	usb_clear_halt(handle, WRITE_EP);
 	if (config_stream(CH341A_STM_I2C_750K) < 0)

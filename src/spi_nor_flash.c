@@ -85,7 +85,7 @@ int snor_wait_ready(int sleep_ms) {
     if (sleep_ms < 100) {
         usleep(sleep_ms > 0 ? sleep_ms * 1000 : 1000);
     }
-    for (count = 0; count < (sleep_ms < 100 ? 10 : sleep_ms + 30); count++) {
+    for (count = 0; count < (sleep_ms < 100 ? 10 : sleep_ms * 5 + 5); count++) {
 #else
     for (count = 0; count < ((sleep_ms + 1) * 1000); count++) {
 #endif
@@ -1106,20 +1106,24 @@ int snor_read(unsigned char *buf, unsigned long from, unsigned long len)
 			while (chunk_remain > 0) {
 				u32 chunk_len = chunk_remain > 4096 ? 4096 : chunk_remain;
 				if(SPI_CONTROLLER_Read_NByte(&buf[len - remain_len + chunk_off], chunk_len)) {
-#else
-			if(SPI_CONTROLLER_Read_NByte(&buf[len - remain_len], remain_len)) {
-#endif
 				SPI_CONTROLLER_Chip_Select_High();
 				if (spi_chip_info->addr4b)
 					snor_4byte_mode(0);
 				len = -1;
 				break;
 			}
-#ifdef __EMSCRIPTEN__
 				chunk_off += chunk_len;
 				chunk_remain -= chunk_len;
 			}
 			if (len == (unsigned long)-1) break;
+#else
+			if(SPI_CONTROLLER_Read_NByte(&buf[len - remain_len], remain_len)) {
+				SPI_CONTROLLER_Chip_Select_High();
+				if (spi_chip_info->addr4b)
+					snor_4byte_mode(0);
+				len = -1;
+				break;
+			}
 #endif
 			remain_len = 0;
 		} else {

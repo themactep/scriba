@@ -18,8 +18,11 @@ var flashSize = 0;
 var wasmBusy = false;
 
 async function wasmCall(name, returnType, argTypes, args) {
+    var waited = 0;
     while (wasmBusy) {
+        if (waited > 60000) throw new Error('wasmCall timeout waiting for previous operation');
         await new Promise(function(r) { setTimeout(r, 50); });
+        waited += 50;
     }
     wasmBusy = true;
     try {
@@ -475,9 +478,6 @@ async function doWrite() {
 
             Module._free(verifyBuf);
             if (verifyOk) log('Verify: OK - data matches');
-            else if (verifyOk === false && verifyOffset >= writeLen) {
-                /* already logged */
-            }
         }
 
         showProgress(100, 'Write complete');
@@ -519,22 +519,24 @@ async function doErase() {
         }
 
         showProgress(100, 'Verifying erase...');
-        var verifyPtr = Module._malloc(256);
+        var verifyLen = 65536; // one sector
+        var verifyPtr = Module._malloc(verifyLen);
         if (verifyPtr) {
             var readResult = await wasmCall('scriba_read_flash', 'number',
                 ['number', 'number', 'number'],
-                [verifyPtr, 0, 256]);
+                [verifyPtr, 0, verifyLen]);
             if (readResult >= 0) {
                 var allFF = true;
                 var firstNonFF = -1;
-                for (var i = 0; i < 256; i++) {
+                for (var i = 0; i < verifyLen; i++) {
                     if (Module.HEAPU8[verifyPtr + i] !== 0xFF) {
                         allFF = false;
                         if (firstNonFF < 0) firstNonFF = i;
+                        break;
                     }
                 }
                 if (allFF) {
-                    log('Erase verified: first 256 bytes are all 0xFF', 'success');
+                    log('Erase verified: first ' + verifyLen + ' bytes are all 0xFF', 'success');
                 } else {
                     log('Erase FAILED: byte ' + firstNonFF + ' is 0x' + Module.HEAPU8[verifyPtr + firstNonFF].toString(16) + ' (expected 0xFF)', 'error');
                     var hex = '';
@@ -581,6 +583,8 @@ Object.assign(window, {
     });
     navigator.usb.addEventListener('disconnect', function(e) {
         console.log('USB device disconnected');
+        wasmBusy = false;
+        setState('idle');
     });
 
     setState('idle');

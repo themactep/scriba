@@ -17,8 +17,9 @@ set(SCRIBA_SOURCES
     ${SRC_DIR}/spi_nor_flash.c
     ${SRC_DIR}/ch341a_spi.c
     ${SRC_DIR}/ezp2019_spi.c
+    ${SRC_DIR}/scriba.c
+    ${SRC_DIR}/usb_hal_webusb.c
     ${SRC_DIR}/timer.c
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/web_main.c
 )
 
 add_executable(scriba_web ${SCRIBA_SOURCES})

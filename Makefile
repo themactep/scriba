@@ -22,7 +22,7 @@ STRIP     ?= strip
 INSTALL   ?= install
 PREFIX    ?= /usr
 BINDIR    ?= $(PREFIX)/bin
-CFLAGS     = -std=gnu99 -Wall -O2 -D_FILE_OFFSET_BITS=64 -DGIT_COMMIT_DATE=\"$(GIT_COMMIT_DATE)\" -DGIT_COMMIT_HASH=\"$(GIT_COMMIT_HASH)\"
+CFLAGS     = -std=gnu99 -Wall -O2 -D_FILE_OFFSET_BITS=64 -DGIT_COMMIT_DATE=\"$(GIT_COMMIT_DATE)\" -DGIT_COMMIT_HASH=\"$(GIT_COMMIT_HASH)\" -I$(SRC_DIR)
 LDFLAGS   ?= -pthread
 LIBS      ?= -lusb-1.0
 
@@ -37,8 +37,9 @@ SRCS  = src/flashcmd_api.c \
 	src/ch341a_spi.c \
 	src/ezp2019_spi.c \
 	src/usb_hal_libusb.c \
+	src/scriba.c \
 	src/timer.c \
-	src/main.c
+	frontends/cli/main.c
 
 LIBUSB_VERSION := 1.0.30
 LIBUSB_BUNDLE := libusb-$(LIBUSB_VERSION).tar.bz2

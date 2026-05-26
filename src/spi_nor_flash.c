@@ -85,7 +85,7 @@ int snor_wait_ready(int sleep_ms) {
     if (sleep_ms < 100) {
         usleep(sleep_ms > 0 ? sleep_ms * 1000 : 1000);
     }
-    for (count = 0; count < (sleep_ms < 100 ? 10 : sleep_ms + 30); count++) {
+    for (count = 0; count < (sleep_ms + 1) * 5; count++) {
 #else
     for (count = 0; count < ((sleep_ms + 1) * 1000); count++) {
 #endif

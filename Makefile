@@ -36,6 +36,7 @@ SRCS  = src/flashcmd_api.c \
 	src/spi_nor_flash.c \
 	src/ch341a_spi.c \
 	src/ezp2019_spi.c \
+	src/usb_hal_libusb.c \
 	src/timer.c \
 	src/main.c
 

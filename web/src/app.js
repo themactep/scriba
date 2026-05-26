@@ -18,7 +18,13 @@ var flashSize = 0;
 var wasmBusy = false;
 
 async function wasmCall(name, returnType, argTypes, args) {
+    var deadline = Date.now() + 10000;
     while (wasmBusy) {
+        if (Date.now() > deadline) {
+            wasmBusy = false;
+            log('WASM call timed out waiting for previous operation', 'error');
+            throw new Error('wasmCall timeout - previous operation hung');
+        }
         await new Promise(function(r) { setTimeout(r, 50); });
     }
     wasmBusy = true;
@@ -475,9 +481,6 @@ async function doWrite() {
 
             Module._free(verifyBuf);
             if (verifyOk) log('Verify: OK - data matches');
-            else if (verifyOk === false && verifyOffset >= writeLen) {
-                /* already logged */
-            }
         }
 
         showProgress(100, 'Write complete');
@@ -581,6 +584,7 @@ Object.assign(window, {
     });
     navigator.usb.addEventListener('disconnect', function(e) {
         console.log('USB device disconnected');
+        wasmBusy = false;
     });
 
     setState('idle');

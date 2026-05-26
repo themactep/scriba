@@ -513,6 +513,19 @@ int full_erase_chip(void) {
 	}
 	snor_set_progress("BE", 0);
 	snor_write_enable();
+#ifdef __EMSCRIPTEN__
+	{
+		u8 sr;
+		if (snor_read_sr(&sr) == 0 && !(sr & 0x02)) {
+			fprintf(stderr, "[WARN] WEL not set after WREN (SR=0x%02x), retrying with reinit\n", sr);
+			extern int ch341a_spi_reinit(void);
+			ch341a_spi_reinit();
+			snor_write_enable();
+			snor_read_sr(&sr);
+			fprintf(stderr, "[WARN] WEL after retry: SR=0x%02x\n", sr);
+		}
+	}
+#endif
     SPI_CONTROLLER_Chip_Select_Low();
     SPI_CONTROLLER_Write_One_Byte(OPCODE_BE1);
     SPI_CONTROLLER_Chip_Select_High();

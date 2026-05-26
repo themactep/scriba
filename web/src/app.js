@@ -507,12 +507,24 @@ async function doErase() {
     try {
         showProgress(0, 'Erasing entire chip (BE command)...');
 
+        var eraseStart = Date.now();
         var result = await wasmCall('scriba_erase_flash', 'number',
             ['number', 'number'],
             [0, flashSize]);
+        var eraseSec = (Date.now() - eraseStart) / 1000;
 
         if (result !== 0) {
             log('Full chip erase failed: error ' + result, 'error');
+            hideProgress();
+            setState('error');
+            return;
+        }
+
+        if (eraseSec < 3) {
+            log('WARNING: Erase completed in ' + eraseSec.toFixed(1) +
+                's which is too fast for this chip.' +
+                ' The command may not have been accepted.' +
+                ' Try re-seating the flash chip and reloading the page.', 'error');
             hideProgress();
             setState('error');
             return;

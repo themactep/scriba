@@ -116,8 +116,8 @@ install: $(TARGET_BIN) install-rules
 	@echo "Install complete."
 
 install-rules:
-	$(INSTALL) -m 0664 -D $(SRC_DIR)/40-persistent-ch341a.rules $(DESTDIR)/etc/udev/rules.d/40-persistent-ch341a.rules
-	$(INSTALL) -m 0664 -D $(SRC_DIR)/40-persistent-ezp2019.rules $(DESTDIR)/etc/udev/rules.d/40-persistent-ezp2019.rules
+	$(INSTALL) -m 0664 -D resources/udev/40-persistent-ch341a.rules $(DESTDIR)/etc/udev/rules.d/40-persistent-ch341a.rules
+	$(INSTALL) -m 0664 -D resources/udev/40-persistent-ezp2019.rules $(DESTDIR)/etc/udev/rules.d/40-persistent-ezp2019.rules
 	@if [ -z "$(DESTDIR)" ]; then \
 		echo "Reloading udev rules..."; \
 		udevadm control --reload-rules 2>/dev/null || true; \

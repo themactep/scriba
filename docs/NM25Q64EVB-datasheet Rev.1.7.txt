@@ -1,0 +1,1705 @@
+
+NM25Q64EVB
+3V, 64M-BIT <x1/x2/x4> SERIAL MULTI I/O FLASH MEMORY
+
+Key Features
+• Protocol Support - Single I/O, Dual I/O and Qua d I/O
+• Quad Peripheral Interface(QPI) available
+• Support clock frequency up to 104MHz
+
+WWW.NORMEM.COM
+
+REV. 1.7, Nov 14 2022
+
+Contents
+
+1. FEATURES .................................................................................................. 4
+2. GENERAL DESCRIPTION ....................................................................................... 5
+3. PIN CONFIGURATIONS ........................................................................................ 7
+4. BLOCK DIAGRAM ............................................................................................. 8
+5. MEMORY ORGANIZATION ....................................................................................... 9
+6. DATA PROTECTION .......................................................................................... 10
+6.1 Block lock protection ................................................................................... 11
+6.2 Additional 2 x 8K-bit secured registers with OTP Locks .................................................. 13
+7. DEVICE OPERATION ......................................................................................... 14
+8. COMMAND SET .............................................................................................. 15
+8.1 Command Set ............................................................................................. 15
+9. REGISTER DESCRIPTION ..................................................................................... 17
+9.1 Status Register ......................................................................................... 17
+10. COMMAND DESCRIPTION ..................................................................................... 21
+10.1 Write Enable (WREN) .................................................................................... 21
+10.2 Write Disable (WRDI) ................................................................................... 22
+10.3 Write Enable for Volatile Status Register .............................................................. 23
+10.4 Read Status Register (RDSR1/RDSR2/RDSR3) ............................................................... 24
+10.5 Write Status Register (WRSR1/WRSR2/WRSR3) .............................................................. 25
+10.6 Read Data Bytes (READ) ................................................................................. 26
+10.7 Read Data Bytes at Higher Speed(FAST_READ) ............................................................. 27
+10.8 Dual Output Fast Read (DREAD) .......................................................................... 29
+10.9 Quad Output Fast Read (QREAD) .......................................................................... 30
+10.10 Dual I/O Fast Read (2READ) ............................................................................ 31
+10.11 Quad I/O Fast Read (4READ) ............................................................................ 33
+10.12 Quad I/O Word Fast Read (4READ_WD) .................................................................... 36
+10.13 Set Burst with Wrap (SET_BSTRD) ....................................................................... 38
+10.14 Page Program (PP) ..................................................................................... 39
+10.15 Quad Page Program (QPP) ............................................................................... 41
+10.16 Sector Erase (SE) ..................................................................................... 43
+10.17 Block Erase for 32K-byte (BE32K) ...................................................................... 44
+10.18 Block Erase (BE) ...................................................................................... 45
+10.19 Chip Erase (CE) ....................................................................................... 46
+10.20 Deep Power-down (DP) .................................................................................. 47
+10.21 Release from Deep Power-Down (RDP) and Read Device ID (RDI) ........................................... 48
+10.22 Read Manufacture ID/ Device ID (REMS) ................................................................. 50
+10.23 Read Manufacture ID/ Device ID with Dual I/O (REMS2) .................................................. 51
+10.24 Read Manufacture ID/ Device ID with Quad I/O (REMS4) .................................................. 52
+10.25 Read Identification (RDID) ............................................................................ 53
+10.26 Program/Erase Suspend (Suspend) ....................................................................... 54
+10.27 Program/Erase Resume (Resume) ......................................................................... 55
+10.28 Erase Security Registers (ERSECR) ..................................................................... 56
+10.29 Program Security Registers (PGSECR) ................................................................... 57
+10.30 Read Security Registers (RDSECR) ...................................................................... 58
+10.31 Individual Block/Sector Lock (SBLK) ................................................................... 59
+10.32 Individual Block/Sector Unlock (SBULK) ................................................................ 60
+10.33 Read Block/Sector Lock (RDBLK) ........................................................................ 61
+10.34 Global Block/Sector Lock (GBLK) ....................................................................... 62
+10.35 Global Block/Sector Unlock (GBULK) .................................................................... 63
+10.36 Set Read Parameter (SET_PARAM) ........................................................................ 64
+10.37 Quad I/O Burst Read with Wrap (4READ_BST) ............................................................. 65
+10.38 Enable QPI (EQIO) ..................................................................................... 66
+10.39 Reset QPI (RSTQIO) .................................................................................... 66
+10.40 Software Reset (Reset-Enable (RSTEN) and Reset (RST)) ................................................. 67
+10.41 Read SFDP Mode (RDSFDP) ............................................................................... 68
+11. RESET ................................................................................................... 70
+12. POWER-ON STATE .......................................................................................... 72
+13. ELECTRICAL SPECIFICATIONS ............................................................................... 73
+13.1 DC CHARACTERISTICS ..................................................................................... 75
+13.2 AC CHARACTERISTICS ..................................................................................... 76
+14. OPERATING CONDITIONS .................................................................................... 79
+14.1 At Device Power-Up and Power-Down ...................................................................... 79
+14.2 INITIAL DELIVERY STATE ................................................................................. 81
+15. ERASE AND PROGRAMMING PERFORMANCE ....................................................................... 82
+16. DATA RETENTION .......................................................................................... 82
+17. LATCH-UP CHARACTERISTICS ................................................................................ 82
+18. ORDERING INFORMATION .................................................................................... 83
+18.1 Valid Part Numbers ..................................................................................... 83
+18.2 PART NAME DESCRIPTION .................................................................................. 84
+19. PACKAGE INFORMATION ..................................................................................... 85
+20. REVISION HISTORY ........................................................................................ 89
+
+1. FEATURES
+
+GENERAL
+
+- Supports Serial Peripheral Interface -- Mode 0 and Mode 3
+- Single Power Supply Operation
+  - 2.7 to 3.6 volt for read, erase, and program operations
+- 64Mb: 67,108,864 x 1 bit structure or 33,554,432 x 2 bits (Dual I/O mode) structure or 16,777,216 x 4bits (Quad I/O output mode) structure
+- Protocol Support
+  - Single I/O, Dual I/O and Quad I/O
+- Fast frequency support
+  - Support clock frequency up to
+    - Single I/O mode: 104MHz
+    - Dual I/O mode: 104MHz
+    - Quad I/O mode: 104MHz
+  -  Configurable dummy cycle number for fast read operation
+- Quad Peripheral Interface (QPI) available
+- Equal Sectors with 4K byte each, or Equal Blocks with 32K byte each, or Equal Blocks with 64K byte each
+  - Any Sector/Block can be erased individually
+- Programming :
+  - 256byte page buffer
+  - Quad Input / Output page program(4PP) to enhance program performance
+- Typical 100,000 erase/program cycles
+- 20 years data retention
+
+SOFTWARE FEATURES
+
+- Input Data Format
+  - 1-byte command code
+- Advanced Security Features
+  - Block lock protection
+  - The BP0-BP3 and TB status bits define the size of the area to be protected against program and erase commands
+  - Individual Block/Sector array Protection
+- Additional 2 x 8K bit security Registers with OTP Locks
+- Command Reset
+- Program/Erase Suspend and Resume operation
+- Electronic Identification
+  - JEDEC 1-byte manufacturer ID and 2-byte device ID
+  - RES command for 1-byte Device ID
+  - REMS command for 1-byte manufacturer ID and 1-byte device ID
+- Support Serial Flash Discoverable Parameters (SFDP) mode
+
+HARDWARE FEATURES
+
+- SCLK Input
+  - Serial clock input
+- SI/SIO0
+  - Serial Data Input or Serial Data Input/Output for 2 x I/O and 4 x I/O read mode
+- SO/SIO1
+  - Serial Data Output or Serial Data Input/Output for 2 x I/O and 4 x I/O read mode
+- WP#/SIO2
+  - Hardware write protection or serial data Input/Output for 4 x I/O read mode
+- RESET#/HOLD#/SIO3
+  - Hardware Reset pin or Hardware Hold pin or serial data Input/Output for 4 x I/O read mode
+- RESET# (16-pin package)
+  - Hardware Reset pin
+- PACKAGE
+  - 8-pin SOP
+  - 8-land WSON
+  - 16-pin SOP
+  - 24-Ball BGA (5x5 ball array)
+  - All devices are RoHS Compliant and Halogen Free
+
+2. GENERAL DESCRIPTION
+
+NM25Q64EVB is 64M bits Serial NOR Flash memory, which is configured as 8,388,608 x 8 internally. NM25Q64EVB feature a serial peripheral interface and software protocol allowing operation on a simple 3-wire bus while it is in single I/O mode. The three bus signals are a clock input (SCLK), a serial data input (SI), and a serial data output (SO). Serial access to the device is enabled by CS# input.
+
+When it is in two I/O read mode, the SI pin and SO pin become SIO0 and SIO1 pin for address and dummy bits input and data output. When it is in four I/O read mode, the SI pin, SO pin, WP# pin and RESET# pin (of the 8-pin package) become SIO0pin, SIO1 pin, SIO2 pin and SIO3 pin for address and dummy bits input and data output.
+
+The NM25Q64EVB ® (Serial Multi I/O) provides sequential read operation on whole chip.
+
+After program/erase command is issued, auto program/erase algorithms which program/erase and verify the specified page or sector/block locations will be executed. Program command is executed on byte basis, or page (256 bytes) basis, or word basis. Erase command is executed on sector (4K-byte), or block (32K-byte), or block (64K-byte), or whole chip basis.
+
+To provide user with ease of interface, a status register is included to indicate the status of the chip. The status read command can be issued to detect completion status of a program or erase operation via WIP bit.
+
+When the device is not in operation and CS# is high, it is put in standby mode.
+
+The NM25Q64EVB utilizes NOR-MEM's proprietary memory cell, which reliably stores memory contents even after 100,000 program and erase cycles.
+
+Table 1. Read Performance Comparison
+
+| SPI/QPI mode | Read Mode          | Continuous Read | Numbers of Dummy | Read Frequency |
+|              |                    | mode bit cycle  | cycles(1)        |  (MHz)(2)      |
+|--------------|--------------------|-----------------|------------------|----------------|
+| SPI mode     | Normal Read        | 0               | 0                | 80             |
+|              |--------------------|-----------------|------------------|----------------|
+|              | Fast Read          | 0               | 8                | 104            |
+|              |--------------------|-----------------|------------------|----------------|
+|              | Dual Output Read   | 0               | 8                | 104/80         |
+|              |--------------------|-----------------|------------------|----------------|
+|              | Quad Output Read   | 0               | 8                | 104/80         |
+|              |--------------------|-----------------|------------------|----------------|
+|              | Dual I/O Read      | 2               | 4                | 104/80         |
+|              |--------------------|-----------------|------------------|----------------|
+|              | Quad I/O Read      | 2               | 6                | 104/80         |
+|              |--------------------|-----------------|------------------|----------------|
+|              | Quad I/O Word Read | 2               | 4                | 55             |
+|--------------|--------------------|-----------------|------------------|----------------|
+| QPI mode     | Fast Read          | 0               | 4                | 55             |
+|              |                    | 0               | 6                | 80             |
+|              |                    | 0               | 8                | 104/80         |
+|              |--------------------|-----------------|------------------|----------------|
+|              | Quad I/O Read      | 2               | 4                | 55             |
+|              |                    | 2               | 6                | 80             |
+|              |                    | 2               | 8                | 104/80         |
+|              |--------------------|-----------------|------------------|----------------|
+|              | Quad I/O Burst     | 0               | 4                | 55             |
+|              | Read with Wrap     | 0               | 6                | 80             |
+|              |                    | 0               | 8                | 104/80         |
+|--------------|--------------------|-----------------|------------------|----------------|
+
+Note:
+(1) Numbers of Dummy cycles include Continuous Read mode bit cycle number.
+(2) Maximum 104MHz for fast read on 3.0 - 3.6V power supply, and 80MHz for fast read on 2.7 3.0V power supply
+
+3. PIN CONFIGURATIONS
+
+Note: Only for special order, Pin 3 is RESET# pin in 16-LEAD SOP package. Please connect NORMEM for detail
+
+Table 2. PIN DESCRIPTION
+
+| SYMBOL            | DESCRIPTION                                                         |
+|-------------------|---------------------------------------------------------------------|
+| CS#               | Chip Select                                                         |
+|-------------------|---------------------------------------------------------------------|
+| SCLK              | Clock Input                                                         |
+|-------------------|---------------------------------------------------------------------|
+| SI/SIO0           | Serial Data Input (for 1 x I/O)                                     |
+|                   |   or Serial Data Input & Output (for 2 x I/O or 4 x I/O read mode)  |
+|-------------------|---------------------------------------------------------------------|
+| SO/SIO1           | Serial Data Output (for 1 x I/O)                                    |
+|                   |   or Serial Data Input & Output (for 2 x I/O or 4 x I/O read mode)  |
+|-------------------|---------------------------------------------------------------------|
+| WP#/SIO2          | Write protection Active low                                         |
+|                   |   or Serial Data Input & Output (for 4 x I/O read mode)             |
+|-------------------|---------------------------------------------------------------------|
+| RESET#/HOLD#/SIO3 | Hardware Reset pin Active low                                       |
+|                   |   or Hardware Hold pin Active low                                   |
+|                   |   or Serial Data Input & Output (for 4 x I/O read mode)             |
+|-------------------|---------------------------------------------------------------------|
+| RESET#            | Hardware Reset pin Active low                                       |
+|                   |   only for special order in 16LEAD SOP package                      |
+|-------------------|---------------------------------------------------------------------|
+| VSS               | Ground                                                              |
+|-------------------|---------------------------------------------------------------------|
+| VCC               | Power supply                                                        |
+|-------------------|---------------------------------------------------------------------|
+
+Notes: RESET# pin has internal pull up.
+
+4. BLOCK DIAGRAM
+
+5. MEMORY ORGANIZATION
+
+| Block | Sector | Address range       | Advanced Block Protection unit
+|-------|--------|----------|----------|---------------
+| 127   | 2047   | 7F F000H | 7F FFFFH | 4KB
+|       | ...    | ...      | ...      | ...
+|       | 2032   | 7F 0000H | 7F 0FFFH | 4KB
+|-------|--------|----------|----------|---------------
+| 126   | 2031   | 7E F000H | 7E FFFFH | 64KB
+|       | ...    | ...      | ...      | ...
+|       | 2016   | 7E 0000H | 7E 0FFFH | 64KB
+|-------|--------|----------|----------|---------------
+| 125   | 2015   | 7D F000H | 7D FFFFH | 64KB
+|       | ...    | ...      | ...      | ...
+|       | 2000   | 7D 0000H | 7D 0FFFH | 64KB
+|-------|--------|----------|----------|---------------
+| ...   | ...    | ...      | ...      | ...
+|-------|--------|----------|----------|---------------
+| 2     | 47     | 02 F000H | 02 FFFFH | 64KB
+|       | ...    | ...      | ...      | ...
+|       | 32     | 02 0000H | 02 0FFFH | 64KB
+|-------|--------|----------|----------|---------------
+| 1     | 31     | 01 F000H | 01 FFFFH | 64KB
+|       | ...    | ...      | ...      | ...
+|       | 16     | 01 0000H | 01 0FFFH | 64KB
+|-------|--------|----------|----------|---------------
+| 0     | 15     | 00 F000H | 00 FFFFH | 4KB
+|       | ...    | ...      | ...      | ...
+|       | 0      | 00 0000H | 00 0FFFH | 4KB
+|-------|--------|----------|----------|---------------
+
+
+6. DATA PROTECTION
+
+During power transition, there may be some false system level signals which result in inadvertent erasure or programming. The device is designed to protect itself from these accidental write cycles.
+
+The state machine will be reset as standby mode automatically during power up. In addition, the control register architecture of the device constrains that the memory contents can only be changed after specific command sequences have completed successfully.
+
+In the following, there are several features to protect the system from the accidental write cycles during VCC power-up and power-down or from system noise.
+
+- Valid command length checking: The command length will be checked whether it is at byte base and completed on byte boundary.
+- Write Enable (WREN) command: WREN command is required to set the Write Enable Latch bit (WEL) before other command to change data.
+- Deep Power Down Mode: By entering deep power down mode, the flash device also is under protected from writing all commands except Release from deep power down mode command (RDP) and Read Electronic Signature command (RES), and Soft-reset command.
+- Advanced Security Features: there are some protection and security features which protect content from inadvertent write and hostile access.
+
+6.1 Block lock protection
+
+The Software Block Protected Mode (BPM) use (BP4, BP3, BP2, BP1, BP0) bits to allow part of memory to be protected as read only. The protected area definition is shown as Table 3 Protected Area Sizes, the protected areas are more ﬂexible which may protect various area by setting value of BP0-BP4 bits.
+
+Table 3. Protected Area Sizes（WPS=0, CMP=0）
+
+| Status Register Content     | Memory Content                                        |
+|-----------------------------|-------------------------------------------------------|
+| BP4 | BP3 | BP2 | BP1 | BP0 | Blocks     | Addresses       | Density | Portion      |
+|-----|-----|-----|-----|-----|------------|-----------------|---------|--------------|
+| X   | X   | 0   | 0   | 0   | NONE       | NONE            | NONE    | NONE         |
+| 0   | 0   | 0   | 0   | 1   | 126 to 127 | 7E0000H-7FFFFFH | 128KB   | Upper 1/64   |
+| 0   | 0   | 0   | 1   | 0   | 124 to 127 | 7C0000H-7FFFFFH | 256KB   | Upper 1/32   |
+| 0   | 0   | 0   | 1   | 1   | 120 to 127 | 780000H-7FFFFFH | 512KB   | Upper 1/16   |
+| 0   | 0   | 1   | 0   | 0   | 112 to 127 | 700000H-7FFFFFH | 1MB     | Upper 1/8    |
+| 0   | 0   | 1   | 0   | 1   |  96 to 127 | 600000H-7FFFFFH | 2MB     | Upper 1/4    |
+| 0   | 0   | 1   | 1   | 0   |  64 to 127 | 400000H-7FFFFFH | 4MB     | Upper 1/2    |
+|-----|-----|-----|-----|-----|------------|-----------------|---------|--------------|
+| 0   | 1   | 0   | 0   | 1   |   0 to 1   | 000000H-01FFFFH | 128KB   | Lower 1/64   |
+| 0   | 1   | 0   | 1   | 0   |   0 to 3   | 000000H-03FFFFH | 256KB   | Lower 1/32   |
+| 0   | 1   | 0   | 1   | 1   |   0 to 7   | 000000H-07FFFFH | 512KB   | Lower 1/16   |
+| 0   | 1   | 1   | 0   | 0   |   0 to 15  | 000000H-0FFFFFH | 1MB     | Lower 1/8    |
+| 0   | 1   | 1   | 0   | 1   |   0 to 31  | 000000H-1FFFFFH | 2MB     | Lower 1/4    |
+| 0   | 1   | 1   | 1   | 0   |   0 to 63  | 000000H-3FFFFFH | 4MB     | Lower 1/2    |
+| X   | X   | 1   | 1   | 1   |   0 to 127 | 000000H-7FFFFFH | 8MB     | ALL          |
+|-----|-----|-----|-----|-----|------------|-----------------|---------|--------------|
+| 1   | 0   | 0   | 0   | 1   | 127        | 7FF000H-7FFFFFH | 4KB     | Top Block    |
+| 1   | 0   | 0   | 1   | 0   | 127        | 7FE000H-7FFFFFH | 8KB     | Top Block    |
+| 1   | 0   | 0   | 1   | 1   | 127        | 7FC000H-7FFFFFH | 16KB    | Top Block    |
+| 1   | 0   | 1   | 0   | X   | 127        | 7F8000H-7FFFFFH | 32KB    | Top Block    |
+| 1   | 0   | 1   | 1   | 0   | 127        | 7F8000H-7FFFFFH | 32KB    | Top Block    |
+|-----|-----|-----|-----|-----|------------|-----------------|---------|--------------|
+| 1   | 1   | 0   | 0   | 1   | 0          | 000000H-000FFFH | 4KB     | Bottom Block |
+| 1   | 1   | 0   | 1   | 0   | 0          | 000000H-001FFFH | 8KB     | Bottom Block |
+| 1   | 1   | 0   | 1   | 1   | 0          | 000000H-003FFFH | 16KB    | Bottom Block |
+| 1   | 1   | 1   | 0   | X   | 0          | 000000H-007FFFH | 32KB    | Bottom Block |
+| 1   | 1   | 1   | 1   | 0   | 0          | 000000H-007FFFH | 32KB    | Bottom Block |
+|-----|-----|-----|-----|-----|------------|-----------------|---------|--------------|
+
+
+Table 4. Protected Area Sizes（WPS=0, CMP=1）
+
+| Status Register Content     | Memory Content                                        |
+|-----------------------------|-------------------------------------------------------|
+| BP4 | BP3 | BP2 | BP1 | BP0 | Blocks     | Addresses       | Density | Portion      |
+|-----|-----|-----|-----|-----|------------|-----------------|---------|--------------|
+| X   | X   | 0   | 0   | 0   | ALL        | 000000H-7FFFFFH | ALL     | ALL          |
+| 0   | 0   | 0   | 0   | 1   | 0 to 125   | 000000H-7DFFFFH | 8064KB  | Lower 63/64  |
+| 0   | 0   | 0   | 1   | 0   | 0 to 123   | 000000H-7BFFFFH | 7936KB  | Lower 31/32  |
+| 0   | 0   | 0   | 1   | 1   | 0 to 119   | 000000H-77FFFFH | 7680KB  | Lower 15/16  |
+| 0   | 0   | 1   | 0   | 0   | 0 to 111   | 000000H-6FFFFFH | 7MB     | Lower 7/8    |
+| 0   | 0   | 1   | 0   | 1   | 0 to 95    | 000000H-5FFFFFH | 6MB     | Lower 3/4    |
+| 0   | 0   | 1   | 1   | 0   | 0 to 63    | 000000H-3FFFFFH | 4MB     | Lower 1/2    |
+|-----|-----|-----|-----|-----|------------|-----------------|---------|--------------|
+| 0   | 1   | 0   | 0   | 1   | 2 to 127   | 020000H-7FFFFFH | 8064KB  | Upper 63/64  |
+| 0   | 1   | 0   | 1   | 0   | 4 to 127   | 040000H-7FFFFFH | 7936KB  | Upper 31/32  |
+| 0   | 1   | 0   | 1   | 1   | 8 to 127   | 080000H-7FFFFFH | 7680KB  | Upper 15/16  |
+| 0   | 1   | 1   | 0   | 0   | 16 to 127  | 100000H-7FFFFFH | 7MB     | Upper 7/8    |
+| 0   | 1   | 1   | 0   | 1   | 32 to 127  | 200000H-7FFFFFH | 6MB     | Upper 3/4    |
+| 0   | 1   | 1   | 1   | 0   | 64 to 127  | 400000H-7FFFFFH | 4MB     | Upper 1/2    |
+| X   | X   | 1   | 1   | 1   | NONE       | NONE            | NONE    | NONE         |
+|-----|-----|-----|-----|-----|------------|-----------------|---------|--------------|
+| 1   | 0   | 0   | 0   | 1   | 0 to 127   | 000000H-7FEFFFH | 8188KB  | L-2047/2048  |
+| 1   | 0   | 0   | 1   | 0   | 0 to 127   | 000000H-7FDFFFH | 8184KB  | L-1023/1024  |
+| 1   | 0   | 0   | 1   | 1   | 0 to 127   | 000000H-7FBFFFH | 8176KB  | L-511/512    |
+| 1   | 0   | 1   | 0   | X   | 0 to 127   | 000000H-7F7FFFH | 8160KB  | L-255/256    |
+| 1   | 0   | 1   | 1   | 0   | 0 to 127   | 000000H-7F7FFFH | 8160KB  | L-255/256    |
+|-----|-----|-----|-----|-----|------------|-----------------|---------|--------------|
+| 1   | 1   | 0   | 0   | 1   | 0 to 127   | 001000H-7FFFFFH | 8188KB  | U-2047/2048  |
+| 1   | 1   | 0   | 1   | 0   | 0 to 127   | 002000H-7FFFFFH | 8184KB  | U-1023/1024  |
+| 1   | 1   | 0   | 1   | 1   | 0 to 127   | 004000H-7FFFFFH | 8176KB  | U-511/512    |
+| 1   | 1   | 1   | 0   | X   | 0 to 127   | 008000H-7FFFFFH | 8160KB  | U-255/256    |
+| 1   | 1   | 1   | 1   | 0   | 0 to 127   | 008000H-7FFFFFH | 8160KB  | U-255/256    |
+|-----|-----|-----|-----|-----|------------|-----------------|---------|--------------|
+
+
+Table 5. NM25Q64EVB Individual Block Protection (WPS=1)
+
+| Block | Sector | Address range       | Individual Block Lock Operation     |
+|-------|--------|----------|----------|-------------------------------------|
+| 127   | 2047   | 7F F000H | 7F FFFFH | 32 Sectors(Top/Bottom) & 126 Blocks |
+|       | ...    | ...      | ...      | Block Lock: 36H+Address             |
+|       | 2032   | 7F 0000H | 7F 0FFFH | Block Unlock: 39H+Address           |
+|-------|--------|----------|----------| Read Block Lock: 3DH+Address        |
+| 126   | 2031   | 7E F000H | 7E FFFFH | Global Block Lock: 7EH              |
+|       | ...    | ...      | ...      | Global Block Unlock: 98H            |
+|       | 2016   | 7E 0000H | 7E 0FFFH |                                     |
+|-------|--------|----------|----------|                                     |
+| 125   | 2015   | 7D 0000H | 7D 0FFFH |                                     |
+|       | ...    | ...      | ...      |                                     |
+|       | 2000   | 7D 0000H | 7D 0FFFH |                                     |
+|-------|--------|----------|----------|                                     |
+| ...   | ...    | ...      | ...      |                                     |
+|-------|--------|----------|----------|                                     |
+| 2     | 47     | 02 0000H | 02 0FFFH |                                     |
+|       | ...    | ...      | ...      |                                     |
+|       | 32     | 02 0000H | 02 0FFFH |                                     |
+|-------|--------|----------|----------|                                     |
+| 1     | 31     | 01 0000H | 01 0FFFH |                                     |
+|       | ...    | ...      | ...      |                                     |
+|       | 16     | 01 0000H | 01 0FFFH |                                     |
+|-------|--------|----------|----------|                                     |
+| 0     | 15     | 00 0000H | 00 0FFFH |                                     |
+|       | ...    | ...      | ...      |                                     |
+|       | 0      | 00 0000H | 00 0FFFH |                                     |
+|-------|--------|----------|----------|-------------------------------------|
+
+
+6.2 Additional 2 x 8K-bit secured registers with OTP Locks
+
+The NM25Q64EVB provides 2 x 8K-bit Security Registers which can erased and programmed individually. These two registers may be used by the system manufacturers to store security and other important information separately from the main memory array.
+
+The Security Register Lock Bits (LB2-1) in the Status Register-2 can be used to OTP protect the security registers. Once a lock bit is set to 1, the corresponding security register will be permanently locked, Erase Security Register instruction and Program Security Register instruction to that register will be ignored. Please refer to "Chapter 9 Register Description" for status register bit definition.
+
+
+Table 6. Secured Register Definition
+
+| Security Register   | Address Range         | Size    | Lock bit  |
+|---------------------|-----------------------|---------|-----------|
+| Security Register 1 | 24’h000000~24’h0003FF | 8K bits | LB1       |
+| Security Register 2 | 24’h001000~24’h0013FF | 8K bits | LB2       |
+|---------------------|-----------------------|---------|-----------|
+
+7. DEVICE OPERATION
+
+1. Before a command is issued, status register should be checked to ensure device is ready for the intended operation.
+2. When incorrect command# sequence is inputted to this device, this device becomes standby mode and keeps the standby mode until next CS# falling edge. In standby mode, SO pin of this device should be High-Z.
+3. When correct command# sequence is inputted to this device, this device becomes active mode and keeps the active mode until next CS# rising edge.
+4. When device under STR mode, input data is latched on the rising edge of Serial Clock (SCLK) and data shifts out on the falling edge of SCLK.
+5. While a Write Status Register, Program or Erase operation is in progress, access to the memory array is neglected and not affect the current operation of Write Status Register, Program, Erase.
+
+Figure 1. Serial Modes Supported
+
+[]
+
+Note: CPOL indicates clock polarity of Serial master, CPOL=1 for SCLK high while idle, CPOL=0 for SCLK low while not transmitting. CPHA indicates clock phase. The combination of CPOL bit and CPHA bit decides which Serial mode is supported.
+
+8. COMMAND SET
+
+8.1 Command Set
+
+Table 7. Array Access Command Set
+
+| Command Description             | Code    | SPI | QPI | Address | Address | Address | Dummy      | Data       |
+|                                 |         |     |     | Byte1   | Byte2   | Byte3   | Cycle(1)   | Byte       |
+|---------------------------------|---------|-----|-----|---------|---------|---------|------------|------------|
+| Normal Read (READ)              | 03H     | V   |     | ADD1    | ADD2    | ADD3    | 0          | 1~         |
+| Fast Read (FAST_READ)           | 0BH     | V   | V   | ADD1    | ADD2    | ADD3    | 8 or 4/6/8 | 1~         |
+| Dual Output Read (DREAD)        | 3BH     | V   |     | ADD1    | ADD2    | ADD3    | 8          | 1~         |
+| Quad Output Read (QREAD)        | 6BH     | V   |     | ADD1    | ADD2    | ADD3    | 8          | 1~         |
+| Dual I/O Read (2READ)           | BBH     | V   |     | ADD1    | ADD2    | ADD3    | 4          | 1~         |
+| Quad I/O Read (4READ)           | EBH     | V   | V   | ADD1    | ADD2    | ADD3    | 6 or 4/6/8 | 1~         |
+| Quad I/O Word Read (4READ_WD)   | E7H     | V   |     | ADD1    | ADD2    | ADD3    | 4          | 1~         |
+| Quad I/O Burst Read (4READ_BST) | 0CH     |     | V   | ADD1    | ADD2    | ADD3    | 4/6/8      | 8/16/32/64 |
+| Page Program (PP)               | 02H     | V   | V   | ADD1    | ADD2    | ADD3    | 0          | 1-256      |
+| Quad Page Program (QPP)         | 32H     | V   |     | ADD1    | ADD2    | ADD3    | 0          | 1-256      |
+| Sector Erase 4KB (SE)           | 20H     | V   | V   | ADD1    | ADD2    | ADD3    | 0          | 0          |
+| Block Erase 32KB (BE32)         | 52H     | V   | V   | ADD1    | ADD2    | ADD3    | 0          | 0          |
+| Block Erase 64KB (BE)           | D8H     | V   | V   | ADD1    | ADD2    | ADD3    | 0          | 0          |
+| Chip Erase (CE)                 | 60H/C7H | V   | V   |         |         |         | 0          | 0          |
+|---------------------------------|---------|-----|-----|---------|---------|---------|------------|------------|
+
+Note: (1) Detail dummy cycle numbers for read see table 1.
+
+Table 8. Device Operation Command Set
+
+| Command Description                       | Code | SPI | QPI | Address | Address | Address | Dummy    | Data |
+|                                           |      |     |     | Byte1   | Byte2   | Byte3   | Cycle(1) | Byte |
+|-------------------------------------------|------|-----|-----|---------|---------|---------|----------|------|
+| Write Enable (WREN)                       | 06H  | V   | V   |         |         |         | 0        | 0    |
+| Write Disable (WRDI)                      | 04H  | V   | V   |         |         |         | 0        | 0    |
+| Write Enable for Volatile Status Register | 50H  | V   | V   |         |         |         | 0        | 0    |
+| Enable QPI (EQIO)                         | 38H  | V   |     |         |         |         | 0        | 0    |
+| Reset QPI (RSTQIO)                        | FFH  |     | V   |         |         |         | 0        | 0    |
+| Enable Reset (RSTEN)                      | 66H  | V   | V   |         |         |         | 0        | 0    |
+| Reset Memory (RST)                        | 99H  | V   | V   |         |         |         | 0        | 0    |
+| Program/Erase Suspend (Suspend)           | 75H  | V   | V   |         |         |         | 0        | 0    |
+| Program/Erase Resume (Resume)             | 7AH  | V   | V   |         |         |         | 0        | 0    |
+| Deep Power Down (DPW)                     | B9H  | V   | V   |         |         |         | 0        | 0    |
+| Release From Deep Power Down (RDP)        | ABH  | V   | V   |         |         |         | 0        | 0    |
+|-------------------------------------------|------|-----|-----|---------|---------|---------|----------|------|
+
+Table 9. Register Access Command Set
+
+| Command Description                                          | Code | SPI | QPI | Address | Address | Address | Dummy      | Data  |
+|                                                              |      |     |     | Byte1   | Byte2   | Byte3   | Cycle(1)   | Byte  |
+|--------------------------------------------------------------|------|-----|-----|---------|---------|---------|------------|-------|
+| Read Status Register 1 (RDSR1)                               | 05H  | V   | V   |         |         |         | 0          | 1     |
+| Read Status Register 2 (RDSR2)                               | 35H  | V   | V   |         |         |         | 0          | 1     |
+| Read Status Register 3 (RDSR3)                               | 15H  | V   | V   |         |         |         | 0          | 1     |
+| Write Status Register 1 (WRSR1)                              | 01H  | V   | V   |         |         |         | 0          | 1     |
+| Write Status Register 2 (WRSR2)                              | 31H  | V   | V   |         |         |         | 0          | 1     |
+| Write Status Register 3 (WRSR3)                              | 11H  | V   | V   |         |         |         | 0          | 1     |
+| Read Identification (RDID)                                   | 9FH  | V   | V   |         |         |         | 0          | 3     |
+| RDP and Read Device ID (RDI)                                 | ABH  | V   | V   | ADD1(1) | ADD2(1) | ADD3(1) | 0          | 1     |
+| Read Electronic manufacturer & Device ID (REMS)              | 90H  | V   | V   | ADD1(1) | ADD2(1) | ADD3(2) | 0          | 2     |
+| Read Electronic manufacturer & Device ID by Dual I/O (REMS2) | 92H  | V   |     | ADD1(1) | ADD2(1) | ADD3(2) | 0          | 2     |
+| Read Electronic manufacturer & Device ID by Quad I/O (REMS4) | 94H  | V   |     | ADD1(1) | ADD2(1) | ADD3(2) | 0          | 2     |
+| Read Serial Flash Discoverable Parameter (RDSFDP)            | 5AH  | V   | V   | ADD1    | ADD2    | ADD3    | 8 or 4/6/8 | 1~    |
+| Read Security Register (RDSECR)                              | 48H  | V   |     | ADD1    | ADD2    | ADD3    | 8          | 0     |
+| Program Security Register (PGSECR)                           | 42H  | V   |     | ADD1    | ADD2    | ADD3    | 0          | 1-256 |
+| Erase Security Register (ERSECR)                             | 44H  | V   |     | ADD1    | ADD2    | ADD3    | 0          | 0     |
+| Individual Block Lock (SBLK)                                 | 36H  | V   | V   | ADD1    | ADD2    | ADD3    | 0          | 0     |
+| Individual Block Unlock (SBULK)                              | 39H  | V   | V   | ADD1    | ADD2    | ADD3    | 0          | 0     |
+| Read Block Lock (RDBLK)                                      | 3DH  | V   | V   | ADD1    | ADD2    | ADD3    | 0          | 1     |
+| Global Block Lock (GBLK)                                     | 7EH  | V   | V   |         |         |         | 0          | 0     |
+| Global Block Unlock (GBULK)                                  | 98H  | V   | V   |         |         |         | 0          | 0     |
+| Set Burst with Warp (SET_BSTRD)                              | 77H  | V   |     |         |         |         | 0          | 1     |
+| Set Read Parameters (SET_PARAM)                              | C0H  |     | V   |         |         |         | 0          | 1     |
+|--------------------------------------------------------------|------|-----|-----|---------|---------|---------|------------|-------|
+
+Note: (1) Input Address is ignored.
+      (2) If ADD3=8’h00, Manufacturer ID will be shifted out first; If ADD3=8’h01, Device ID will be shifted out first.
+
+9. REGISTER DESCRIPTION
+
+9.1 Status Register
+
+Status Register 1
+
+| No    | Bit name | Description                  | Default | Type                     |
+|-------|----------|------------------------------|---------|--------------------------|
+| Bit 7 | CMP      | Complement protect bit (1)   | 0       | Non-volatile bit         |
+|-------|----------|------------------------------|---------|--------------------------|
+| Bit 6 | BP4      | Level of protected block (1) | 0       | Non-volatile bit         |
+|-------|----------|------------------------------|---------|--------------------------|
+| Bit 5 | BP3      | Level of protected block (1) | 0       | Non-volatile bit         |
+|-------|----------|------------------------------|---------|--------------------------|
+| Bit 4 | BP2      | Level of protected block (1) | 0       | Non-volatile bit         |
+|-------|----------|------------------------------|---------|--------------------------|
+| Bit 3 | BP1      | Level of protected block (1) | 0       | Non-volatile bit         |
+|-------|----------|------------------------------|---------|--------------------------|
+| Bit 2 | BP0      | Level of protected block (1) | 0       | Non-volatile bit         |
+|-------|----------|------------------------------|---------|--------------------------|
+| Bit 1 | WEL      | Write enable latch           | 0       | Volatile bit (Read only) |
+|       |          |  1=write enable              |         |                          |
+|       |          |  0=not write enable          |         |                          |
+|-------|----------|------------------------------|---------|--------------------------|
+| Bit 0 | WIP      | Write in progress bit        | 0       | Volatile bit (Read only) |
+|       |          |  1=write operation           |         |                          |
+|       |          |  0=not in write operation    |         |                          |
+|-------|----------|------------------------------|---------|--------------------------|
+
+Note: (1) Detail see the Table 3 "Protected Area Size".
+
+Status Register 2
+
+| No    | Bit name | Description                         | Default | Type                     |
+|-------|----------|-------------------------------------|---------|--------------------------|
+| Bit 7 | ESB      | Erase Suspend bit                   | 0       | Volatile bit (Read only) |
+|       |          |  1=Erase is suspended               |         |                          |
+|       |          |  0=Erase is not suspended           |         |                          |
+|-------|----------|-------------------------------------|---------|--------------------------|
+| Bit 6 | PSB      | Program Suspend bit                 | 0       | Volatile bit (Read only) |
+|       |          |  1=Program is suspended             |         |                          |
+|       |          |  0=Program is not suspended         |         |                          |
+|-------|----------|-------------------------------------|---------|--------------------------|
+| Bit 5 | x        | Reserved                            | x       |                          |
+|-------|----------|-------------------------------------|---------|--------------------------|
+| Bit 4 | LB2      | Security Register 2 Lock bit        | 0       | OTP                      |
+|       |          |  1=Locked                           |         |                          |
+|       |          |  0=Unlocked                         |         |                          |
+|-------|----------|-------------------------------------|---------|--------------------------|
+| Bit 3 | LB1      | Security Register 1 Lock bit        | 0       | OTP                      |
+|       |          |  1=Locked                           |         |                          |
+|       |          |  0=Unlocked                         |         |                          |
+|-------|----------|-------------------------------------|---------|--------------------------|
+| Bit 2 | QE       | Quad Enable bit                     | 0       | Non-volatile bit         |
+|       |          |  1=Quad enable                      |         |                          |
+|       |          |  0=not Quad enable                  |         |                          |
+|-------|----------|-------------------------------------|---------|--------------------------|
+| Bit 1 | SRP1     | The Status Register Protect bit (1) | 0       | Non-volatile bit         |
+|-------|----------|-------------------------------------|---------|--------------------------|
+| Bit 0 | SRP0     | The Status Register Protect bit (1) | 0       | Non-volatile bit         |
+|-------|----------|-------------------------------------|---------|--------------------------|
+
+Note: (1) Detail see the Table 10 "Status Register Protect method".
+
+
+Status Register 3
+
+| No    | Bit name | Description                         | Default | Type                     |
+|-------|----------|-------------------------------------|---------|--------------------------|
+| Bit 7 | HOLD/RST | Select HOLD# or RESET# function bit | 0       | Non-volatile bit         |
+|       |          |  0=SIO3 Pin acts as RESET#          |         |                          |
+|       |          |  1=SIO3 Pin acts as HOLD#           |         |                          |
+|-------|----------|-------------------------------------|---------|--------------------------|
+| Bit 6 | ODS1     | Output Driver Strength bit (1)      | 0       | Non-Volatile bit         |
+|-------|----------|-------------------------------------|---------|--------------------------|
+| Bit 5 | ODS0     | Output Driver Strength bit (1)      | 0       | Non-Volatile bit         |
+|-------|----------|-------------------------------------|---------|--------------------------|
+| Bit 4 | x        | Reserved                            |         |                          |
+|-------|----------|-------------------------------------|---------|--------------------------|
+| Bit 3 | x        | Reserved                            |         |                          |
+|-------|----------|-------------------------------------|---------|--------------------------|
+| Bit 2 | WPS      | Write Protect Scheme bit            | 0       | Non-Volatile bit         |
+|       |          |  1=Individual Block Protect method  |         |                          |
+|       |          |  0=Block Protect method             |         |                          |
+|-------|----------|-------------------------------------|---------|--------------------------|
+| Bit 1 | x        | Reserved                            |         |                          |
+|-------|----------|-------------------------------------|---------|--------------------------|
+| Bit 0 | x        | Reserved                            |         |                          |
+|-------|----------|-------------------------------------|---------|--------------------------|
+
+Note: (1) Detail see the Table 11 "Output Driver Strength Table".
+
+The definition of the status register bits is as below:
+
+**WIP bit.** The Write in Progress (WIP) bit, a volatile bit, indicates whether the device is busy in program/erase/write status register progress. When WIP bit sets to 1, which means the device is busy in program/erase/write status register progress. When WIP bit sets to 0, which means the device is not in progress of program/erase/write status register cycle.
+
+**WEL bit.** The Write Enable Latch (WEL) bit, a volatile bit, indicates whether the device is set to internal write enable latch. When WEL bit sets to 1, which means the internal write enable latch is set, the device can accept program/erase/write status register command. When WEL bit sets to 0, which means no internal write enable latch; the device will not accept program/erase/write status register command. The program/erase command will be ignored if it is applied to a protected memory area. To ensure both WIP bit & WEL bit are both set to 0 and available for next program/erase/operations, WIP bit needs to be confirm to be 0 before polling WEL bit. After WIP bit confirmed, WEL bit needs to be confirm to be 0.
+
+**BP4, BP3, BP2, BP1, BP0 bits.** The Block Protect (BP4, BP3, BP2, BP1, BP0) bits, non-volatile bits, indicate the protected area (as defined in Table 3) of the device to against the program/erase command without hardware protection mode being set. To write the Block Protect (BP4, BP3, BP2, BP1, BP0) bits requires the Write Status Register 1(WRSR1) command to be executed. Those bits define the protected area of the memory to against Page Program (PP), Sector Erase (SE/SE3B/SE4B), Block Erase (BE) and Chip Erase (CE) commands (only if Block Protect bits (BP3:BP0) set to 0, the CE command can be executed). The BP4, BP3, BP2, BP1, BP0 bits are "0" as default. Which is unprotected.
+
+**Complement Protect (CMP) bit.** The Complement Protect bit (CMP), a non-volatile bit, is used in conjunction with BP4, BP3, BP2, BP1 and BP0 bits to provide more flexibility for the array protection. Once CMP is set to 1, previous array protection set by BP4, BP3, BP2, BP1 and BP0 will be reversed. For instance, when CMP=0, a top 64KB block can be protected while the rest of the array is not; when CMP=1, the top 64KB block will become unprotected while the rest of the array become read-only. Please refer to the Status Register Memory Protection table for details. The default setting is CMP=0.
+
+**SRP1, SRP0 bits.** The Status Register Protect bits (SRP1 and SRP0) are non-volatile read/write bits in the status register 2. The SRP bits control the method of write protection: software protection, hardware protection, power supply lock-down or one time programmable (OTP) protection.
+
+
+Table 10. Status Register Protect Method
+
+| SRP1 | SRP0 | WP# | Status Register            | Description                                                                  |
+|------|------|-----|----------------------------|------------------------------------------------------------------------------|
+| 0    | 0    | X   | Software Protected         | WP# has no control. The Status Register can be written to                    |
+|      |      |     |                            | after a Write Enable (WREN) instruction. (Default)                           |
+|------|------|-----|----------------------------|------------------------------------------------------------------------------|
+| 0    | 1    | 0   | Hardware Protected         | When WP# pin is low, the Status Register is locked and cannot be written to. |
+|------|------|-----|----------------------------|------------------------------------------------------------------------------|
+| 0    | 1    | 1   | Hardware Unprotected       | When WP# pin is high, the Status Register is unlocked and can be written to  |
+|      |      |     |                            | after a Write Enable (WREN) instruction.                                     |
+|------|------|-----|----------------------------|------------------------------------------------------------------------------|
+| 1    | 0    | X   | Power Supply Lock-Down (1) | The Status Register is protected and cannot be written to again              |
+|      |      |     |                            | until the next power-down, power-up cycle.                                   |
+|------|------|-----|----------------------------|------------------------------------------------------------------------------|
+| 1    | 1    | X   | One time Program (2)       | The Status Register is permanently protected and can not be written to.      |
+|------|------|-----|----------------------------|------------------------------------------------------------------------------|
+
+Note: (1) When SRP1, SRP0=(1,0), a Power-Down, Power-Up cycle will change SRP1, SRP0 to (0,0) state.
+      (2) This feature is available on special order. Please contact NORMEM for details.
+
+**QE bit.** The Quad Enable (QE) bit is a non-volatile read/write bit that allows Quad SPI and QPI operation. When the QE bit is set to a 0 state, the WP# pin and HOLD# are enabled. When the QE bit is set to a 1, the Quad IO2 and IO3 pins are enabled, and WP# and HOLD# functions are disabled.
+
+**LB2, LB1 bits.** The Security Register Lock Bits (LB2, LB1) are non-volatile One Time Program (OTP) bits that provide the write protect control and status to the Security Registers. The default state of LB2-1 is 0, Security Registers are unlocked. LB2-1 can be set to 1 individually using the Write Status Register instruction. LB2-1 are One Time Programmable (OTP), once it’s set to 1, the corresponding 1K-Byte Security Register will become read-only permanently.
+
+**Program Suspend bit.** Program Suspend Bit (PSB) indicates the status of Program Suspend operation. Users may use PSB to identify the state of ﬂash memory. After the ﬂash memory is suspended by Program Suspend command, PSB is set to "1". PSB is cleared to "0" after program operation resumes.
+
+**Erase Suspend bit.** Erase Suspend Bit (ESB) indicates the status of Erase Suspend operation. Users may use ESB to identify the state of ﬂash memory. After the ﬂash memory is suspended by Erase Suspend command, ESB is set to "1". ESB is cleared to "0" after erase operation resumes.
+
+**Write Protect Selection (WPS) bit.** The WPS bit is used to select which Write Protect scheme should be used. When WPS=0 (factory default), the device will use the combination of CMP, BP[4:0] bits to protect a specific area of the memory array. When WPS=1, the device will utilize the Individual Block Locks to protect any individual sector or blocks. The default value for all Individual Block Lock bits is 1 upon device power on or after reset.
+
+**ODS1, ODS0 bits.** The output driver strength (ODS1,ODS0) bits are non-volatile bits, which indicate the output driver level (as defined in "Output Driver Strength Table") of the device. To write the ODS bits requires the Write Status Register (WRSR3) command to be executed.
+
+Table 11. Output Driver Strength Table
+
+| ODS1 | ODS0 | Output Driver Strength |
+|------|------|------------------------|
+| 0    | 0    | 50% (default)          |
+| 0    | 1    | 25%                    |
+| 1    | 0    | 75%                    |
+| 1    | 1    | 100%                   |
+|------|------|------------------------|
+
+**HOLD/RST function bit.** The HOLD/RST bit is used to determine whether HOLD# or RESET# function should be implemented on the hardware pin for 8-pin packages. When HOLD/RST=1, the pin acts as #HOLD; when HOLD/RST=0 (factory default), the pin acts as #RESET. However, #HOLD or #RESET functions are only available when QE=0. If QE is set to 1, the HOLD# and RESET# functions are disabled, the pin acts as a dedicated data I/O pin.
+
+10. COMMAND DESCRIPTION
+
+10.1 Write Enable (WREN)
+
+The Write Enable (WREN) command is for setting the Write Enable Latch (WEL) bit. The Write Enable Latch (WEL) bit must be set prior to every Page Program (PP/4PP), Sector Erase (SE), Block Erase (BE/BE32K), Chip Erase (CE), Write Status Register (WRSR1/2/3) and Erase/Program Security Registers.
+
+The Write Enable (WREN) command sequence: CS# goes low -> sending the Write Enable command -> CS# goes high.
+
+Figure 2. Write Enable (WREN) Sequence (SPI Mode)
+
+Figure 3. Write Enable (WREN) Sequence (QPI Mode)
+
+10.2 Write Disable (WRDI)
+
+The Write Disable command is for resetting the Write Enable Latch (WEL) bit. The WRDI command can be used by the user to protect memory areas against inadvertent writes that can possibly corrupt the contents of the memory. The WRDI command is ignored during an embedded operation while WIP bit=1.
+
+The WEL bit is reset by following situations:
+
+- Power-up
+- Reset# pin driven low
+- WRDI command completion
+- WRSR1/ WRSR2/ WRSR3/WRCR command completion
+- PP/4PP command completion
+- SE/BE32K/BE/CE command completion
+- PGM/ERS Suspend command completion
+- Soft-reset command completion
+- Erase/Program security register completion
+- SBLK/SBULK/GBLK/GUBLK completion
+- SET_BSTRD/SET_PARAM completion
+
+The Write Disable command sequence:
+  CS# goes low --> Sending the Write Disable command --> CS# goes high.
+
+Figure 4. Write Disable (WRDI) Sequence (SPI Mode)
+
+Figure 5. Write Disable (WRDI) Sequence (QPI Mode)
+
+
+10.3 Write Enable for Volatile Status Register
+
+The non-volatile Status Register bits described can also be written to as volatile bits. This gives more flexibility to change the system configuration and memory protection schemes quickly without waiting for the typical non-volatile bit write cycles or affecting the endurance of the Status Register non-volatile bits. To write the volatile values into the Status Register bits, the Write Enable for Volatile Status Register (50h) instruction must be issued prior to a Write Status Register (01h) instruction. Write Enable for Volatile Status Register instruction (Figure 6) will not set the Write Enable Latch (WEL) bit, it is only valid for the Write Status Register instruction to change the volatile Status Register bit values.
+
+Figure 6. Write Enable for Volatile Status Register Sequence (SPI Mode)
+
+Figure 7. Write Enable for Volatile Status Register Sequence (QPI Mode)
+
+
+10.4 Read Status Register (RDSR1/RDSR2/RDSR3)
+
+The Read Status Register (RDSR1/RDSR2/RDSR3) command is for reading the Status Register. The Status Register can be read at any time (even in program/erase/write status register condition). It is recommended to check the Write in Progress (WIP) bit before sending a new command when a program, erase, or write status register operation is in progress. For command code "05H" / "35H" / "15H", the SO will output Status Register bits S7~S0 / S15-S8 / S16-S23.
+
+Figure 8. Read Status Register (RDSR1/RDSR2/RDSR3) Sequence (SPI Mode)
+
+Figure 9. Read Status Register (RDSR1/RDSR2/RDSR3) Sequence (QPI Mode)
+
+
+10.5 Write Status Register (WRSR1/WRSR2/WRSR3)
+
+The Write Status Register (WRSR1/WRSR2/WRSR3) command allows new values to be written to the Status Register. Before sending WRSR1/WRSR2/WRSR3 command, the Write Enable (WREN) command must be decoded and executed to set the Write Enable Latch (WEL) bit in advance. The WRSR command can change the value of Block Protect (BP4, BP3, BP2, BP1, BP0) bits to define the protected area of memory (as shown in "Table 3. Protected Area Sizes").
+
+In SPI, CS# must go high exactly at the 8 bits or 16 bits data boundary; In DOPI, CS# must go high while clock is low; otherwise, the command will be rejected and not executed. The self-timed Write Status Register cycle time (tW) is initiated as soon as Chip Select (CS#) goes high. The Write in Progress (WIP) bit still can be check out during the Write Status Register cycle is in progress. The WIP sets 1 during the tW timing, and sets 0 when Write Status Register Cycle is completed, and the Write Enable Latch (WEL) bit is reset.
+
+Figure 10. Write Status Register (WRSR) Sequence (SPI Mode)
+
+Note: The CS# must go high exactly at 8 bits data boundary to completed the write register command.
+
+Figure 11. Write Status Register (WRSR) Sequence (QPI Mode)
+
+
+10.6 Read Data Bytes (READ)
+
+The Read Data Bytes command is followed by a 3-byte address (A23-A0), each bit being latched-in during the rising edge of SCLK. Then the memory content, at that address, is shifted out on SO, each bit being shifted out, at a Max frequency fR, during the falling edge of SCLK. The first byte addressed can be at any location. The address is automatically incremented to the next higher address after each byte of data is shifted out. The whole memory can, therefore, be read with a single Read Data Bytes (READ) command. The address counter rolls over to 0 when the highest address has been reached.
+
+Read Data Bytes (READ) command, while an Erase, Program or Write cycle is in progress, is rejected without having any effects on the cycle that is in progress.
+
+The READ command sequence: CS# goes low --> sending READ command --> 3-byte address on SI --> data out on SO --> to end READ operation can use CS# to high at any time during data out.
+
+Figure 12. Read Data Bytes (READ) Sequence (SPI Mode only)
+
+
+10.7 Read Data Bytes at Higher Speed(FAST_READ)
+
+The Read Data Bytes at Higher Speed (Fast_Read) command is for quickly reading data out. It is followed by a 3-byte (A23-A0) and a dummy byte, each bit being latched-in during the rising edge of SCLK. Then the memory content, at that address, is shifted out on SO, each bit being shifted out, at a Max frequency fC, during the falling edge of SCLK. The first byte addressed can be at any location. The address is automatically incremented to the next higher address after each byte of data is shifted out. The whole memory can, therefore, be read with a single FAST_READ command. The address counter rolls over to 0 when the highest address has been reached.
+
+The FAST_READ command sequence: CS# goes low --> sending FAST_READ command --> 3-byte address on SI --> 8 dummy cycles --> data out on SO --> to end FAST_READ operation can use CS# to high at any time during data out.
+
+While Program/Erase/Write Status Register cycle is in progress, FAST_READ command is rejected without any impact on the Program/Erase/Write Status Register current cycle.
+
+Figure 13. Read at Higher Speed (FAST_READ) Sequence (SPI Mode)
+
+Fast Read in QPI mode
+
+The Fast Read command is also supported in QPI mode. In QPI mode, the number of dummy clocks is configured by the "Set Read Parameters (C0H)" command to accommodate a wide range application with different needs for either maximum Fast Read frequency or minimum data access latency. Depending on the Read Parameter Bits P[5:4] setting, the number of dummy clocks can be configured as either 4/6/8/8.
+
+Figure 14. Read at Higher Speed (FAST_READ) Sequence (QPI Mode)
+
+
+10.8 Dual Output Fast Read (DREAD)
+
+The DREAD instruction enable double throughput of Serial NOR Flash in read mode. The address is latched on rising edge of SCLK, and data of every two bits (interleave on 2 I/O pins) shift out on the falling edge of SCLK at a maximum frequency fT. The first address byte can be at any location. The address is automatically increased to the next higher address after each byte data is shifted out, so the whole memory can be read out at a single DREAD instruction. The address counter rolls over to 0 when the highest address has been reached. Once writing DREAD instruction, the following data out will perform as 2-bit instead of previous 1-bit.
+
+The sequence of issuing DREAD instruction is: CS# goes low --> sending DREAD instruction --> 3-byte address on SIO0 --> 8 dummy cycles on SIO0 --> data out interleave on SIO1 & SIO0 --> to end DREAD operation can use CS# to high at any time during data out.
+
+While Program/Erase/Write Status Register cycle is in progress, DREAD instruction is rejected without any impact on the Program/Erase/Write Status Register current cycle.
+
+Figure 15. Dual Output Fast Read (DREAD) Sequence (SPI Mode only)
+
+
+10.9 Quad Output Fast Read (QREAD)
+
+The QREAD instruction enable quad throughput of Serial NOR Flash in read mode. A Quad Enable (QE) bit of status Register 2 must be set to "1" before sending the QREAD instruction. The address is latched on rising edge of SCLK, and data of every four bits (interleave on 4 I/O pins) shift out on the falling edge of SCLK at a maximum frequency fQ. The first address byte can be at any location. The address is automatically increased to the next higher address after each byte data is shifted out, so the whole memory can be read out at a single QREAD instruction. The address counter rolls over to 0 when the highest address has been reached. Once writing QREAD instruction, the following data out will perform as 4-bit instead of previous 1-bit.
+
+The sequence of issuing QREAD instruction is: CS# goes low--> sending QREAD instruction --> 3-byte address on SI --> 8 dummy cycle --> data out interleave on SIO3, SIO2, SIO1 & SIO0--> to end QREAD operation can use CS# to high at any time during data out.
+
+While Program/Erase/Write Status Register cycle is in progress, QREAD instruction is rejected without any impact on the Program/Erase/Write Status Register current cycle..
+
+Figure 16. Quad Output Fast Read (QREAD) Sequence (SPI Mode only)
+
+
+10.10 Dual I/O Fast Read (2READ)
+
+The Dual I/O Fast Read command is similar to the Dual Output Fast Read command but with the capability to input the 3-byte address (A23-0) and a "Continuous Read Mode" byte 2-bit per clock by SI and SO, each bit being latched in during the rising edge of SCLK, then the memory contents are shifted out 2-bit per clock cycle from SI and SO. The command sequence is shown in followed Figure17. The first byte addressed can be at any location. The address is automatically incremented to the next higher address after each byte of data is shifted out.
+
+Dual I/O Fast Read with "Continuous Read Mode"
+
+The Dual I/O Fast Read command can further reduce command overhead through setting the "Continuous Read Mode" bits (M7-4) after the input 3-byte address (A23-A0). If the "Continuous Read Mode" bits (M5-4) = (1, 0), then the next Dual I/O Fast Read command (after CS# is raised and then lowered) does not require the BBH command code. The command sequence is shown in followed Figure18. If the "Continuous Read Mode" bits (M5-4) do not equal (1, 0), the next command requires the first BBH command code, thus returning to normal operation. It is recommended to input FFFFh on IO0 for the next instruction (16 clocks), to ensure M4 = 1 and return the device to normal operation.
+
+Figure 17. Dual I/O Fast Read (2READ) Sequence (M5-4≠(1, 0))
+
+Figure 18. Dual I/O Fast Read (2READ) Sequence (M5-4=(1, 0))
+
+
+10.11 Quad I/O Fast Read (4READ)
+
+The Quad I/O Fast Read command is similar to the Dual I/O Fast Read command but with the capability to input the 3-byte address (A23-0) and a "Continuous Read Mode" byte and 4-dummy clock 4-bit per clock by IO0, IO1, IO2, IO3, each bit being latched in during the rising edge of SCLK, then the memory contents are shifted out 4-bit per clock cycle from IO0, IO1, IO2, IO3. The command sequence is shown in followed Figure19. The first byte addressed can be at any location. The address is automatically incremented to the next higher address after each byte of data is shifted out. The Quad Enable bit (QE) of Status Register (S9) must be set to enable for the Quad I/O Fast read command.
+
+
+Quad I/O Fast Read with "Continuous Read Mode"
+
+The Quad I/O Fast Read command can further reduce command overhead through setting the "Continuous Read Mode" bits (M7-0) after the input 3-byte address (A23-A0). If the "Continuous Read Mode" bits (M5-4) = (1, 0), then the next Quad I/O Fast Read command (after CS# is raised and then lowered) does not require the EBH command code. The command sequence is shown in followed Figure20. If the "Continuous Read Mode" bits (M5-4) do not equal to (1, 0), the next command requires the first EBH command code, thus returning to normal operation. It is recommended to input FFh on IO0 for the next instruction (8 clocks), to ensure M4 = 1 and return the device to normal operation.
+
+Figure 19. Quad I/O Fast Read (4READ) Sequence (M5-4≠(1, 0))
+
+Figure 20. Quad I/O Fast Read (4READ) Sequence (M5-4=(1, 0))
+
+
+Quad I/O Fast Read with "8/16/32/64-Byte Wrap Around" in Standard SPI mode
+
+The Quad I/O Fast Read command can be used to access a specific portion within a page by issuing "Set Burst with Wrap" (77H) commands prior to EBH. The "Set Burst with Wrap" (77H) command can either enable or disable the "Wrap Around" feature for the following EBH commands. When "Wrap Around" is enabled, the data being accessed can be limited to either an 8/16/32/64-byte section of a 256-byte page. The output data starts at the initial address specified in the command, once it reaches the ending boundary of the 8/16/32/64-byte section, the output will wrap around the beginning boundary automatically until CS# is pulled high to terminate the command. The Burst with Wrap feature allows applications that use cache to quickly fetch a critical address and then fill the cache afterwards within a fixed length (8/16/32/64-byte) of data without issuing multiple read commands. The "Set Burst with Wrap" command allows three "Wrap Bits" W6-W4 to be set. The W4 bit is used to enable or disable the "Wrap Around" operation while W6-W5 is used to specify the length of the wrap around section within a page.
+
+Quad I/O Fast Read in QPI mode
+
+The Quad I/O Fast Read command is also supported in QPI mode. See Figure21. In QPI mode, the number of dummy clocks is configured by the "Set Read Parameters (C0H)" command to accommodate a wide range application with different needs for either maximum Fast Read frequency or minimum data access latency. Depending on the Read Parameter Bits P[5:4] setting, the number of dummy clocks can be configured as either 4/6/8/8. In QPI mode, the "Continuous Read Mode" bits M7-M0 are also considered as dummy clocks. "Continuous Read Mode" feature is also available in QPI mode for Quad I/O Fast Read command. "Wrap Around" feature is not available in QPI mode for Quad I/O Fast Read command. To perform a read operation with fixed data length wrap around in QPI mode, a dedicated "Burst Read with Wrap" (0CH) command must be used.
+
+Figure 21. Quad I/O Fast Read (4READ) Sequence (M5-4=(1, 0) QPI)
+
+
+10.12 Quad I/O Word Fast Read (4READ_WD)
+
+The Quad I/O Word Fast Read command is similar to the Quad I/O Fast Read command except that the lowest address bit (A0) must equal 0 and only 2-dummy clock. The command sequence is shown in followed Figure22. The first byte addressed can be at any location. The address is automatically incremented to the next higher address after each byte of data is shifted out. The Quad Enable bit (QE) of Status Register (S9) must be set to enable for the Quad I/O Word Fast read command. Quad I/O Word Fast Read can only support SPI mode.
+
+
+Quad I/O Word Fast Read with "Continuous Read Mode"
+
+The Quad I/O Word Fast Read command can further reduce command overhead through setting the "Continuous Read Mode" bits (M7-0) after the input 3-byte address (A23-A0). If the "Continuous Read Mode " bits (M5-4) = (1, 0), then the next Quad I/O Word Fast Read command (after CS# is raised and then lowered) does not require the E7H command code. The command sequence is shown in followed Figure23. If the "Continuous Read Mode" bits (M5-4) do not equal to (1, 0), the nextcommand requires the first E7H command code, thus returning to normal operation. It is recommended to input FFh on IO0 for the next instruction (8 clocks), to ensure M4 = 1 and return the device to normal operation.
+
+Figure 22. Quad I/O Word Fast Read (4READ_WD) Sequence (M5-4≠(1, 0))
+
+Figure 23. Quad I/O Word Fast Read (4READ_WD) Sequence (M5-4=(1, 0))
+
+
+Quad I/O Word Fast Read with "8/16/32/64-Byte Wrap Around" in Standard SPI mode
+
+The Quad I/O Word Fast Read command can be used to access a specific portion within a page by issuing "Set Burst with Wrap" (77H) commands prior to E7H. The "Set Burst with Wrap" (77H) command can either enable or disable the "Wrap Around" feature for the following E7H commands. When "Wrap Around" is enabled, the data being accessed can be limited to either an 8/16/32/64-byte section of a 256-byte page. The output data starts at the initial address specified in the command, once it reaches the ending boundary of the 8/16/32/64-byte section, the output will wrap around the beginning boundary automatically until CS# is pulled high to terminate the command.
+
+The Burst with Wrap feature allows applications that use cache to quickly fetch a critical address and then fill the cache afterwards within a fixed length (8/16/32/64-byte) of data without issuing multiple read commands. The "Set Burst with Wrap" command allows three "Wrap Bits" W6-W4 to be set. The W4 bit is used to enable or disable the "Wrap Around" operation while W6-W5 is used to specify the length of the wrap around section within a page.
+
+
+10.13 Set Burst with Wrap (SET_BSTRD)
+
+The Set Burst with Wrap command is used in conjunction with "Quad I/O Fast Read" and "Quad I/O Word Fast Read" command to access a fixed length of 8/16/32/64-byte section within a 256-byte page, in standard SPI mode.
+
+The Set Burst with Wrap command sequence: CS# goes low --> sending SET_BSTRD command --> send 24 dummy bits on SI --> send 8 bits "Wrap bits" --> data out on SO --> CS# goes high.
+
+| W6, W5 | W4=0                      | W4=1 (Default)            |
+|        |---------------------------|---------------------------|
+|        | Wrap Around | Wrap Length | Wrap Around | Wrap Length |
+|--------|-------------|-------------|-------------|-------------|
+| 0, 0   | Yes         | 8-byte      | No          | N/A         |
+| 0, 1   | Yes         | 16-byte     | No          | N/A         |
+| 1, 0   | Yes         | 32-byte     | No          | N/A         |
+| 1, 1   | Yes         | 64-byte     | No          | N/A         |
+|--------|-------------|-------------|-------------|-------------|
+
+If the W6-W4 bits are set by the Set Burst with Wrap command, all the following "Quad I/O Fast Read" and "Quad I/O Word Fast Read" command will use the W6-W4 setting to access the 8/16/32/64-byte section within any page. To exit the "Wrap Around" function and return to normal read operation, another Set Burst with Wrap command should be issued to set W4=1. In QPI mode, the "Burst Read with Wrap (0CH)" command should be used to perform the Read Operation with "Wrap Around" feature. The Wrap Length set by W5-W6 in Standard SPI mode is still valid in QPI mode and can also be re-configured by "Set Read Parameters (C0H) command.
+
+Figure 24. Set Burst with Wrap Sequence
+
+
+10.14 Page Program (PP)
+
+The Page Program (PP) command is for programming the memory. A Write Enable (WREN) command must previously have been executed to set the Write Enable Latch (WEL) bit before sending each Page Program command. The device programs only the last 256 data bytes sent to the device. The last address byte (the 8 least significant address bits, A7-A0) should be set to 0 for 256 bytes page program. If A7-A0 are not all zero, transmitted data that exceed page length are programmed from the starting address (32-bit address that last 8 bit are all 0) of currently selected page. If the data bytes sent to the device exceeds 256, the last 256 data byte is programmed at the request page and previous data ill be disregarded. If the data bytes sent to the device has not exceeded 256, the data will be programmed at the request address of the page. There will be no effort on the other data bytes of the same page.
+
+The Page Program command sequence: CS# goes low --> sending PP command --> 3-byte address --> at least 1-byte data --> CS# goes high.
+
+The CS# must be kept to low during the whole Page Program cycle; The CS# must go high exactly at the byte boundary in SPI (the latest eighth bit of data being latched in), otherwise the command will be rejected and will not be executed.
+
+As soon as CS# is driven high, the self-timed Page Program cycle (whose duration is tPP) is initiated. While the Page Program cycle is in progress, the Status Register may be read to check the value of the Write in Progress (WIP) bit. The Write in Progress (WIP) bit is 1 during the self-timed Page Program cycle, and is 0 when it is completed. At some unspecified time before the cycle is completed, the Write Enable Latch (WEL) bit is reset.
+
+A Page Program (PP) command applied to a page which is protected by the Block Protect (BP4, BP3, BP2, BP1, and BP0) is not executed.
+
+Figure 25. Page Program (PP) Sequence (SPI Mode)
+
+Figure 26. Page Program (PP) Sequence (QPI Mode)
+
+
+10.15 Quad Page Program (QPP)
+
+The Quad Page Program command is for programming the memory using four pins: IO0, IO1, IO2, and IO3. To use Quad Page Program the Quad enable in status register Bit9 must be set (QE=1). A Write Enable (WREN) command must previously have been executed to set the Write Enable Latch (WEL) bit before sending the Page Program command. The quad Page Program command is entered by driving CS# Low, followed by the command code (32H), three address bytes and at least one data byte on IO pins. Quad Page Program can only support SPI mode.
+
+The command sequence is shown in Figure27. If more than 256 bytes are sent to the device, previously latched data are discarded and the last 256 data bytes are guaranteed to be programmed correctly within the same page. If less than 256 data bytes are sent to device, they are correctly programmed at the requested addresses without having any effects on the other bytes of the same page. CS# must be driven high after the eighth bit of the last data byte has been latched in; otherwise the Quad Page Program (QPP) command is not executed.
+
+As soon as CS# is driven high, the self-timed Quad Page Program cycle (whose duration is tPP) is initiated. While the Quad Page Program cycle is in progress, the Status Register may be read to check the value of the Write In Progress (WIP) bit. The Write in Progress (WIP) bit is 1 during the self-timed Quad Page Program cycle, and is 0 when it is completed. At some unspecified time before the cycle is completed, the Write Enable Latch (WEL) bit is reset.
+
+A Quad Page Program command applied to a page which is protected by the Block Protect (BP4, BP3, BP2, BP1, and BP0) is not executed.
+
+Figure 27. Quad Page Program (QPP) Sequence
+
+
+10.16 Sector Erase (SE)
+
+The Sector Erase (SE) command is erased the all data of the chosen sector. A Write Enable (WREN) command must previously have been executed to set the Write Enable Latch (WEL) bit. Any address of the sector (Please refer to "5. MEMORY ORGANIZATION") is a valid address for Sector Erase (SE) command. The CS# must go high exactly at the byte boundary (the least significant bit of the address byte been latched-in); otherwise, the command will be rejected and not executed.
+
+The Sector Erase (SE) command sequence: CS# goes low --> sending SE command --> 3-byte address --> CS# goes high.
+
+As soon as CS# is driven high, the self-timed Sector Erase cycle (whose duration is tSE) is initiated. While the Sector Erase cycle is in progress, the Status Register may be read to check the value of the Write in Progress (WIP) bit. The WIP sets 1 during the self-timed Sector Erase cycle, and clears when Sector Erase Cycle is completed, and the Write Enable Latch (WEL) bit is cleared. If the Block is protected by BP bits (Block Protect Mode), the Sector Erase (SE) command will not be executed on the lock. A Sector Erase (SE) command applied to a sector which is protected by the Block Protect (BP4, BP3, BP2, BP1, and BP0) bit is not executed.
+
+Figure 28. Sector Erase (SE) Sequence (SPI Mode)
+
+Figure 29. Sector Erase (SE) Sequence (QPI Mode)
+
+
+10.17 Block Erase for 32K-byte (BE32K)
+
+The Block Erase for 32K-byte (BE32K) command is erased the all data of the chosen block. The command is used for 4M-byte block erase operation. A Write Enable (WREN) command must previously have been executed to set the Write Enable Latch (WEL) bit. Any address of the block (Please refer to "5. MEMORY ORGANIZATION") is a valid address for Block Erase for 32KB (BE32K) command. The CS# must go high exactly at the byte boundary (the least significant bit of address byte been latched-in); otherwise, the command will be rejected and not executed.
+
+The Block Erase for 32KB (BE32K) command sequence: CS# goes low --> sending BE32K command --> 3-byte address --> CS# goes high.
+
+As soon as CS# is driven high, the self-timed Block Erase for 32KB cycle (whose duration is tBE32K) is initiated. While the Block Erase for 32KB cycle is in progress, the Status Register may be read to check the value of the Write in Progress (WIP) bit. The Write in Progress (WIP) bit is 1 during the self-timed Block Erase for 32KB cycle, and is 0 when it is completed. At some unspecified time before the cycle is completed, the Write Enable Latch (WEL) bit is reset. The Block Erase for 32KB (BE32K) command is not executed if any sector is protected by the Block Protect (BP4, BP3, BP2, BP1, and BP0) bits.
+
+Figure 30. Block Erase for 32KB (BE32K) Sequence (SPI Mode)
+
+Figure 31. Block Erase for 32KB (BE32K) Sequence (QPI Mode)
+
+
+10.18 Block Erase (BE)
+
+The Block Erase (BE) command is erased the all data of the chosen block. The command is used for 8M-byte block erase operation. A Write Enable (WREN) command must previously have been executed to set the Write Enable Latch (WEL) bit. Any address of the block (Please refer to "5. MEMORY ORGANIZATION") is a valid address for Block Erase (BE) command. The CS# must go high exactly at the byte boundary (the least significant bit of address byte been latched-in); otherwise, the command will be rejected and not executed.
+
+The Block Erase (BE) command sequence: CS# goes low --> sending BE command --> 3-byte address --> CS# goes high.
+
+As soon as CS# is driven high, the self-timed Block Erase cycle (whose duration is tBE) is initiated. While the Block Erase cycle is in progress, the Status Register may be read to check the value of the Write in Progress (WIP) bit. The Write in Progress (WIP) bit is 1 during the self-timed Block Erase cycle, and is 0 when it is completed. At some unspecified time before the cycle is completed, the Write Enable Latch (WEL) bit is reset. The Block Erase (BE) command is not executed if any sector is protected by the Block Protect (BP4, BP3, BP2, BP1, and BP0) bits.
+
+Figure 32. Block Erase (BE) Sequence (SPI Mode)
+
+Figure 33. Block Erase (BE) Sequence (QPI Mode)
+
+
+10.19 Chip Erase (CE)
+
+The Chip Erase (CE) command is erased the all data of the chip. A Write Enable (WREN) command must previously have been executed to set the Write Enable Latch (WEL) bit. The CS# must go high exactly at the byte boundary, otherwise the command will be rejected and not executed.
+
+The Chip Erase command sequence: CS# goes low --> sending Chip Erase command --> CS# goes high.
+
+As soon as CS# is driven high, the self-timed Chip Erase cycle (whose duration is tCE) is initiated. While the Chip Erase cycle is in progress, the Status Register may be read to check the value of the Write in Progress (WIP) bit. The Write in Progress (WIP) bit is 1 during the self-timed Chip Erase cycle, and is 0 when it is completed. At some unspecified time before the cycle is completed, the Write Enable Latch (WEL) bit is reset. The Chip Erase (CE) command is not executed if any sector is protected by the Block Protect (BP4, BP3, BP2, BP1, and BP0) bits. It will be only executed when BP4-BP0 all set to "0".
+
+Figure 34. Chip Erase (CE) Sequence (SPI Mode)
+
+Figure 35. Chip Erase (CE) Sequence (QPI Mode)
+
+
+10.20 Deep Power-down (DP)
+
+The Deep Power-down (DP) instruction is for setting the device to minimum power consumption (the standby current is reduced from ISB1 to ISB2). The Deep Power-down mode requires the Deep Power-down (DP) instruction to enter, during the Deep Power-down mode, the device is not active and all Write/Program/Erase instruction are ignored. When CS# goes high, it's only in deep power-down mode not standby mode. It's different from Standby mode.
+
+The sequence of issuing DP instruction is: CS# goes low --> sending DP instruction code --> CS# goes high.
+
+Once the DP instruction is set, all instruction will be ignored except the Release from Deep Power-down mode (RDP) and Read Device ID (RDI) instruction. (those instructions allow the ID being reading out). When Power-down, the deep power-down mode automatically stops, and when power-up, the device automatically is in standby mode. For DP instruction the CS# must go high exactly at the byte boundary (the latest eighth bit of instruction code been latched-in); otherwise, the instruction will not executed. As soon as Chip Select (CS#) goes high, a delay of tDP is required before entering the Deep Power-down mode.
+
+Figure 36. Deep Power-down (DP) Sequence (SPI Mode)
+
+Figure 37. Deep Power-down (DP) Sequence (QPI Mode)
+
+
+10.21 Release from Deep Power-Down (RDP) and Read Device ID (RDI)
+
+The Release from Power-Down (RDP) and Read Device ID (RDI) command is a multi-purpose command. It can be used to release the device from the Power-Down state or obtain the devices electronic identification (ID) number.
+
+To release the device from the Power-Down state, the command is issued by driving the CS# pin low, shifting the instruction code "ABH" and driving CS# high as shown in Figure38. Release from Power-Down will take the time duration of tRES1 (See AC Characteristics) before the device will resume normal operation and other command are accepted. The CS# pin must remain high during the tRES1 time duration.
+
+When used only to obtain the Device ID while not in the Power-Down state, the command is initiated by driving the CS# pin low and shifting the instruction code "ABH" followed by 3-dummy byte. The Device ID bits are then shifted out on the falling edge of SCLK with most significant bit (MSB) first as shown in Figure40. The Device ID value for the NM25Q64EVB is listed in Manufacturer and Device Identification table. The Device ID can be read continuously. The command is completed by driving CS# high.
+
+When used to release the device from the Power-Down state and obtain the Device ID, the command is the same as previously described, and shown in Figure40, except that after CS# is driven high it must remain high for a time duration of tRES2 (See AC Characteristics). After this time duration the device will resume normal operation and other command will be accepted. If the Release from Power-Down / Device ID command is issued while an Erase, Program or Write cycle is in process (when WIP equal 1) the command is ignored and will not have any effects on the current cycle.
+
+Figure 38. Release From Power-down (RDP) Sequence (SPI Mode)
+
+Table 12. ID Definitions for NM25Q64EVB
+
+| Command Type                   |  NM25Q64                                       |
+|--------------------------------|------------------------------------------------|
+| RDID             | 9FH         | Manufacturer ID | Memory Type | Memory Density |
+|                  |             |-----------------|-------------|----------------|
+|                  |             | 52              | 22          | 17             |
+|------------------|-------------|-----------------|-------------|----------------|
+| RDI              | ABH         | Device ID       |             |                |
+|                  |             |-----------------|-------------|----------------|
+|                  |             | 16              |             |                |
+|------------------|-------------|-----------------|-------------|----------------|
+| REMS/REMS2/REMS4 | 90H/92H/94H | Manufacturer ID | Device ID   |                |
+|                  |             |-----------------|-------------|----------------|
+|                  |             | 52              | 16          |                |
+|------------------|-------------|-----------------|-------------|----------------|
+
+Figure 39. Release From Deep Power-down (RDP) Sequence (QPI Mode)
+
+Figure 40. Release From Power-down/Read Device ID (RDI) Sequence (SPI Mode)
+
+Figure 41. Release From Power-down/Read Device ID (RDI) Sequence (QPI Mode)
+
+
+10.22 Read Manufacture ID/ Device ID (REMS)
+
+The Read Manufacturer/Device ID command is an alternative to the Release from Power-Down / Device ID command that provides both the JEDEC assigned Manufacturer ID and the specific Device ID.
+
+The command is initiated by driving the CS# pin low and shifting the command code "90H" followed by a 24-bit address (A23-A0) of 000000H. After which, the Manufacturer ID and the Device ID (defined in table 12)are shifted out on the falling edge of SCLK with most significant bit (MSB) first as shown in Figure42. If the 24-bit address is initially set to 000001H, the Device ID will be read first.
+
+Figure 42. Read Manufacture ID/Device ID Sequence (SPI Mode)
+
+Figure 43. Read Manufacture ID/Device ID Sequence (QPI Mode)
+
+
+10.23 Read Manufacture ID/ Device ID with Dual I/O (REMS2)
+
+The Read Manufacturer/Device ID Dual I/O command is an alternative to the Release from Power-Down / Device ID command that provides both the JEDEC assigned Manufacturer ID and the specific Device ID by dual I/O.
+
+The command is initiated by driving the CS# pin low and shifting the command code "92H" followed by a 24-bit address (A23-A0) of 000000H. After which, the Manufacturer ID and the Device ID (defined in table 12) are shifted out on the falling edge of SCLK with most significant bit (MSB) first as shown in Figure44. If the 24-bit address is initially set to 000001H, the Device ID will be read first.
+
+Figure 44. Read Manufacture ID/Device ID Sequence with Dual I/O (SPI Mode only)
+
+
+10.24 Read Manufacture ID/ Device ID with Quad I/O (REMS4)
+
+The Read Manufacturer/Device ID Quad I/O command is an alternative to the Release from Power-Down / Device ID command that provides both the JEDEC assigned Manufacturer ID and the specific Device ID by quad I/O.
+
+The command is initiated by driving the CS# pin low and shifting the command code "94H" followed by a 24-bit address (A23-A0) of 000000H. After which, the Manufacturer ID and the Device ID (defined in table 12) are shifted out on the falling edge of SCLK with most significant bit (MSB) first as shown in Figure45. If the 24-bit address is initially set to 000001H, the Device ID will be read first.
+
+Figure 45. Read Manufacture ID/Device ID with Quad I/O Sequence (SPI Mode only)
+
+
+10.25 Read Identification (RDID)
+
+The RDID command is for reading the manufacturer ID of 1-byte and followed by Device ID of 2-byte.
+
+The Read Identification (RDID) command sequence: CS# goes low --> sending RDID command --> 24-bits ID data out on SO (defined in table 12) --> to end RDID operation can drive CS# to high at any time during data out.
+
+While Program/Erase operation is in progress, it will not decode the RDID command, therefore there's no effect on the cycle of program/erase operation which is currently in progress. When CS# goes high, the device is at standby stage.
+
+Figure 46. Read Identification (RDID) Sequence (SPI mode)
+
+Figure 47. Read Identification (RDID) Sequence (QPI Mode)
+
+
+10.26 Program/Erase Suspend (Suspend)
+
+The Program/Erase Suspend command "75H", allows the system to interrupt a page program or sector/block erase operation and then read data from any other sector or block. The Write Status Register command (01H/31H/11H) and Erase/Program Security Registers command (44H, 42H) and Erase commands (20H, 52H, D8H, C7H, 60H) and Page Program command (02H / 32H) are not allowed during Program/Erase suspend. Program/Erase Suspend is valid only during the page program or sector/block erase operation. A maximum of time of "tsus" (See AC Characteristics) is required to suspend the program/erase operation.
+
+The Program/Erase Suspend command will be accepted by the device only if the ESB/PSB bit in the Status Register equal to 0 and WIP bit equal to 1 while a Page Program or a Sector or Block Erase operation is on-going. If the ESB/PSB bit equal to 1 or WIP bit equal to 0, the Suspend command will be ignored by the device. The WIP bit will be cleared from 1 to 0 within "tsus" and the ESB/PSB bit will be set from 0 to 1 immediately after Program/Erase Suspend. A power-off during the suspend period will reset the device and release the suspend state. The command sequence is show in Figure48.
+
+Figure 48. Program/Erase Suspend Sequence (SPI Mode)
+
+Figure 49. Program/Erase Suspend Sequence (QPI Mode)
+
+
+10.27 Program/Erase Resume (Resume)
+
+The Program/Erase Resume command must be written to resume the program or sector/block erase operation after a Program/Erase Suspend command. The Program/Erase Resume command will be accepted by the device only if the ESB/PSB bit equal to 1 and the WIP bit equal to 0. After issued the ESB/PSB bit in the status register will be cleared from 1 to 0 immediately, the WIP bit will be set from 0 to 1 within 200ns and the Sector or Block will complete the erase operation or the page will complete the program operation. The Program/Erase Resume command will be ignored unless a Program/Erase Suspend is active. The command sequence is show in Figure 50.
+
+Figure 50. Program/Erase Resume Sequence (SPI Mode)
+
+Figure 51. Program/Erase Resume Sequence (SPI Mode)
+
+
+10.28 Erase Security Registers (ERSECR)
+
+The NM25Q64EVB provides two 1K-byte Security Registers which can be erased and programmed individually. These registers may be used by the system manufacturers to store security and other important information separately from the main memory array.
+
+The Erase Security Registers command is similar to Sector/Block Erase command. A Write Enable (WREN) command must previously have been executed to set the Write Enable Latch (WEL) bit.
+
+The Erase Security Registers command sequence: CS# goes low --> sending Erase Security Registers command --> CS# goes high.
+
+The command sequence is shown in Figure52. CS# must be driven high after the eighth bit of the command code has been latched in; otherwise the Erase Security Registers command is not executed. As soon as CS# is driven high, the self-timed Erase Security Registers cycle (whose duration is tSE) is initiated. While the Erase Security Registers cycle is in progress, the Status Register may be read to check the value of the Write in Progress (WIP) bit. The Write in Progress (WIP) bit is 1 during the self-timed Erase Security Registers cycle, and is 0 when it is completed. At some unspecified time before the cycle is completed, the Write Enable Latch (WEL) bit is reset. The Security Registers Lock Bit (LB2-1) in the Status Register can be used to OTP protect the security registers. Once the LB bit is set to 1, the Security Registers will be permanently locked; the Erase Security Registers command will be ignored. Security registers region refer to "Table 6. Secured Register Definition".
+
+Figure 52. Erase Security Registers Sequence (SPI mode only)
+
+
+10.29 Program Security Registers (PGSECR)
+
+The Program Security Registers command is similar to the Page Program command. It allows from 1 to 1K bytes Security Registers data to be programmed. A Write Enable (WREN) command must previously have been executed to set the Write Enable Latch (WEL) bit before sending the Program Security Registers command.
+
+The Program Security Registers command is entered by driving CS# Low, followed by the command code (42H), three address bytes and at least one data byte on SI. As soon as CS# is driven high, the self-timed Program Security Registers cycle (whose duration is tPP) is initiated. While the Program Security Registers cycle is in progress, the Status Register may be read to check the value of the Write in Progress (WIP) bit. The Write in Progress (WIP) bit is 1 during the self-timed Program Security Registers cycle, and is 0 when it is completed. At some unspecified time before the cycle is completed, the Write Enable Latch (WEL) bit is reset. If the Security Registers Lock Bit (LB2-1) is set to 1, the Security Registers will be permanently locked. Program Security Registers command will be ignored.
+
+Figure 53. Program Security Registers Sequence (SPI mode only)
+
+
+10.30 Read Security Registers (RDSECR)
+
+The Read Security Registers command is similar to Fast Read command. The command is followed by a 3-byte address (A23-A0) and a dummy byte, each bit being latched-in during the rising edge of SCLK. Then the memory content, at that address, is shifted out on SO, each bit being shifted out, at a Max frequency fC, during the falling edge of SCLK. The first byte addressed can be at any location. The address is automatically incremented to the next higher address after each byte of data is shifted out. Once the A9-A0 address reaches the last byte of the register (Byte 3FFH), it will reset to 000H, the command is completed by driving CS# high.
+
+Figure 54. Read Security Registers Sequence (SPI mode only)
+
+
+10.31 Individual Block/Sector Lock (SBLK)
+
+The Individual Block/Sector Lock provides an alternative way to protect the memory array from adverse Erase/Program. In order to use the Individual Block/Sector Locks, the WPS bit in Status Register-2 must be set to 1. If WPS=0, the write protection will be determined by the combination of CMP, BP[4:0] bits in the Status Registers. The Individual Block/Sector Lock bits are volatile bits. The default values after device power up or after a Reset are 1, so the entire memory array is being protected.
+
+To lock a specific block or sector as illustrated in Figure 55, an Individual Block/Sector Lock instruction must be issued by driving CS# low, shifting the instruction code "36h" into the Data Input (DI) pin on the rising edge of CLK, followed by a 24-bit address and then driving CS# high.
+
+Figure 55. Individual Block/Sector Lock Sequence (SPI mode)
+
+Figure 56. Individual Block/Sector Lock Sequence (QPI mode)
+
+
+10.32 Individual Block/Sector Unlock (SBULK)
+
+The Individual Block/Sector Lock provides an alternative way to protect the memory array from adverse Erase/Program. In order to use the Individual Block/Sector Locks, the WPS bit in Status Register-2 must be set to 1. If WPS=0, the write protection will be determined by the combination of CMP, BP[4:0] bits in the Status Registers. The Individual Block/Sector Lock bits are volatile bits. The default values after device power up or after a Reset are 1, so the entire memory array is being protected.
+
+To unlock a specific block or sector as illustrated in Figure 57, an Individual Block/Sector Unlock instruction must be issued by driving CS# low, shifting the instruction code "39h" into the Data Input (DI) pin on the rising edge of CLK, followed by a 24-bit address and then driving CS# high.
+
+Figure 57. Individual Block/Sector Unlock Sequence (SPI mode)
+
+Figure 58. Individual Block/Sector Unlock Sequence (QPI mode)
+
+
+10.33 Read Block/Sector Lock (RDBLK)
+
+The Individual Block/Sector Lock provides an alternative way to protect the memory array from adverse Erase/Program. In order to use the Individual Block/Sector Locks, the WPS bit in Status Register-2 must be set to 1. If WPS=0, the write protection will be determined by the combination of CMP, BP[4:0] bits in the Status Registers. The Individual Block/Sector Lock bits are volatile bits. The default values after device power up or after a Reset are 1, so the entire memory array is being protected.
+
+To read out the lock bit value of a specific block or sector as illustrated in Figure 59, a Read Block/Sector Lock instruction must be issued by driving CS# low, shifting the instruction code "3Dh" into the Data Input (DI) pin on the rising edge of CLK, followed by a 24-bit address. The Block/Sector Lock bit value will be shifted out on the DO pin at the falling edge of CLK with most significant bit (MSB) first.  If the least significant bit (LSB) is 1, the corresponding block/sector is locked; if LSB=0, the corresponding block/sector is unlocked, Erase/Program operation can be performed.
+
+Figure 59. Read Block/Sector Lock Sequence (SPI mode)
+
+Figure 60. Read Block/Sector Lock Sequence (QPI mode)
+
+
+10.34 Global Block/Sector Lock (GBLK)
+
+All Block/Sector Lock bits can be set to 1 by the Global Block/Sector Lock instruction. The instruction must be issued by driving CS# low, shifting the instruction code "7Eh" into the Data Input (DI) pin on the rising edge of CLK, and then driving CS# high.
+
+Figure 61. Global Block Lock Sequence (SPI Mode)
+
+Figure 62. Global Block Lock Sequence (QPI Mode)
+
+
+10.35 Global Block/Sector Unlock (GBULK)
+
+All Block/Sector Lock bits can be set to 0 by the Global Block/Sector Unlock instruction. The instruction must be issued by driving CS# low, shifting the instruction code "98h" into the Data Input (DI) pin on the rising edge of CLK, and then driving CS# high.
+
+Figure 63. Global Block Unlock Sequence (SPI Mode)
+
+Figure 64. Global Block Unlock Sequence (QPI Mode)
+
+
+10.36 Set Read Parameter (SET_PARAM)
+
+In QPI mode the "Set Read Parameters (C0H)" command can be used to configure the number of dummy clocks for "Fast Read (0BH)", "Quad I/O Fast Read (EBH)" and "Burst Read with Wrap (0CH)" command, and to configure the number of bytes of "Wrap Length" for the "Burst Read with Wrap (0CH)" command. In standard SPI mode, the "Wrap Length" is set by W5-6 bit in the "Set Burst with Wrap (77H)" command. This setting will remain unchanged when the device is switched from Standard SPI mode to QPI mode.
+
+| P5, P4 | Dummy Cycle | Max. Read Freq. | P1, P0 | Wrap Length |
+|--------|-------------|-----------------|--------|-------------|
+| 0, 0   | 4           | 60MHz           | 0, 0   | 8-byte      |
+| 0, 1   | 6           | 80MHz           | 0, 1   | 16-byte     |
+| 1, 0   | 8           | 104MHz          | 1, 0   | 32-byte     |
+| 1, 1   | 8           | 104MHz          | 1, 1   | 64-byte     |
+|--------|-------------|-----------------|--------|-------------|
+
+Figure 65. Set Read Parameter Sequence (QPI mode only)
+
+
+10.37 Quad I/O Burst Read with Wrap (4READ_BST)
+
+The Quad I/O Burst Read command provides an alternative way to perform the read operation with "Wrap Around" in QPI mode. This command is similar to the "Fast Read (0BH)" command in QPI mode, except the addressing of the read operation will "Wrap Around" to the beginning boundary of the "Wrap Around" once the ending boundary is reached. The "Wrap Length" and the number of dummy clocks can be configured by the "Set Read Parameters (C0H)" command.
+
+Figure 66. Quad I/O Burst Read with Wrap Sequence (QPI mode only)
+
+
+10.38 Enable QPI (EQIO)
+
+The device support both Standard/Dual/Quad SPI and QPI mode. The "Enable QPI (38H)" command can switch the device from SPI mode to QPI mode. In order to switch the device to QPI mode, the Quad Enable (QE) bit in Status Register-2 must be set to 1 first, and "Enable QPI (38H)" command must be issued. If the QE bit is 0, the "Enable QPI (38H)" command will be ignored and the device will remain in SPI mode. When the device is switched from SPI mode to QPI mode, the existing Write Enable Latch and Program/Erase Suspend status, and the Wrap Length setting will remain unchanged.
+
+Figure 67. Enable QPI Sequence (SPI mode only)
+
+
+10.39 Reset QPI (RSTQIO)
+
+To exit the QPI mode and return to Standard/Dual/Quad SPI mode, the "Reset QPI (FFH)" command must be issued. When the device is switched from QPI mode to SPI mode, the existing Write Enable Latch and Program/Erase Suspend status, and the Wrap Length setting will remain unchanged.
+
+Figure 68. Reset QPI Sequence (QPI mode only)
+
+
+10.40 Software Reset (Reset-Enable (RSTEN) and Reset (RST))
+
+If the Reset command is accepted, any on-going internal operation will be terminated and the device will return to its default power-on state and lose all the current volatile settings, such as Volatile Status Register bits, Write Enable Latch status (WEL), Program/Erase Suspend status, Read Parameter setting (P7-P0), Continuous Read Mode bit setting (M7-M0) and Wrap Bit Setting (W6-W4).
+
+The "Enable Reset (66H)" and the "Reset (99H)" commands can be issued in either SPI or QPI mode. The "Reset (99H)" command sequence as follow: CS# goes low--> Sending Erase Security Registers command --> CS# goes high --> CS# goes low --> Sending Reset command --> CS# goes high.
+
+Once the Reset command is accepted by the device, the device will take approximately tRST to reset. During this period, no command will be accepted. Data corruption may happen if there is an on-going or suspended internal Erase or Program operation when Reset command sequence is accepted by the device. It is recommended to check the BUSY bit and the ESB/PSB bit in Status Register before issuing the Reset command sequence.
+
+Figure 69. Software Reset Sequence (SPI mode)
+
+Figure 70. Software Reset Sequence (QPI mode)
+
+
+10.41 Read SFDP Mode (RDSFDP)
+
+The NM25Q64 features a 256-Byte Serial Flash Discoverable Parameter (SFDP) register that contains information about device configurations, available instructions and other features. The SFDP parameters are stored in one or more Parameter Identification (PID) tables. Currently only one PID table is specified, but more may be added in the future. The Read SFDP Register instruction is compatible with the SFDP standard initially established in 2010 for PC and other applications, as well as the JEDEC standard JESD216 that is published in 2011.
+
+The sequence of issuing RDSFDP command is CS# goes low --> send RDSFDP command (5Ah) --> send 3 address bytes on SI pin --> send 8 dummy cycles --> read SFDP code on SO --> to end RDSFDP operation can use CS# to high at any time during data out.
+
+Figure 71. Read Serial Flash Discoverable Parameter (RDSFDP) Sequence
+
+Figure 72. Read Serial Flash Discoverable Parameter (RDSFDP) Sequence (QPI Mode)
+
+
+11. RESET
+
+Driving the RESET# pin low for a period of tRLRH or longer will reset the device. After reset cycle, the device is at the following states:
+
+- Standby mode
+- All the volatile bits such as WEL/WIP will return to the default status as power on.
+- All the volatile bits in SR1/SR2/SR3/CR will return to the default status as power on.
+
+If the device is under programming or erasing, driving the RESET# pin low will also terminate the operation and data could be lost. During the resetting cycle, the SIO data becomes high impedance and the current will be reduced to minimum.
+
+Figure 73. RESET Timing
+
+Table 13. Reset Timing-(Standby)
+
+| Symbol  | Parameter                                      | Min. | Typ. | Max. | Unit |
+|---------|------------------------------------------------|------|------|------|------|
+| tRHSL   | Reset# high before CS# low                     | 10   |      |      | us   |
+|---------|------------------------------------------------|------|------|------|------|
+| tRS     | Reset# setup time                              | 15   |      |      | ns   |
+|---------|------------------------------------------------|------|------|------|------|
+| tRH     | Reset# hold time                               | 15   |      |      | ns   |
+|---------|------------------------------------------------|------|------|------|------|
+| tRLRH   | Reset# low pulse width                         | 10   |      |      | us   |
+|---------|------------------------------------------------|------|------|------|------|
+| tREADY1 | Reset Recovery time                            | 35   |      |      | us   |
+|---------|------------------------------------------------|------|------|------|------|
+
+Table 14. Reset Timing-(Other Operation)
+
+| Symbol  | Parameter                                      | Min. | Typ. | Max. | Unit |
+|---------|------------------------------------------------|------|------|------|------|
+| tRHSL   | Reset# high before CS# low                     | 10   |      |      | us   |
+|---------|------------------------------------------------|------|------|------|------|
+| tRS     | Reset# setup time                              | 15   |      |      | ns   |
+|---------|------------------------------------------------|------|------|------|------|
+| tRH     | Reset# hold time                               | 15   |      |      | ns   |
+|---------|------------------------------------------------|------|------|------|------|
+| tRLRH   | Reset# low pulse width                         | 10   |      |      | us   |
+|---------|------------------------------------------------|------|------|------|------|
+| tREADY2 | Reset Recovery time (During command decoding)  | 40   |      |      | us   |
+|         | Reset Recovery time (for read operation)       | 40   |      |      | us   |
+|         | Reset Recovery time (for program operation)    | 310  |      |      | us   |
+|         | Reset Recovery time (for SE4KB operation)      | 12   |      |      | ms   |
+|         | Reset Recovery time (for BE64K operation)      | 25   |      |      | ms   |
+|         | Reset Recovery time (for Chip Erase operation) | 100  |      |      | ms   |
+|         | Reset Recovery time (for WRSR operation)       | 40   |      |      | ms   |
+|---------|------------------------------------------------|------|------|------|------|
+
+
+12. POWER-ON STATE
+
+The device is at below states when power-up:
+
+- Standby mode (please note it is not deep power-down mode)
+- Write Enable Latch (WEL) bit is reset
+
+The device must not be selected during power-up and power-down stage unless the VCC achieves below correct level:
+
+- VCC minimum at power-up stage and then after a delay of Tvsl
+- GND at power-down
+
+Please note that a pull-up resistor on CS# may ensure a safe and proper power-up/down level.
+
+An internal power-on reset (POR) circuit may protect the device from data corruption and inadvertent data change during power up state. When VCC is lower than VWI (POR threshold voltage value), the internal logic is reset and the ﬂash device has no response to any command.
+
+For further protection on the device, if the VCC does not reach the VCC minimum level, the correct operation is not guaranteed. The write, erase, and program command should be sent after the below time delay:
+
+- tVSL after VCC reached VCC minimum level
+
+The device can accept read command after VCC reached VCC minimum and a time delay of tVSL. Please refer to the ""Power-up Timing"".
+
+Note:
+
+- To stabilize the VCC level, the VCC rail decoupled by a suitable capacitor close to package pins is recommended. (generally around 0.1uF)
+- At power-down stage, the VCC drops below VWI level, all operations are disable and device has no response to any command. The data corruption might occur during the stage while a write, program, erase cycle is in progress.
+
+
+13. ELECTRICAL SPECIFICATIONS
+
+Table 15. ABSOLUTE MAXIMUM RATINGS
+
+| RATING                        | VALUE                                        |
+|-------------------------------|----------------------------------------------|
+| Ambient Operating Temperature | Industrial grade: -40'C to 85'C              |
+|                               | Mobile: -40'C to 85'C                        |
+|                               | Automotive Grade 2: -40'C to 105'C, AEC Q100 |
+|-------------------------------|----------------------------------------------|
+| Storage Temperature           | -65'C to 150'C                               |
+|-------------------------------|----------------------------------------------|
+| Applied Input Voltage         | -0.5V to VCC+0.5V                            |
+|-------------------------------|----------------------------------------------|
+| Applied Output Voltage        | -0.5V to VCC+0.5V                            |
+|-------------------------------|----------------------------------------------|
+| VCC to Ground Potential       | -0.5V to 2.5V                                |
+|-------------------------------|----------------------------------------------|
+
+NOTICE:
+1. Stresses greater than those listed under ABSOLUTE MAXIMUM RATINGS may cause permanent damage to the device. This is stress rating only and functional operational sections of this specification is not implied. Exposure to absolute maximum rating conditions for extended period may affect reliability.
+2. Specifications contained within the following tables are subject to change.
+3. During voltage transitions, all pins may overshoot to VCC+1.0V or -1.0V for period up to 20ns.
+
+Figure 74. Maximum Negative Overshoot Waveform
+
+Figure 75. Maximum Positive Overshoot Waveform
+
+
+Table 16. CAPACITANCE TA = 25°C, f = 1.0 MHz
+
+| Symbol | Parameter          | Min. | Typ. | Max. | Unit | Conditions |
+|--------|--------------------|------|------|------|------|------------|
+| CIN    | Input Capacitance  |      |      | 6    | pF   | VIN = 0V   |
+|--------|--------------------|------|------|------|------|------------|
+| COUT   | Output Capacitance |      |      | 8    | pF   | VOUT = 0V  |
+|--------|--------------------|------|------|------|------|------------|
+
+Figure 75. INPUT TEST WAVEFORMS AND MEASUREMENT LEVEL
+
+Input timing reference level 0.8VCC
+
+Note: Input pulse rise and fall time are <5ns
+
+Figure 76. OUTPUT LOADING
+
+
+13.1 DC CHARACTERISTICS
+
+Temperature = -40°C to 85°C, VCC = 2.7V ~ 3.6V
+
+| Symbol | Parameter               | Notes | Min.    | Typ. | Max.    | Units | Test Conditions    |
+|--------|-------------------------|-------|---------|------|---------|-------|--------------------|
+| ILI    | Input Load Current      | 1     |         |      | ±2      | uA    | VCC = VCC Max      |
+|        |                         |       |         |      |         |       | VIN = VCC or GND   |
+|--------|-------------------------|-------|---------|------|---------|-------|--------------------|
+| ILO    | Output Leakage Current  | 1     |         |      | ±2      | uA    | VCC = VCC Max      |
+|        |                         |       |         |      |         |       | VOUT = VCC or GND  |
+|--------|-------------------------|-------|---------|------|---------|-------|--------------------|
+| ISB1   | VCC Standby Current     | 1     |         | 10   | 50      | uA    | VIN = VCC or GND   |
+|        |                         |       |         |      |         |       | CS# = VCC          |
+|--------|-------------------------|-------|---------|------|---------|-------|--------------------|
+| ISB2   | Deep Power-down Current |       |         | 40   | 5000    | nA    | VIN = VCC or GND   |
+|        |                         |       |         |      |         |       | CS# = VCC          |
+|--------|-------------------------|-------|---------|------|---------|-------|--------------------|
+| ICC1   | VCC Read                | 1     |         | 13.5 | 18      | mA    | 100MHz 4IO STR     |
+|        |                         |       |         |      |         |       | (SIO ﬂoating)      |
+|        |                         |       |         |------|---------|-------|--------------------|
+|        |                         |       |         | 12   | 17      | mA    | 80MHz 4IO STR      |
+|        |                         |       |         |      |         |       | (SIO ﬂoating)      |
+|--------|-------------------------|-------|---------|------|---------|-------|--------------------|
+| ICC2   | VCC Program Current     | 1     |         |      | 16      | mA    | Program in progress|
+|        |                         |       |         |      |         |       | CS# = VCC          |
+|--------|-------------------------|-------|---------|------|---------|-------|--------------------|
+| ICC3   | VCC Write Status        |       |         |      | 16      | mA    | WRSR in progress   |
+|        | Register (WRSR) Current |       |         |      |         |       | CS# = VCC          |
+|--------|-------------------------|-------|---------|------|---------|-------|--------------------|
+| ICC4   | VCC Sector Erase (SE)   | 1     |         |      | 16      | mA    | Erase in progress  |
+|        | Current                 |       |         |      |         |       | CS# = VCC          |
+|--------|-------------------------|-------|---------|------|---------|-------|--------------------|
+| ICC4   | VCC Block Erase (BE)    | 1     |         |      | 16      | mA    | Erase in progress  |
+|        | Current                 |       |         |      |         |       | CS# = VCC          |
+|--------|-------------------------|-------|---------|------|---------|-------|--------------------|
+| ICC5   | VCC Chip Erase (CE)     | 1     |         |      | 16      | mA    | Erase in progress  |
+|        | Current                 |       |         |      |         |       | CS# = VCC          |
+|--------|-------------------------|-------|---------|------|---------|-------|--------------------|
+| VIL    | Input Low Voltage       |       | -0.4    |      | 0.3VCC  | V     |                    |
+|--------|-------------------------|-------|---------|------|---------|-------|--------------------|
+| VIH    | Input High Voltage      |       | 0.7VCC  |      | VCC+0.4 | V     |                    |
+|--------|-------------------------|-------|---------|------|---------|-------|--------------------|
+| VOL    | Output Low Voltage      |       |         |      | 0.2     | V     | IOL = 100uA        |
+|--------|-------------------------|-------|---------|------|---------|-------|--------------------|
+| VOH    | Output High Voltage     |       | VCC-0.2 |      |         | V     | IOH = -100uA       |
+|--------|-------------------------|-------|---------|------|---------|-------|--------------------|
+
+Notes:
+1. Typical values at VCC = 3.3V, T = 25°C. These currents are valid for all product versions (package and speeds).
+2. Typical value is calculated by simulation.
+
+
+13.2 AC CHARACTERISTICS
+
+Temperature = -40°C to 85°C, VCC = 2.7V ~ 3.6V
+
+| Symbol   | Alt. | Parameter                                          | Min.   | Typ. | Max.   | Unit
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| fSCLK    | fC   | Clock frequency for SPI commands except Read       |        |      | 104    | MHz
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| fRSCLK   | fR   | Clock Frequency for READ, REMS, RDID commands      |        |      | 80     | MHz
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| fQSCLK   | fQ   | Clock Frequency for 4READ                          |        |      | 104/80 | MHz
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tCH(1)   | tCH  | Clock High Time                                    | 0.45*T |      |        | ns
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tCL(1)   | tCL  | Clock Low Time                                     | 0.45*T |      |        | ns
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tCLCH(2) |      | Clock Rise Time (peak to peak)                     | 0.1    |      |        | V/ns
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tCHCL(2) |      | Clock Fall Time (peak to peak)                     | 0.1    |      |        | V/ns
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tSLCH    | tCSS | CS# Active Setup Time (relative to SCLK)           | 5      |      |        | ns
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tCHSL    |      | CS# Not Active Hold Time (relative to SCLK)        | 5      |      |        | ns
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tSHCH    |      | CS# Not Active Setup Time (relative to SCLK)       | 5      |      |        | ns
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tCHSH    |      | CS# Active Hold Time (relative to SCLK)            | 5      |      |        | ns
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tSHSL    | tCSH | CS# Deselect Time (read/write)                     | 20     |      |        | ns
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tDVCH    | tDSU | Data In Setup Time                                 | 2      |      |        | ns
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tCHDX    | tDH  | Data In Hold Time                                  | 2      |      |        | ns
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tSHQZ(2) | tDIS | Output Disable Time                                |        |      | 8      | ns
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tCLQV /  | tV   | Clock transient to Output Valid | Loading: 30pF    |        |      | 8      | ns
+| tCHQV    |      |                                 | Loading: 20pF    |        |      | 6      | ns
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tCLQX    | tHO  | Output Hold Time                                   | 1      |      |        | ns
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tHLCH    |      | HOLD# Low Setup Time (relative to SCLK)            | 5      |      |        |
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tHHCH    |      | HOLD# High Setup Time (relative to SCLK)           | 5      |      |        |
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tCHHL    |      | HOLD# High High Time (relative to SCLK)            | 5      |      |        |
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tCHHH    |      | HOLD# High Low Time (relative to SCLK)             | 5      |      |        |
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tHLQZ    |      | HOLD# Low To High-Z Output                         |        |      | 8      |
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tHHQX    |      | HOLD# High To Low-Z Output                         |        |      | 8      |
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tWHSL    |      | Write Protect Setup Time Before CS# Low            | 20     |      |        |
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tSHWL    |      | Write Protect Hold Time After CS# High             | 100    |      |        |
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tDP(2)   |      | CS# High to Deep Power-down Mode                   |        |      | 10     | us
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tRES1(2) |      | CS# High to Standby Mode                           |        |      | 30     | us
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tRES2(2) |      | CS# High to Standby Mode with RDI                  |        |      | 30     | us
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tSUS     |      | CS# High to Next Command After Suspend             |        |      | 20     | us
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tRST_R   |      | CS# High to Standby Mode with Reset (From Read)    |        |      | 20     | us
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tRST_P   |      | CS# High to Standby Mode with Reset (From Program) |        |      | 20     | us
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tRST_E   |      | CS# High to Standby Mode with Reset (From Erase)   |        |      | 12     | us
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tW       |      | Write Status/Configuration Register Cycle Time     |        | 5    | 30     | ms
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tBP(3)   |      | Byte Program Cycle Time                            |        | 30   | 50     | us
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tPP(3)   |      | Page Program Cycle Time                            |        | 0.6  | 2.4    | ms
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tSE      |      | Sector Erase Cycle Time                            |        | 25   | 180    | ms
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tBE32    |      | Block Erase (32KB) Cycle Time                      |        | 0.11 | 1.6    | s
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tBE      |      | Block Erase (64KB) Cycle Time                      |        | 0.22 | 2      | s
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+| tCE      |      | Chip Erase Cycle Time                              |        | 22   | 60     | s
+|----------|------|----------------------------------------------------|--------|------|--------|-------
+
+Notes:
+1. tCH + tCL must be greater than or equal to 1/ Frequency.
+2. Typical values given for TA=25°C. Not 100% tested.
+3. While programming consecutive bytes, Page Program command provides optimized timings by selecting to
+program the whole 256 bytes or only a few bytes between 1~256 bytes.
+
+Figure 77. Input Timing (STR mode)
+
+Figure 78.Output Timing (STR mode)
+
+Figure 79.Reset Timing
+
+Reset Timing
+
+| Symbol | Parameter                               | Setup | Speed | Unit |
+|--------|-----------------------------------------|-------|-------|------|
+| tRLRH  | Reset Pulse Width                       | MIN   | 1     | us   |
+|--------|-----------------------------------------|-------|-------|------|
+| tRHSL  | Reset High Time Before Read             | MIN   | 50    | ns   |
+|--------|-----------------------------------------|-------|-------|------|
+| tRB1   | Reset Recovery Time (For not busy mode) | MAX   | 5     | us   |
+|--------|-----------------------------------------|-------|-------|------|
+| tRB2   | Reset Recovery Time (For busy mode)     | MAX   | 60    | us   |
+|--------|-----------------------------------------|-------|-------|------|
+
+Figure 80. Hold Timing
+
+
+14. OPERATING CONDITIONS
+
+14.1 At Device Power-Up and Power-Down
+
+AC timing illustrated in Figure 81 and Figure 82 are for the supply voltages and the control signals at device power-up and power-down. If the timing in the figures is ignored, the device will not operate correctly.
+
+During power-up and power-down, CS# needs to follow the voltage applied on VCC to keep the device not to be selected. The CS# can be driven low when VCC reach Vcc(min.) and wait a period of tVSL.
+
+Figure 81. AC Timing at Device Power-Up
+
+| Symbol | Parameter      | Notes | Min. | Max.   | Unit |
+|--------|----------------|-------|------|--------|------|
+| tVR    | VCC Rise Time  | 1     | 20   | 500000 | us/V |
+|--------|----------------|-------|------|--------|------|
+
+Notes:
+1. Sampled, not 100% tested.
+2. For AC spec tCHSL, tSLCH, tDVCH, tCHDX, tSHSL, tCHSH, tSHCH, tCHCL, tCLCH in the figure, please refer to "AC CHARACTERISTICS".
+
+Figure 82. Power-Down Sequence
+
+During power-down, CS# needs to follow the voltage drop on VCC to avoid mis-operation.
+
+Figure 83. Power-up Timing
+
+Figure 84. Power Up/Down and Voltage Drop
+
+For Power-down to Power-up operation, the VCC of ﬂash device must below VPWD for at least tPWD timing. Please check the table below for more detail.
+
+Table 17. Power-Up/Down Voltage and Timing
+
+| Symbol | Parameter                                                                | Min. | Max.   | Unit |
+|--------|--------------------------------------------------------------------------|------|--------|------|
+| VPWD   | VCC voltage needed to below VPWD for ensuring initialization will occur  |      | 0.9    | V    |
+|--------|--------------------------------------------------------------------------|------|--------|------|
+| V_keep | Voltage that a re-initialization is necessary if VDD drop below to VKEEP | 2.4  |        | V    |
+|--------|--------------------------------------------------------------------------|------|--------|------|
+| tPWD   | The minimum duration for ensuring initialization will occur              | 300  |        | us   |
+|--------|--------------------------------------------------------------------------|------|--------|------|
+| tVSL   | VCC(min.) to device operation                                            | 3    |        | ms   |
+|--------|--------------------------------------------------------------------------|------|--------|------|
+| tVR    | VCC Rise Time                                                            | 20   | 500000 | us/V |
+|--------|--------------------------------------------------------------------------|------|--------|------|
+| VCC    | VCC Power Supply                                                         | 2.7  | 3.6    | V    |
+|--------|--------------------------------------------------------------------------|------|--------|------|
+| VWI    | Write Inhibit Voltage                                                    | 2.0  | 2.3    | V    |
+|--------|--------------------------------------------------------------------------|------|--------|------|
+
+
+14.2 INITIAL DELIVERY STATE
+
+The device is delivered with the memory array erased: all bits are set to 1 (each byte contains FFh). The Status Register contains 00h (all Status Register bits are 0). DEFDOPI# in SR2 depends on shipping device model.
+
+
+15. ERASE AND PROGRAMMING PERFORMANCE
+
+| Parameter                         | Min.    | Typ.(1) | Max.(2) | Unit   |
+|-----------------------------------|---------|---------|---------|--------|
+| Write Status Register Cycle Time  |         |         | 30      | ms     |
+|-----------------------------------|---------|---------|---------|--------|
+| Sector Erase Cycle Time (4KB)     |         | 25      | 180     | ms     |
+|-----------------------------------|---------|---------|---------|--------|
+| Block Erase Cycle Time (64KB)     |         | 220     | 2000    | ms     |
+|-----------------------------------|---------|---------|---------|--------|
+| Chip Erase Cycle Time             |         | 22      | 60      | s      |
+|-----------------------------------|---------|---------|---------|--------|
+| Page Program Time                 |         | 0.6     | 2.4     | ms     |
+|-----------------------------------|---------|---------|---------|--------|
+| Erase/Program Cycle               | 100,000 |         |         | cycles |
+|-----------------------------------|---------|---------|---------|--------|
+
+Note:
+1. Typical program and erase time assumes the following conditions: 25°C, 3V, and checkboard pattern.
+2. Under worst conditions of 2.7V.
+3. System-level overhead is the time required to execute the first-bus-cycle sequence for the programming command.
+4. The maximum chip programming time is evaluated under the worst conditions of 0°C, VCC=3.3V, and 100K cycle with 90% confidence level.
+
+
+16. DATA RETENTION
+
+| Parameter      | Condition | Min. | Max. | Unit  |
+|----------------|-----------|------|------|-------|
+| Data retention | 55'C      | 20   |      | years |
+|----------------|-----------|------|------|-------|
+
+
+17. LATCH-UP CHARACTERISTICS
+
+|                                                         | Min.   | Max.       |
+|---------------------------------------------------------|--------|------------|
+| Input Voltage with respect to GND on all power pins     |        | 1.5 VCCmax |
+|---------------------------------------------------------|--------|------------|
+| Input current with respect to GND on all non-power pins | -100mA | +100mA     |
+|---------------------------------------------------------|--------|------------|
+
+Test conditions are compliant to JEDEC JDESD78 standard
+
+
+18. ORDERING INFORMATION
+
+18.1 Valid Part Numbers
+
+Please contact our regional sales for the latest product selection and available form factors.
+
+| PART NO.      | PACKAGE                      | Remark
+|---------------|------------------------------|----------------|
+| NM25Q64EVBSIG | 8-SOP (208mil)               | Default x1 I/O |
+|---------------|------------------------------|----------------|
+| NM25Q64EVBVIG | 8-VSOP (208mil)              | Default x1 I/O |
+|---------------|------------------------------|----------------|
+| NM25Q64EVBFIG | 16-SOP (300mil)              | Default x1 I/O |
+|---------------|------------------------------|----------------|
+| NM25Q64EVBBIG | 8-DIP (300mil)               | Default x1 I/O |
+|---------------|------------------------------|----------------|
+| NM25Q64EVBPIG | 8-WSON (6x5mm)               | Default x1 I/O |
+|---------------|------------------------------|----------------|
+| NM25Q64EVBWIG | 8-WSON (8x6mm)               | Default x1 I/O |
+|---------------|------------------------------|----------------|
+| NM25Q64EVBTIG | 24-Ball BGA (5x5 ball array) | Default x1 I/O |
+|---------------|------------------------------|----------------|
+
+
+18.2 PART NAME DESCRIPTION
+
+NM 25 Q 64E V B X I G
+
+    | |  |  | | | | |
+    | |  |  | | | | +- Green Code
+    | |  |  | | | |     G: Pb Free & Halogen Free Green Package
+    | |  |  | | | |
+    | |  |  | | | +--- Temperature Range
+    | |  |  | | |       I: Industrial= -40℃to 85℃
+    | |  |  | | |       M: Mobile = -40℃to 85℃
+    | |  |  | | |       A: Automotive=-40℃ to 105℃(Grade2 AEC-Q100)
+    | |  |  | | |
+    | |  |  | | +----- Package
+    | |  |  | |         S: 8-SOP(208mil)
+    | |  |  | |         V: 8-VSOP (208mil)
+    | |  |  | |         F: 16-SOP(300mil)
+    | |  |  | |         B: 8-DIP(300mil)
+    | |  |  | |         P: 8-WSON (6x5mm)
+    | |  |  | |         BW: 8-WSON (8x6mm)
+    | |  |  | |         T: 24-ball BGA(5×5 ball array)
+    | |  |  | |
+    | |  |  | +------- Generation
+    | |  |  |           B: 2nd generation
+    | |  |  |           C: 3rd generation
+    | |  |  |           D: 4th generation
+    | |  |  |
+    | |  |  +--------- Voltage
+    | |  |              V: 2.7V~3.6V
+    | |  |
+    | |  +------------ Density
+    | |                 64E: 64Mb (8MB)
+    | |
+    | +--------------- Type
+    |                   L: Octal I/O
+    |                   Q: DUAL/QUAD I/O
+    |
+    +----------------- Device
+                        25: Serial Nor Flash
+
+
+19. PACKAGE INFORMATION
+
+Package SOP8 208MIL
+
+Dimensions (Inch dimensions are derived from original mm dimensions)
+
+| Symbol     | A     | A1    | A2    | b     | C     | D     | E     | E1    | e     | L     | L1    |   |
+|------------|       |       |       |       |       |       |       |       |       |       |       |   |
+| Unit       |       |       |       |       |       |       |       |       |       |       |       |   |
+|------------|-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|---|
+| mm   | Min |       | 0.05  | 1.70  | 0.31  | 0.18  | 5.13  | 7.70  | 5.18  |       | 0.50  | 1.21  | 0 |
+|      | Nom |       | 0.15  | 1.80  | 0.41  | 0.21  | 5.23  | 7.90  | 5.28  | 1.27  | 0.67  | 1.31  | 5 |
+|      | Max | 2.16  | 0.25  | 1.91  | 0.51  | 0.25  | 5.33  | 8.10  | 5.38  |       | 0.85  | 1.41  | 8 |
+|------------|-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|---|
+| inch | Min |       | 0.002 | 0.067 | 0.012 | 0.007 | 0.202 | 0.303 | 0.204 |       | 0.020 | 0.048 | 0 |
+|      | Nom |       | 0.006 | 0.071 | 0.016 | 0.008 | 0.206 | 0.311 | 0.208 | 0.050 | 0.026 | 0.052 | 5 |
+|      | Max | 0.085 | 0.010 | 0.075 | 0.020 | 0.010 | 0.210 | 0.319 | 0.212 |       | 0.033 | 0.056 | 8 |
+|------------|-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|-------|---|
+
+Package WSON 8 (6*5mm)
+
+Dimensions (Inch dimensions are derived from original mm dimensions)
+
+| Symbol     | A     | A1    | A2    | b     | C     | D     | E     | E1    | e       | L     | L1    |
+|------------|       |       |       |       |       |       |       |       |         |       |       |
+| Unit       |       |       |       |       |       |       |       |       |         |       |       |
+|------------|-------|-------|-------|-------|-------|-------|-------|-------|---------|-------|-------|
+| mm   | Min | 0.70  |       |       | 0.35  | 5.90  | 3.30  | 4.90  | 3.90  |         | 0.00  | 0.55  |
+|      | Nom | 0.75  |       | 02REF | 0.40  | 6.00  | 3.40  | 5.00  | 4.00  | 1.27BSC | 0.04  | 0.60  |
+|      | Max | 0.80  | 0.05  |       | 0.45  | 6.10  | 3.50  | 5.10  | 4.10  |         | 0.08  | 0.65  |
+|------------|-------|-------|-------|-------|-------|-------|-------|-------|---------|-------|-------|
+| inch | Min | 0.028 |       |       | 0.014 | 0.232 | 0.130 | 0.193 | 0.154 |         | 0.000 | 0.022 |
+|      | Nom | 0.030 |       | 0.008 | 0.016 | 0.236 | 0.134 | 0.197 | 0.157 | 0.05BSC | 0.001 | 0.024 |
+|      | Max | 0.032 | 0.002 |       | 0.018 | 0.240 | 0.138 | 0.201 | 0.161 |         | 0.003 | 0.026 |
+|------------|-------|-------|-------|-------|-------|-------|-------|-------|---------|-------|-------|
+
+Package TFBGA-24BALL (5*5 ball array)
+
+-- irrelevant --
+
+Package SOP16 300MIL
+
+-- irrelevant --
+
+
+20. REVISION HISTORY
+
+| Version No | Description                                             | Page  | Date       |
+|------------|---------------------------------------------------------|-------|------------|
+| 1.0        | Initial Preliminary Release                             | --    | 2018-04-24 |
+|------------|---------------------------------------------------------|-------|------------|
+| 1.1        | 1. Update table1 Read Performance Comparison            | --    | 2019-06-15 |
+|            | 2. Update chapter 18 "Ordering information"             | --    |            |
+|            | 3. Update chapter 20 "Package information"              | --    |            |
+|------------|---------------------------------------------------------|-------|------------|
+| 1.2        | 1. Add NOTE(2) to table 1 Performance Comparison        | 7     | 2019-06-16 |
+|            | 2. Update section 13.2 "AC CHARACTERISTICS"             | 76,82 |            |
+|            | 3. Update Chapter 15 "ERASE AND PROGAMMING PERFORMANCE" |       |            |
+|------------|---------------------------------------------------------|-------|------------|
+| 1.3        | 1. Add WSON 8 (6*5mm) package type                      | 85    | 2020-03-10 |
+|------------|---------------------------------------------------------|-------|------------|
+| 1.4        | 1. Update section 13.1 "DC CHARACTERISTICS"             | 75    | 2020-03-22 |
+|------------|---------------------------------------------------------|-------|------------|
+| 1.5        | 1. Update section 13.1 "DC CHARACTERISTICS"             | 75    | 2020-04-22 |
+|------------|---------------------------------------------------------|-------|------------|
+| 1.6        | 1. Update section 13.1 "DC CHARACTERISTICS"             | 75    | 2022-03-16 |
+|------------|---------------------------------------------------------|-------|------------|
+| 1.7        | 1. Update section 6.1 "Table 3"                         | 11    | 2022-11-14 |
+|            | 2. Update section 9.1 "Status Register"                 | 19,20 |            |
+|            | 3. Chapters 18 and 19 are combined into one chapter     | 83,84 |            |
+|------------|---------------------------------------------------------|-------|------------|

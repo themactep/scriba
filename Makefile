@@ -22,25 +22,31 @@ STRIP     ?= strip
 INSTALL   ?= install
 PREFIX    ?= /usr
 BINDIR    ?= $(PREFIX)/bin
-CFLAGS     = -std=gnu99 -Wall -O2 -D_FILE_OFFSET_BITS=64 -DGIT_COMMIT_DATE=\"$(GIT_COMMIT_DATE)\" -DGIT_COMMIT_HASH=\"$(GIT_COMMIT_HASH)\" -I$(SRC_DIR)
+CFLAGS     = -std=gnu99 -Wall -O2 -D_FILE_OFFSET_BITS=64 -DGIT_COMMIT_DATE=\"$(GIT_COMMIT_DATE)\" -DGIT_COMMIT_HASH=\"$(GIT_COMMIT_HASH)\"
+CFLAGS    += -I$(SRC_DIR) -I$(SRC_DIR)/core -I$(SRC_DIR)/hal -I$(SRC_DIR)/hal/ch341a
+CFLAGS    += -I$(SRC_DIR)/hal/ezp2019 -I$(SRC_DIR)/hal/usb
+CFLAGS    += -I$(SRC_DIR)/protocol/nor -I$(SRC_DIR)/protocol/nand -I$(SRC_DIR)/protocol/eeprom
+CFLAGS    += -I$(SRC_DIR)/ui/cli
 LDFLAGS   ?= -pthread
 LIBS      ?= -lusb-1.0
 
 EEPROM_SUPPORT = yes
 
-SRCS  = src/flashcmd_api.c \
-	src/spi_controller.c \
-	src/spi_nand_flash.c \
-	src/spi_nand_flash_protocol.c \
-	src/spi_nand_flash_tables.c \
-	src/spi_nor_flash.c \
-	src/spi_nor_flash_tables.c \
-	src/ch341a_spi.c \
-	src/ezp2019_spi.c \
-	src/usb_hal_libusb.c \
-	src/scriba.c \
+SRCS  = src/core/flashcmd_api.c \
+	src/core/operations.c \
+	src/core/validation.c \
+	src/hal/spi_controller.c \
+	src/protocol/nand/spi_nand_flash.c \
+	src/protocol/nand/spi_nand_flash_protocol.c \
+	src/protocol/nand/spi_nand_flash_tables.c \
+	src/protocol/nor/spi_nor_flash.c \
+	src/protocol/nor/spi_nor_flash_tables.c \
+	src/hal/ch341a/ch341a_spi.c \
+	src/hal/ezp2019/ezp2019_spi.c \
+	src/hal/usb/libusb.c \
+	src/core/scriba.c \
 	src/timer.c \
-	frontends/cli/main.c
+	src/ui/cli/main.c
 
 LIBUSB_VERSION := 1.0.30
 LIBUSB_BUNDLE := libusb-$(LIBUSB_VERSION).tar.bz2
@@ -61,15 +67,18 @@ endif
 
 ifeq ($(EEPROM_SUPPORT), yes)
 CFLAGS += -DEEPROM_SUPPORT
-SRCS += src/ch341a_i2c.c \
-	src/i2c_eeprom.c \
-	src/spi_eeprom.c \
-	src/bitbang_microwire.c \
-	src/mw_eeprom.c \
-	src/ch341a_gpio.c
+SRCS += src/hal/ch341a/ch341a_i2c.c \
+	src/protocol/eeprom/i2c_eeprom.c \
+	src/protocol/eeprom/spi_eeprom.c \
+	src/hal/ch341a/bitbang_microwire.c \
+	src/protocol/eeprom/mw_eeprom.c \
+	src/hal/ch341a/ch341a_gpio.c
 endif
 
-.PHONY: all clean strip install web web-dist web-serve check-emsdk help
+TEST_IMG ?= test_image.bin
+IMG_SIZE ?= 1M
+
+.PHONY: all clean strip install web web-dist web-serve check-emsdk help test-img
 
 all: $(TARGET) $(TARGET_BIN) strip
 	@echo "Build complete. Run 'make install' to install."
@@ -85,10 +94,13 @@ help:
 	@echo "  install-rules   Install udev rules only"
 	@echo
 	@echo "Web / WASM targets:"
-	@echo "  web             Build WASM module (frontends/web/public/wasm/)"
-	@echo "  web-dist        Build WASM + Vite frontend (frontends/web/dist/)"
+	@echo "  web             Build WASM module (web/public/wasm/)"
+	@echo "  web-dist        Build WASM + Vite frontend (web/dist/)"
 	@echo "  web-serve       Build + serve dist on http://localhost:8080"
 
+	@echo
+	@echo "Test targets:"
+	@echo "  test-img          Generate random test image (override TEST_IMG, IMG_SIZE)"
 	@echo
 	@echo "Debug:"
 	@echo "  CONFIG_STATIC=yes  Build with static libusb"
@@ -128,7 +140,7 @@ $(LIBUSB_TARBALL):
 #
 # Web / WASM build
 #
-WEB_DIR        = frontends/web
+WEB_DIR        = web
 EMSDK_DIR      = emsdk
 EMCC           = $(EMSDK_DIR)/upstream/emscripten/emcc
 WEB_BUILD_DIR  = $(WEB_DIR)/build
@@ -138,19 +150,23 @@ WEB_ASYNCIFY_JSON = $(WEB_BUILD_DIR)/asyncify_imports.json
 
 WEB_CFLAGS  = -std=gnu99 -Wall -Wextra -Wno-unused-parameter -Wno-unused-variable -O2
 WEB_CFLAGS += -DGIT_COMMIT_DATE=\"web\" -DGIT_COMMIT_HASH=\"wasm\"
-WEB_CFLAGS += -I$(WEB_DIR)/libusb-stub -I$(SRC_DIR)
+WEB_CFLAGS += -I$(WEB_DIR)/libusb-stub -I$(SRC_DIR) -I$(SRC_DIR)/core -I$(SRC_DIR)/hal
+WEB_CFLAGS += -I$(SRC_DIR)/hal/ch341a -I$(SRC_DIR)/hal/ezp2019 -I$(SRC_DIR)/hal/usb
+WEB_CFLAGS += -I$(SRC_DIR)/protocol/nor -I$(SRC_DIR)/protocol/nand -I$(SRC_DIR)/protocol/eeprom
 
-WEB_SRCS = $(SRC_DIR)/flashcmd_api.c \
-           $(SRC_DIR)/spi_controller.c \
-           $(SRC_DIR)/spi_nand_flash.c \
-           $(SRC_DIR)/spi_nand_flash_protocol.c \
-           $(SRC_DIR)/spi_nand_flash_tables.c \
-           $(SRC_DIR)/spi_nor_flash.c \
-           $(SRC_DIR)/spi_nor_flash_tables.c \
-           $(SRC_DIR)/ch341a_spi.c \
-           $(SRC_DIR)/ezp2019_spi.c \
-           $(SRC_DIR)/scriba.c \
-           $(SRC_DIR)/usb_hal_webusb.c \
+WEB_SRCS = $(SRC_DIR)/core/flashcmd_api.c \
+           $(SRC_DIR)/core/operations.c \
+           $(SRC_DIR)/core/validation.c \
+           $(SRC_DIR)/hal/spi_controller.c \
+           $(SRC_DIR)/protocol/nand/spi_nand_flash.c \
+           $(SRC_DIR)/protocol/nand/spi_nand_flash_protocol.c \
+           $(SRC_DIR)/protocol/nand/spi_nand_flash_tables.c \
+           $(SRC_DIR)/protocol/nor/spi_nor_flash.c \
+           $(SRC_DIR)/protocol/nor/spi_nor_flash_tables.c \
+           $(SRC_DIR)/hal/ch341a/ch341a_spi.c \
+           $(SRC_DIR)/hal/ezp2019/ezp2019_spi.c \
+           $(SRC_DIR)/core/scriba.c \
+           $(SRC_DIR)/hal/usb/webusb.c \
            $(SRC_DIR)/timer.c
 
 WEB_EXPORTED_FUNCTIONS = _scriba_init,_scriba_init_programmer,_scriba_detect_chip,_scriba_get_flash_size,_scriba_get_chip_name,_scriba_get_programmer_type,_scriba_get_block_size,_scriba_read_flash,_scriba_write_flash,_scriba_erase_flash,_scriba_reinit,_scriba_shutdown,_scriba_get_version,_malloc,_free
@@ -227,9 +243,13 @@ install: $(TARGET_BIN) install-rules
 	$(INSTALL) -m 0755 -D $(TARGET_BIN) $(DESTDIR)$(BINDIR)/scriba
 	@echo "Install complete."
 
+test-img:
+	dd if=/dev/urandom of=$(TEST_IMG) bs=$(IMG_SIZE) count=1
+	@echo "Created $(TEST_IMG) ($(IMG_SIZE))"
+
 install-rules:
-	$(INSTALL) -m 0664 -D resources/udev/40-persistent-ch341a.rules $(DESTDIR)/etc/udev/rules.d/40-persistent-ch341a.rules
-	$(INSTALL) -m 0664 -D resources/udev/40-persistent-ezp2019.rules $(DESTDIR)/etc/udev/rules.d/40-persistent-ezp2019.rules
+	$(INSTALL) -m 0664 -D res/40-persistent-ch341a.rules $(DESTDIR)/etc/udev/rules.d/40-persistent-ch341a.rules
+	$(INSTALL) -m 0664 -D res/40-persistent-ezp2019.rules $(DESTDIR)/etc/udev/rules.d/40-persistent-ezp2019.rules
 	@if [ -z "$(DESTDIR)" ]; then \
 		echo "Reloading udev rules..."; \
 		udevadm control --reload-rules 2>/dev/null || true; \

@@ -97,7 +97,8 @@ static void usage(const char *program_name) {
       "  -L           List supported chips\n"
       "  -P <prog>    Programmer type: ch341a, ezp2019, auto (default: auto)\n"
       "  --debug      Enable debug messages for USB communication\n"
-      "  --trace      Dump SPI commands and data (implies --debug)\n",
+      "  --trace      Dump SPI commands and data (implies --debug)\n"
+      "  --version    Print version and exit\n",
       program_name);
   printf(use);
   exit(0);
@@ -186,6 +187,7 @@ int main(int argc, char *argv[]) {
 
   static struct option long_options[] = {{"debug", no_argument, NULL, 0},
                                          {"trace", no_argument, NULL, 0},
+                                         {"version", no_argument, NULL, 0},
                                          {0, 0, 0, 0}};
   int option_index = 0;
 
@@ -202,6 +204,10 @@ int main(int argc, char *argv[]) {
         scriba_set_trace(1);
         printf("Trace mode enabled (debug forced on)\n");
         continue;
+      }
+      if (strcmp(lname, "version") == 0) {
+        title();
+        exit(0);
       }
     }
     switch (c) {

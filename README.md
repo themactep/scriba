@@ -51,6 +51,44 @@ sudo make install # installs binary + udev rules, reloads udev
 `make install` copies udev rules for both programmers and reloads them. If your
 programmer was already plugged in, unplug and replug it after installation.
 
+## Web Version (WebUSB / WASM)
+
+Scriba also runs in the browser via WebAssembly and WebUSB — no driver
+installation needed. Requires a Chromium-based browser (Chrome, Edge, Opera).
+
+### Build
+
+```bash
+cd web
+npm install
+cd build && emcmake cmake .. && emmake make
+```
+
+The build outputs `scriba.js` and `scriba.wasm` to `web/public/wasm/`.
+
+**Prerequisites:** Emscripten (`emcc`), CMake, Node.js
+
+### Development
+
+```bash
+cd web
+npm install
+npm run dev      # starts Vite dev server on http://localhost:5173
+```
+
+Vite serves static files from `web/` including `web/public/wasm/` where the
+Emscripten build places its output. After rebuilding (`emmake make`), just
+reload the browser.
+
+### Production
+
+```bash
+cd web
+npm run build    # outputs to web/dist/
+```
+
+Serve the `web/dist/` directory with any static file server.
+
 ## Usage
 
 ```

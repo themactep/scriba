@@ -109,15 +109,27 @@ struct dev_entry
  * packets and the device sends the 31 reply data bytes to each 32-byte packet
  * with command + 31 bytes of data...
  */
+#ifndef __EMSCRIPTEN__
 static struct libusb_transfer *transfer_out = NULL;
 static struct libusb_transfer *transfer_ins[USB_IN_TRANSFERS] = {0};
+#endif
 struct libusb_device_handle *handle = NULL;
+
+#ifdef __EMSCRIPTEN__
+static uint8_t em_safe_wbuf[CH341_MAX_PACKETS + 1][CH341_PACKET_LENGTH];
+static uint8_t em_safe_rbuf[CH341_MAX_PACKET_LEN];
+#endif
+
+#ifdef __EMSCRIPTEN__
+extern int usb_clear_halt(void *handle_ptr, int endpoint);
+#endif
 
 const struct dev_entry devs_ch341a_spi[] = {
     {0x1A86, 0x5512, "WinChipHead (WCH)", "CH341A"},
     {0},
 };
 
+#ifndef __EMSCRIPTEN__
 enum trans_state
 {
 	TRANS_ACTIVE = -2,
@@ -131,7 +143,6 @@ static void cb_common(const char *func, struct libusb_transfer *transfer)
 
 	if (transfer->status == LIBUSB_TRANSFER_CANCELLED)
 	{
-		/* Silently ACK and exit. */
 		if (debug_enabled)
 			fprintf(stderr, "[DEBUG] %s: transfer cancelled\n", func);
 		*transfer_cnt = TRANS_IDLE;
@@ -153,17 +164,16 @@ static void cb_common(const char *func, struct libusb_transfer *transfer)
 	}
 }
 
-/* callback for bulk out async transfer */
 static void LIBUSB_CALL cb_out(struct libusb_transfer *transfer)
 {
 	cb_common(__func__, transfer);
 }
 
-/* callback for bulk in async transfer */
 static void LIBUSB_CALL cb_in(struct libusb_transfer *transfer)
 {
 	cb_common(__func__, transfer);
 }
+#endif
 
 /* Deadline for a bulk transfer of the given size. The device throttles the
  * stream to its SPI clock, so the timeout has to scale with the payload; the
@@ -189,6 +199,97 @@ static int32_t usb_transfer(const char *func, unsigned int writecnt, unsigned in
 
 	const unsigned int timeout = usb_timeout_for(writecnt + readcnt);
 
+#ifdef __EMSCRIPTEN__
+#define EM_USB_TIMEOUT 5000
+
+	if (writecnt > 0 && readcnt > 0)
+	{
+		unsigned int off_out = CH341_PACKET_LENGTH;
+		unsigned int off_in = 0;
+		unsigned int rem_out = writecnt - CH341_PACKET_LENGTH;
+
+		while (rem_out > 0)
+		{
+			unsigned int row_avail = rem_out;
+			if (row_avail > CH341_PACKET_LENGTH)
+				row_avail = CH341_PACKET_LENGTH;
+
+			int sent = 0;
+			int ret = libusb_bulk_transfer(handle, WRITE_EP,
+				(unsigned char *)writearr + off_out,
+				row_avail, &sent, EM_USB_TIMEOUT);
+			if (ret)
+			{
+				fprintf(stderr, "%s: row OUT failed (%u): %s\n",
+					func, row_avail, libusb_error_name(ret));
+				return -1;
+			}
+
+			unsigned int chunk_in = (row_avail > 1) ? row_avail - 1 : 0;
+			if (chunk_in > 0 && off_in < readcnt)
+			{
+				if (chunk_in > readcnt - off_in)
+					chunk_in = readcnt - off_in;
+				int received = 0;
+				ret = libusb_bulk_transfer(handle, READ_EP,
+					readarr + off_in, chunk_in,
+					&received, EM_USB_TIMEOUT);
+				if (ret)
+				{
+					fprintf(stderr, "%s: row IN failed (%u): %s\n",
+						func, chunk_in, libusb_error_name(ret));
+					return -1;
+				}
+				off_in += chunk_in;
+			}
+
+			off_out += row_avail;
+			rem_out -= row_avail;
+		}
+	}
+	else if (writecnt > 0)
+	{
+		unsigned int off_out = 0;
+		unsigned int rem_out = writecnt;
+
+		while (rem_out > 0)
+		{
+			unsigned int row_avail = rem_out;
+			if (row_avail > CH341_PACKET_LENGTH)
+				row_avail = CH341_PACKET_LENGTH;
+
+			int sent = 0;
+			int ret = libusb_bulk_transfer(handle, WRITE_EP,
+				(unsigned char *)writearr + off_out,
+				row_avail, &sent, EM_USB_TIMEOUT);
+			if (ret)
+			{
+				fprintf(stderr, "%s: OUT transfer failed: %s\n",
+					func, libusb_error_name(ret));
+				return -1;
+			}
+			off_out += row_avail;
+			rem_out -= row_avail;
+		}
+	}
+	else if (readcnt > 0)
+	{
+		int received = 0;
+		int ret = libusb_bulk_transfer(handle, READ_EP,
+			readarr, readcnt, &received, EM_USB_TIMEOUT);
+		if (ret)
+		{
+			fprintf(stderr, "%s: IN transfer failed: %s\n",
+				func, libusb_error_name(ret));
+			return -1;
+		}
+	}
+
+	if (debug_enabled)
+		fprintf(stderr, "[DEBUG] %s: transfer completed (wrote %u, read %u bytes)\n",
+			func, writecnt, readcnt);
+	return 0;
+#else
 	int state_out = TRANS_IDLE;
 	transfer_out->buffer = (uint8_t *)writearr;
 	transfer_out->length = writecnt;
@@ -204,7 +305,7 @@ static int32_t usb_transfer(const char *func, unsigned int writecnt, unsigned in
 		int ret = libusb_submit_transfer(transfer_out);
 		if (ret)
 		{
-			fprintf(stderr, "%s: failed to submit OUT transfer: %s\n", func, libusb_error_name(ret)); // Use stderr
+			fprintf(stderr, "%s: failed to submit OUT transfer: %s\n", func, libusb_error_name(ret));
 			if (debug_enabled)
 				fprintf(stderr, "[DEBUG] %s: OUT transfer submit failed with error code %d\n", func, ret);
 			state_out = TRANS_ERR;
@@ -216,8 +317,8 @@ static int32_t usb_transfer(const char *func, unsigned int writecnt, unsigned in
 	 * The write(s) simply need to complete, but we need to schedule reads as long
 	 * as we are not done.
 	 */
-	unsigned int free_idx = 0; /* The IN transfer we expect to be free next. */
-	unsigned int in_idx = 0;   /* The IN transfer we expect to be completed next. */
+	unsigned int free_idx = 0;
+	unsigned int in_idx = 0;
 	unsigned int in_done = 0;
 	unsigned int in_active = 0;
 	unsigned int out_done = 0;
@@ -225,7 +326,6 @@ static int32_t usb_transfer(const char *func, unsigned int writecnt, unsigned in
 	int state_in[USB_IN_TRANSFERS] = {0};
 	do
 	{
-		/* Schedule new reads as long as there are free transfers and unscheduled bytes to read. */
 		while ((in_done + in_active) < readcnt && state_in[free_idx] == TRANS_IDLE)
 		{
 			unsigned int cur_todo = min(CH341_PACKET_LENGTH - 1, readcnt - in_done - in_active);
@@ -239,7 +339,7 @@ static int32_t usb_transfer(const char *func, unsigned int writecnt, unsigned in
 			if (ret)
 			{
 				state_in[free_idx] = TRANS_ERR;
-				fprintf(stderr, "%s: failed to submit IN transfer: %s\n", // Use stderr
+				fprintf(stderr, "%s: failed to submit IN transfer: %s\n",
 					func, libusb_error_name(ret));
 				if (debug_enabled)
 					fprintf(stderr, "[DEBUG] %s: IN transfer[%u] submit failed with error code %d\n", func, free_idx, ret);
@@ -248,37 +348,29 @@ static int32_t usb_transfer(const char *func, unsigned int writecnt, unsigned in
 			in_buf += cur_todo;
 			in_active += cur_todo;
 			state_in[free_idx] = TRANS_ACTIVE;
-			free_idx = (free_idx + 1) % USB_IN_TRANSFERS; /* Increment (and wrap around). */
+			free_idx = (free_idx + 1) % USB_IN_TRANSFERS;
 		}
 
-		/* Actually get some work done. */
 		libusb_handle_events_timeout(NULL, &(struct timeval){1, 0});
 
-		/* Check for the write */
 		if (out_done < writecnt)
 		{
 			if (state_out == TRANS_ERR)
-			{
 				goto err;
-			}
 			else if (state_out > 0)
 			{
 				out_done += state_out;
 				state_out = TRANS_IDLE;
 			}
 		}
-		/* Check for completed transfers. */
 		while (state_in[in_idx] != TRANS_IDLE && state_in[in_idx] != TRANS_ACTIVE)
 		{
 			if (state_in[in_idx] == TRANS_ERR)
-			{
 				goto err;
-			}
-			/* If a transfer is done, record the number of bytes read and reuse it later. */
 			in_done += state_in[in_idx];
 			in_active -= state_in[in_idx];
 			state_in[in_idx] = TRANS_IDLE;
-			in_idx = (in_idx + 1) % USB_IN_TRANSFERS; /* Increment (and wrap around). */
+			in_idx = (in_idx + 1) % USB_IN_TRANSFERS;
 		}
 	} while ((out_done < writecnt) || (in_done < readcnt));
 
@@ -286,10 +378,8 @@ static int32_t usb_transfer(const char *func, unsigned int writecnt, unsigned in
 		fprintf(stderr, "[DEBUG] %s: transfer completed successfully (wrote %u, read %u bytes)\n", func, out_done, in_done);
 	return 0;
 err:
-	/* Clean up on errors. */
 	fprintf(stderr, "%s: Failed to %s %d bytes\n", func, (state_out == TRANS_ERR) ? "write" : "read",
 		(state_out == TRANS_ERR) ? writecnt : readcnt);
-	/* First, we must cancel any ongoing requests and wait for them to be canceled. */
 	if ((writecnt > 0) && (state_out == TRANS_ACTIVE))
 	{
 		if (libusb_cancel_transfer(transfer_out) != 0)
@@ -306,7 +396,6 @@ err:
 		}
 	}
 
-	/* Wait for cancellations to complete. */
 	while (1)
 	{
 		bool finished = true;
@@ -326,6 +415,7 @@ err:
 		libusb_handle_events_timeout(NULL, &(struct timeval){1, 0});
 	}
 	return -1;
+#endif
 }
 
 /* Set the I2C bus speed (speed(b1b0): 0 = 20kHz; 1 = 100kHz, 2 = 400kHz, 3 = 750kHz).
@@ -383,22 +473,32 @@ static uint8_t swap_byte(uint8_t x)
  *	D6/21	unused	(DIN2)
  *	D7/22	SO/2	(DIN)
  */
+
 int enable_pins(bool enable)
 {
 	if (debug_enabled)
 		fprintf(stderr, "[DEBUG] enable_pins: %sabling output pins\n", enable ? "en" : "dis");
 
+#ifdef __EMSCRIPTEN__
 	uint8_t buf[] = {
 	    CH341A_CMD_UIO_STREAM,
-	    CH341A_CMD_UIO_STM_OUT | CH341A_UIO_STATE_CS_HIGH_SCK_LOW, // Set CS high, SCK low
-	    CH341A_CMD_UIO_STM_OUT | CH341A_UIO_STATE_CS_HIGH_SCK_LOW, // Repeat for stability?
-	    CH341A_CMD_UIO_STM_OUT | CH341A_UIO_STATE_CS_HIGH_SCK_LOW,
-	    CH341A_CMD_UIO_STM_OUT | CH341A_UIO_STATE_CS_HIGH_SCK_LOW,
-	    CH341A_CMD_UIO_STM_OUT | CH341A_UIO_STATE_CS_HIGH_SCK_LOW,
-	    CH341A_CMD_UIO_STM_OUT | CH341A_UIO_STATE_CS0_LOW_SCK_LOW,				  // Set CS0 low, SCK low
-	    CH341A_CMD_UIO_STM_DIR | (enable ? CH341A_UIO_DIR_ALL_OUTPUT : CH341A_UIO_DIR_INPUT), // Set direction
+	    CH341A_CMD_UIO_STM_OUT | (enable ? CH341A_UIO_STATE_CS0_LOW_SCK_LOW : CH341A_UIO_STATE_CS_HIGH_SCK_LOW),
+	    CH341A_CMD_UIO_STM_DIR | (enable ? CH341A_UIO_DIR_ALL_OUTPUT : CH341A_UIO_DIR_INPUT),
 	    CH341A_CMD_UIO_STM_END,
 	};
+#else
+	uint8_t buf[] = {
+	    CH341A_CMD_UIO_STREAM,
+	    CH341A_CMD_UIO_STM_OUT | CH341A_UIO_STATE_CS_HIGH_SCK_LOW,
+	    CH341A_CMD_UIO_STM_OUT | CH341A_UIO_STATE_CS_HIGH_SCK_LOW,
+	    CH341A_CMD_UIO_STM_OUT | CH341A_UIO_STATE_CS_HIGH_SCK_LOW,
+	    CH341A_CMD_UIO_STM_OUT | CH341A_UIO_STATE_CS_HIGH_SCK_LOW,
+	    CH341A_CMD_UIO_STM_OUT | CH341A_UIO_STATE_CS_HIGH_SCK_LOW,
+	    CH341A_CMD_UIO_STM_OUT | CH341A_UIO_STATE_CS0_LOW_SCK_LOW,
+	    CH341A_CMD_UIO_STM_DIR | (enable ? CH341A_UIO_DIR_ALL_OUTPUT : CH341A_UIO_DIR_INPUT),
+	    CH341A_CMD_UIO_STM_END,
+	};
+#endif
 
 	int32_t ret = usb_transfer(__func__, sizeof(buf), 0, buf, NULL);
 	if (ret < 0)
@@ -430,18 +530,21 @@ static int ch341a_spi_send_stream(unsigned int writecnt, unsigned int readcnt, c
 		return -1;
 	}
 
-	/* How many packets ... */
 	const size_t packets = (writecnt + readcnt + CH341_PACKET_LENGTH - 2) / (CH341_PACKET_LENGTH - 1);
 
-	/* We pluck CS/timeout handling into the first packet thus we need to allocate one extra package. */
+#ifdef __EMSCRIPTEN__
+	if (packets + 1 > CH341_MAX_PACKETS + 1 || writecnt + readcnt > CH341_MAX_PACKET_LEN) {
+		fprintf(stderr, "ch341a_spi_send_command: transfer too large for static buffers\n");
+		return -1;
+	}
+	uint8_t (*wbuf)[CH341_PACKET_LENGTH] = em_safe_wbuf;
+	uint8_t *rbuf = em_safe_rbuf;
+#else
 	uint8_t wbuf[packets + 1][CH341_PACKET_LENGTH];
 	uint8_t rbuf[writecnt + readcnt];
-	/* Initialize the write buffer to zero to prevent writing random stack contents to device. */
+#endif
 	memset(wbuf[0], 0, CH341_PACKET_LENGTH);
 
-	uint8_t *ptr = wbuf[0];
-	/* CS usage is optimized by doing both transitions in one packet.
-	 * Final transition to deselected state is in the pin disable. */
 	unsigned int write_left = writecnt;
 	unsigned int read_left = readcnt;
 	unsigned int p;
@@ -449,7 +552,7 @@ static int ch341a_spi_send_stream(unsigned int writecnt, unsigned int readcnt, c
 	{
 		unsigned int write_now = min(CH341_PACKET_LENGTH - 1, write_left);
 		unsigned int read_now = min((CH341_PACKET_LENGTH - 1) - write_now, read_left);
-		ptr = wbuf[p + 1];
+		uint8_t *ptr = wbuf[p + 1];
 		*ptr++ = CH341A_CMD_SPI_STREAM;
 		unsigned int i;
 		for (i = 0; i < write_now; ++i)
@@ -462,6 +565,39 @@ static int ch341a_spi_send_stream(unsigned int writecnt, unsigned int readcnt, c
 		write_left -= write_now;
 	}
 
+#ifdef __EMSCRIPTEN__
+	if (readcnt == 0 && writecnt > 0) {
+		unsigned int total = packets + writecnt;
+		unsigned int off = 0;
+		unsigned int rem = total;
+		uint8_t *spi_data = ((uint8_t*)wbuf) + CH341_PACKET_LENGTH;
+
+		while (rem > 0) {
+			unsigned int chunk = rem;
+			if (chunk > CH341_PACKET_LENGTH)
+				chunk = CH341_PACKET_LENGTH;
+
+			int sent = 0;
+			ret = libusb_bulk_transfer(handle, WRITE_EP,
+				spi_data + off, chunk, &sent, EM_USB_TIMEOUT);
+			if (ret) {
+				fprintf(stderr, "%s: OUT transfer failed: %s\n",
+					__func__, libusb_error_name(ret));
+				return -1;
+			}
+			off += chunk;
+			rem -= chunk;
+
+			unsigned int drain_n = chunk > 1 ? chunk - 1 : 0;
+			if (drain_n > 0) {
+				int drained = 0;
+				libusb_bulk_transfer(handle, READ_EP,
+					rbuf, drain_n, &drained, 100);
+			}
+		}
+		ret = 0;
+	} else
+#endif
 	ret = usb_transfer(__func__, CH341_PACKET_LENGTH + packets + writecnt + readcnt,
 			   writecnt + readcnt, wbuf[0], rbuf);
 
@@ -519,6 +655,7 @@ int ch341a_spi_shutdown(void)
 	}
 
 	enable_pins(false);
+#ifndef __EMSCRIPTEN__
 	libusb_free_transfer(transfer_out);
 	transfer_out = NULL;
 	int i;
@@ -527,6 +664,7 @@ int ch341a_spi_shutdown(void)
 		libusb_free_transfer(transfer_ins[i]);
 		transfer_ins[i] = NULL;
 	}
+#endif
 	libusb_release_interface(handle, 0);
 	libusb_close(handle);
 	libusb_exit(NULL);
@@ -540,8 +678,12 @@ int ch341a_spi_shutdown(void)
 const char *get_libusb_version(void)
 {
 	static char version_str[18];
+#ifdef __EMSCRIPTEN__
+	snprintf(version_str, sizeof(version_str), "webusb");
+#else
 	const struct libusb_version *version = libusb_get_version();
 	snprintf(version_str, sizeof(version_str), "%d.%d.%d", version->major, version->minor, version->micro);
+#endif
 	return version_str;
 }
 
@@ -573,14 +715,16 @@ int ch341a_spi_init(void)
 	if (debug_enabled)
 		fprintf(stderr, "[DEBUG] ch341a_spi_init: libusb initialized successfully\n");
 
+#ifndef __EMSCRIPTEN__
 #if LIBUSB_API_VERSION >= 0x01000106
 	libusb_set_option(NULL, LIBUSB_OPTION_LOG_LEVEL, debug_enabled ? 3 : 0);
 	if (debug_enabled)
 		fprintf(stderr, "[DEBUG] ch341a_spi_init: libusb log level set to %d\n", debug_enabled ? 3 : 0);
 #else
-	libusb_set_debug(NULL, debug_enabled ? 3 : 0); // Set debug level based on debug flag
+	libusb_set_debug(NULL, debug_enabled ? 3 : 0);
 	if (debug_enabled)
 		fprintf(stderr, "[DEBUG] ch341a_spi_init: libusb debug level set to %d\n", debug_enabled ? 3 : 0);
+#endif
 #endif
 	uint16_t vid = devs_ch341a_spi[0].vendor_id;
 	uint16_t pid = devs_ch341a_spi[0].device_id;
@@ -603,7 +747,7 @@ int ch341a_spi_init(void)
 
 	printf("Found programmer device: %s - %s\n", devs_ch341a_spi[0].vendor_name, devs_ch341a_spi[0].device_name);
 
-#ifdef __gnu_linux__
+#if defined(__gnu_linux__) && !defined(__EMSCRIPTEN__)
 	/* libusb_detach_kernel_driver() and friends basically only work on Linux.
 	 * We simply try to detach on Linux without a lot of passion here. If that
 	 * works then fine, or we will fail on claiming the interface anyway.
@@ -666,7 +810,8 @@ int ch341a_spi_init(void)
 	       (desc.bcdDevice >> 4) & 0x000F,
 	       (desc.bcdDevice >> 0) & 0x000F);
 
-	/* Allocate and pre-fill transfer structures. */
+#ifndef __EMSCRIPTEN__
+	/* Allocate and pre-fill transfer structures (async path only). */
 	if (debug_enabled)
 		fprintf(stderr, "[DEBUG] ch341a_spi_init: allocating USB transfer structures\n");
 
@@ -699,6 +844,9 @@ int ch341a_spi_init(void)
 	libusb_fill_bulk_transfer(transfer_out, handle, WRITE_EP, NULL, 0, cb_out, NULL, USB_TIMEOUT);
 	for (i = 0; i < USB_IN_TRANSFERS; i++)
 		libusb_fill_bulk_transfer(transfer_ins[i], handle, READ_EP, NULL, 0, cb_in, NULL, USB_TIMEOUT);
+#else
+	int i = 0;
+#endif
 
 	if (debug_enabled)
 		fprintf(stderr, "[DEBUG] ch341a_spi_init: configuring stream and enabling pins\n");
@@ -715,7 +863,8 @@ int ch341a_spi_init(void)
 
 	return 0;
 
-dealloc_transfers:
+ dealloc_transfers:
+#ifndef __EMSCRIPTEN__
 	for (i = 0; i < USB_IN_TRANSFERS; i++)
 	{
 		if (transfer_ins[i] == NULL)
@@ -725,10 +874,26 @@ dealloc_transfers:
 	}
 	libusb_free_transfer(transfer_out);
 	transfer_out = NULL;
-release_interface:
+#endif
+ release_interface:
 	libusb_release_interface(handle, 0);
-close_handle:
+ close_handle:
 	libusb_close(handle);
 	handle = NULL;
 	return -1;
 }
+
+#ifdef __EMSCRIPTEN__
+int ch341a_spi_reinit(void)
+{
+	if (!handle)
+		return -1;
+	usb_clear_halt(handle, READ_EP);
+	usb_clear_halt(handle, WRITE_EP);
+	if (config_stream(CH341A_STM_I2C_750K) < 0)
+		return -1;
+	if (enable_pins(true) < 0)
+		return -1;
+	return 0;
+}
+#endif

@@ -41,9 +41,20 @@ static void trace_dump(const char *label, const unsigned char *buf, unsigned int
 #define LIBUSB_CALL
 #endif
 
-#define USB_TIMEOUT 1000 /* 1000 ms is plenty and we have no backup strategy anyway. */
+#define USB_TIMEOUT 1000 /* Base timeout in ms, for transfers small enough to be latency bound. */
 #define WRITE_EP 0x02
 #define READ_EP 0x82
+
+/* Maximum SPI payload (write + read bytes) per USB transaction.
+ *
+ * A bulk transfer only drains as fast as the CH341A clocks the SPI stream, which
+ * measures ~60 kB/s of payload. A whole 64 kB NOR sector in one transaction
+ * therefore needs ~1.05 s and trips USB_TIMEOUT, so every read of a chip with
+ * 64 kB sectors failed on its first chunk. Splitting the stream keeps each
+ * transaction well inside its deadline; CS is asserted by the caller and held
+ * across transactions, so the flash still sees one continuous read.
+ */
+#define CH341_MAX_XFER_BYTES (16 * 1024)
 
 #define CH341_PACKET_LENGTH 0x20
 #define CH341_MAX_PACKETS 256
@@ -164,6 +175,16 @@ static void LIBUSB_CALL cb_in(struct libusb_transfer *transfer)
 }
 #endif
 
+/* Deadline for a bulk transfer of the given size. The device throttles the
+ * stream to its SPI clock, so the timeout has to scale with the payload; the
+ * assumed floor of 8 kB/s is deliberately pessimistic to tolerate slow hubs
+ * and clone programmers.
+ */
+static unsigned int usb_timeout_for(unsigned int bytes)
+{
+	return USB_TIMEOUT + bytes / 8;
+}
+
 static int32_t usb_transfer(const char *func, unsigned int writecnt, unsigned int readcnt, const uint8_t *writearr, uint8_t *readarr)
 {
 	if (handle == NULL)
@@ -267,10 +288,13 @@ static int32_t usb_transfer(const char *func, unsigned int writecnt, unsigned in
 			func, writecnt, readcnt);
 	return 0;
 #else
+	const unsigned int timeout = usb_timeout_for(writecnt + readcnt);
+
 	int state_out = TRANS_IDLE;
 	transfer_out->buffer = (uint8_t *)writearr;
 	transfer_out->length = writecnt;
 	transfer_out->user_data = &state_out;
+	transfer_out->timeout = timeout;
 
 	/* Schedule write first */
 	if (writecnt > 0)
@@ -308,6 +332,7 @@ static int32_t usb_transfer(const char *func, unsigned int writecnt, unsigned in
 			transfer_ins[free_idx]->length = cur_todo;
 			transfer_ins[free_idx]->buffer = in_buf;
 			transfer_ins[free_idx]->user_data = &state_in[free_idx];
+			transfer_ins[free_idx]->timeout = timeout;
 			if (debug_enabled)
 				fprintf(stderr, "[DEBUG] %s: submitting IN transfer[%u] (%u bytes)\n", func, free_idx, cur_todo);
 			int ret = libusb_submit_transfer(transfer_ins[free_idx]);
@@ -489,7 +514,7 @@ int enable_pins(bool enable)
 	return ret;
 }
 
-int ch341a_spi_send_command(unsigned int writecnt, unsigned int readcnt, const unsigned char *writearr, unsigned char *readarr)
+static int ch341a_spi_send_stream(unsigned int writecnt, unsigned int readcnt, const unsigned char *writearr, unsigned char *readarr)
 {
 	int32_t ret = 0;
 
@@ -588,6 +613,33 @@ int ch341a_spi_send_command(unsigned int writecnt, unsigned int readcnt, const u
 	trace_dump("SPI READ", read_start, readcnt);
 
 	return 0;
+}
+
+int ch341a_spi_send_command(unsigned int writecnt, unsigned int readcnt, const unsigned char *writearr, unsigned char *readarr)
+{
+	/* Split streams too long to complete inside a single transfer deadline. The
+	 * flash cannot tell the difference: CS stays asserted throughout, so the
+	 * sub-transactions clock out as one uninterrupted SPI stream. Write bytes
+	 * are drained first so that reads always trail the command they belong to. */
+	while (writecnt > CH341_MAX_XFER_BYTES)
+	{
+		if (ch341a_spi_send_stream(CH341_MAX_XFER_BYTES, 0, writearr, NULL))
+			return -1;
+		writearr += CH341_MAX_XFER_BYTES;
+		writecnt -= CH341_MAX_XFER_BYTES;
+	}
+
+	while (writecnt + readcnt > CH341_MAX_XFER_BYTES)
+	{
+		unsigned int read_now = CH341_MAX_XFER_BYTES - writecnt;
+		if (ch341a_spi_send_stream(writecnt, read_now, writearr, readarr))
+			return -1;
+		readarr += read_now;
+		readcnt -= read_now;
+		writecnt = 0;
+	}
+
+	return ch341a_spi_send_stream(writecnt, readcnt, writearr, readarr);
 }
 
 int ch341a_spi_shutdown(void)

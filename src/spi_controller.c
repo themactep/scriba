@@ -93,10 +93,36 @@ SPI_CONTROLLER_RTN_T SPI_CONTROLLER_Chip_Select_Low(void)
 
 SPI_CONTROLLER_RTN_T SPI_CONTROLLER_Read_NByte(u8 *ptr_rtn_data, u32 len)
 {
+#ifdef __EMSCRIPTEN__
+	/* Split large reads into 4096-byte chunks for WASM USB stack */
+	u32 offset = 0;
+	while (offset < len) {
+		u32 chunk = (len - offset) > 4096 ? 4096 : (len - offset);
+		int ret = active->send_command(0, chunk, NULL, ptr_rtn_data + offset);
+		if (ret)
+			return (SPI_CONTROLLER_RTN_T)ret;
+		offset += chunk;
+	}
+	return SPI_CONTROLLER_RTN_NO_ERROR;
+#else
 	return (SPI_CONTROLLER_RTN_T)active->send_command(0, len, NULL, ptr_rtn_data);
+#endif
 }
 
 SPI_CONTROLLER_RTN_T SPI_CONTROLLER_Write_NByte(u8 *ptr_data, u32 len)
 {
+#ifdef __EMSCRIPTEN__
+	/* Split large writes into 4096-byte chunks for WASM USB stack */
+	u32 offset = 0;
+	while (offset < len) {
+		u32 chunk = (len - offset) > 4096 ? 4096 : (len - offset);
+		int ret = active->send_command(chunk, 0, ptr_data + offset, NULL);
+		if (ret)
+			return (SPI_CONTROLLER_RTN_T)ret;
+		offset += chunk;
+	}
+	return SPI_CONTROLLER_RTN_NO_ERROR;
+#else
 	return (SPI_CONTROLLER_RTN_T)active->send_command(len, 0, ptr_data, NULL);
+#endif
 }

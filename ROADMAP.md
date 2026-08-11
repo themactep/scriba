@@ -41,13 +41,10 @@ Issues that won't crash today but degrade reliability and maintainability.
   logic, `volatile` on a variable that can't be accessed concurrently. Fixed:
   rewritten to use `\r` + `\e[K` (ANSI clear-to-EOL), merged `timer_progress`
   and `timer_print_progress` into one function, removed `volatile`.
-- [ ] **17 `#ifdef __EMSCRIPTEN__` blocks in `spi_nor_flash.c`** —
-  Platform-specific chunked reads (4096-byte blocks for WASM), alternate
-  SPI command dispatch (`ch341a_spi_send_command` vs `SPI_CONTROLLER_*`),
-  and suppressed `printf` calls litter the NOR driver. The WASM build
-  concerns should be isolated in the `spi_controller` layer or in
-  `web_main.c`, not splattered through the flash driver. Every new chip
-  quirk now needs to consider two code paths.
+- [x] **17 `#ifdef __EMSCRIPTEN__` blocks in `spi_nor_flash.c`** — Down to
+  3 (legitimate platform diffs). Moved chunked read/write into
+  `SPI_CONTROLLER_Read_NByte`/`Write_NByte`; removed progress/timer guards
+  (handled internally by timer.c).
 - [x] **`spi_nand_flash_core.c` (447 lines) not compiled** — Deleted. Globals
   already defined in `spi_nand_flash.c`. Dead code from a refactor.
 - [x] **Duplicate chip entries in `chips_data`** — `EN25XQ128A` (lines
@@ -101,12 +98,9 @@ Not urgent. Fix opportunistically when touching nearby code.
   when disabled, useful for diagnosing erase/program failures.
 - [x] **Add `-Wextra` to Makefile** — Added. Code compiles cleanly with
   `-Wall -Wextra` (zero warnings).
-- [ ] **`#ifdef __EMSCRIPTEN__` uses `ch341a_spi_send_command` directly** —
-  In SPI_CONTROLLER functions, the WASM path sometimes bypasses
-  `spi_controller.c` and calls `ch341a_spi_send_command` directly (e.g.,
-  `snor_read_sr`, `snor_read_devid`). This means WASM doesn't support
-  EZP2019 even though the web UI doesn't expose it. If EZP2019 support is
-  added to the web build, these direct calls become bugs.
+- [x] **`#ifdef __EMSCRIPTEN__` uses `ch341a_spi_send_command` directly** —
+  Removed all three direct calls (`snor_read_sr`, `snor_read_devid`,
+  `snor_read_rg`). Now routed through `SPI_CONTROLLER_*` vtable uniformly.
 - [x] **`flashcmd_verify` takes `file_len` parameter it doesn't use** —
   Old function deleted in Sprint 1. Replacement has no unused parameters.
 - [x] **`nandflash_init`, `nandflash_read`, `nandflash_erase`,
@@ -117,19 +111,13 @@ Not urgent. Fix opportunistically when touching nearby code.
 
 ## Web/WASM Specific
 
-- [ ] **EEPROM support missing from WASM build** — `CMakeLists.txt` doesn't
-  include EEPROM source files, and `web_main.c` doesn't expose EEPROM
-  functions. If the web UI shows EEPROM options, they won't work. Decide:
-  add EEPROM to WASM or remove the UI elements.
-- [ ] **`ASYNCIFY_IMPORTS` must stay in sync** — If any new libusb function
-  is added to the `libusb-webusb.js` shim, it must also be added to the
-  JSON file in `CMakeLists.txt` or the WASM build hangs at runtime. Add a
-  comment in `libusb-webusb.js` and `web_main.c` documenting this constraint.
-- [ ] **Web build needs 64 MB initial memory** — `INITIAL_MEMORY=67108864`
-  in CMakeLists.txt. That's the entire flash read buffer being allocated
-  in WASM heap. If flash sizes grow (128MB NAND chips), this breaks.
-  `ALLOW_MEMORY_GROWTH=1` is set, so it won't crash, but growth is slow
-  and may trigger browser OOM on 32-bit. Document the practical limit.
+- [x] **EEPROM support missing from WASM build** — Added EEPROM source files
+  and `-DEEPROM_SUPPORT` to CMakeLists.txt.
+- [x] **`ASYNCIFY_IMPORTS` must stay in sync** — Documented in CMakeLists.txt
+  with comment explaining the constraint.
+- [x] **Web build needs 64 MB initial memory** — Documented in CMakeLists.txt
+  with practical limit note (~128 MB flash). `ALLOW_MEMORY_GROWTH=1` is set
+  for larger chips.
 
 ---
 

@@ -18,6 +18,12 @@ set(SCRIBA_SOURCES
     ${SRC_DIR}/ch341a_spi.c
     ${SRC_DIR}/ezp2019_spi.c
     ${SRC_DIR}/timer.c
+    ${SRC_DIR}/ch341a_i2c.c
+    ${SRC_DIR}/i2c_eeprom.c
+    ${SRC_DIR}/spi_eeprom.c
+    ${SRC_DIR}/bitbang_microwire.c
+    ${SRC_DIR}/mw_eeprom.c
+    ${SRC_DIR}/ch341a_gpio.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/web_main.c
 )
 
@@ -33,10 +39,14 @@ target_compile_definitions(scriba_web PRIVATE
     GIT_COMMIT_DATE="web"
     GIT_COMMIT_HASH="wasm"
     SCRIBA_WASM_BUILD="${SCRIBA_WASM_BUILD}"
+    EEPROM_SUPPORT
 )
 
 target_compile_options(scriba_web PRIVATE -Wall -Wextra -Wno-unused-parameter -Wno-unused-variable)
 
+# ASYNCIFY_IMPORTS: every async libusb function in libusb-webusb.js MUST be
+# listed here or the WASM build hangs at runtime. When adding USB calls,
+# update both this list AND libusb-webusb.js simultaneously.
  file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/asyncify_imports.json"
     "[\"emscripten_sleep\",\"libusb_get_device_list\",\"libusb_open\",\"libusb_open_device_with_vid_pid\",\"libusb_set_configuration\",\"libusb_claim_interface\",\"libusb_release_interface\",\"libusb_control_transfer\",\"libusb_bulk_transfer\",\"libusb_interrupt_transfer\",\"libusb_reset_device\",\"usb_clear_halt\"]"
  )
@@ -71,6 +81,9 @@ target_link_options(scriba_web PRIVATE
     "SHELL:-s EXPORT_NAME=createScribaModule"
     "SHELL:-s ASYNCIFY_STACK_SIZE=131072"
     "SHELL:-s ASSERTIONS=1"
+    # 64 MB initial heap — enough for ~16 MB flash read buffers plus overhead.
+    # ALLOW_MEMORY_GROWTH=1 handles larger chips, but growth is slow and may
+    # trigger browser OOM on 32-bit. Practical limit: ~128 MB flash.
     "SHELL:-s INITIAL_MEMORY=67108864"
     "SHELL:-s STACK_SIZE=8388608"
     "SHELL:--js-library ${CMAKE_CURRENT_SOURCE_DIR}/src/libusb-webusb.js"

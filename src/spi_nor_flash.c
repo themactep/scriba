@@ -140,12 +140,8 @@ static bool snor_wait_error_was_epe(void)
 static int snor_read_rg(u8 code, u8 *val) {
     int retval;
 	SPI_CONTROLLER_Chip_Select_Low();
-#ifdef __EMSCRIPTEN__
-	retval = ch341a_spi_send_command(1, 1, &code, val);
-#else
 	SPI_CONTROLLER_Write_One_Byte(code);
 	retval = SPI_CONTROLLER_Read_NByte(val, 1);
-#endif
 	SPI_CONTROLLER_Chip_Select_High();
 	if (retval) {
         printf("%s: ret: %x\n", __func__, retval);
@@ -867,15 +863,8 @@ static int snor_read_devid(u8 *rxbuf, int n_rx)
 	int retval = 0;
 
 	SPI_CONTROLLER_Chip_Select_Low();
-#ifdef __EMSCRIPTEN__
-	{
-		u8 cmd = OPCODE_RDID;
-		retval = ch341a_spi_send_command(1, n_rx, &cmd, rxbuf);
-	}
-#else
 	SPI_CONTROLLER_Write_One_Byte(OPCODE_RDID);
 	retval = SPI_CONTROLLER_Read_NByte(rxbuf, n_rx);
-#endif
 	SPI_CONTROLLER_Chip_Select_High();
 	if (retval) {
 		printf("%s: ret: %x\n", __func__, retval);
@@ -948,15 +937,8 @@ int snor_read_sr(u8 *val)
 	int retval = 0;
 
 	SPI_CONTROLLER_Chip_Select_Low();
-#ifdef __EMSCRIPTEN__
-	{
-		u8 cmd = OPCODE_RDSR;
-		retval = ch341a_spi_send_command(1, 1, &cmd, val);
-	}
-#else
 	SPI_CONTROLLER_Write_One_Byte(OPCODE_RDSR);
 	retval = SPI_CONTROLLER_Read_NByte(val, 1);
-#endif
 	SPI_CONTROLLER_Chip_Select_High();
 	if (retval) {
 		printf("%s: ret: %x\n", __func__, retval);
@@ -1054,10 +1036,8 @@ int snor_erase(unsigned long offs, unsigned long len)
 		len -= spi_chip_info->sector_size;
 		timer_progress("Erase", plen - len, plen);
 	}
-#ifndef __EMSCRIPTEN__
 	printf("\rErase 100%% [%lu] of [%lu] bytes      \n", plen - len, plen);
 	timer_end();
-#endif
 
 	return 0;
 }
@@ -1103,23 +1083,6 @@ int snor_read(unsigned char *buf, unsigned long from, unsigned long len)
 
 		if( (data_offset + remain_len) < spi_chip_info->sector_size )
 		{
-#ifdef __EMSCRIPTEN__
-			u32 chunk_remain = remain_len;
-			u32 chunk_off = 0;
-			while (chunk_remain > 0) {
-				u32 chunk_len = chunk_remain > 4096 ? 4096 : chunk_remain;
-				if(SPI_CONTROLLER_Read_NByte(&buf[len - remain_len + chunk_off], chunk_len)) {
-					SPI_CONTROLLER_Chip_Select_High();
-					if (spi_chip_info->addr4b)
-						snor_4byte_mode(0);
-					failed = 1;
-					break;
-				}
-				chunk_off += chunk_len;
-				chunk_remain -= chunk_len;
-			}
-			if (failed) break;
-#else
 			if(SPI_CONTROLLER_Read_NByte(&buf[len - remain_len], remain_len)) {
 				SPI_CONTROLLER_Chip_Select_High();
 				if (spi_chip_info->addr4b)
@@ -1127,29 +1090,15 @@ int snor_read(unsigned char *buf, unsigned long from, unsigned long len)
 				failed = 1;
 				break;
 			}
-#endif
 			remain_len = 0;
 		} else {
-#ifdef __EMSCRIPTEN__
-			u32 to_read = spi_chip_info->sector_size - data_offset;
-			u32 chunk_off = 0;
-			while (chunk_off < to_read) {
-				u32 chunk_len = (to_read - chunk_off) > 4096 ? 4096 : (to_read - chunk_off);
-				if(SPI_CONTROLLER_Read_NByte(&buf[len - remain_len + chunk_off], chunk_len)) {
-#else
 			if(SPI_CONTROLLER_Read_NByte(&buf[len - remain_len], spi_chip_info->sector_size - data_offset)) {
-#endif
 				SPI_CONTROLLER_Chip_Select_High();
 				if (spi_chip_info->addr4b)
 					snor_4byte_mode(0);
 				failed = 1;
 				break;
 			}
-#ifdef __EMSCRIPTEN__
-				chunk_off += chunk_len;
-			}
-			if (len == (unsigned long)-1) break;
-#endif
 			remain_len -= spi_chip_info->sector_size - data_offset;
 			read_addr += spi_chip_info->sector_size - data_offset;
 			timer_progress("Read", len - remain_len, len);
@@ -1167,12 +1116,8 @@ int snor_read(unsigned char *buf, unsigned long from, unsigned long len)
 		return -1;
 	}
 
-#ifndef __EMSCRIPTEN__
 	printf("\rRead 100%% [%lu] of [%lu] bytes      \n", len - remain_len, len);
-#endif
-#ifndef __EMSCRIPTEN__
 	timer_end();
-#endif
 
 	return len;
 }
@@ -1273,10 +1218,8 @@ int snor_write(unsigned char *buf, unsigned long to, unsigned long len)
 	snor_write_disable();
 	snor_clear_progress();
 
-#ifndef __EMSCRIPTEN__
 	printf("\rWritten 100%% [%ld] of [%ld] bytes      \n", plen - len, plen);
 	timer_end();
-#endif
 
 	if (err) {
 		return err;

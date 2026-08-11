@@ -31,7 +31,8 @@ static void snor_clear_progress(void)
 {
 	snor_set_progress("IDLE", 0);
 }
-// unsigned int bsize = 0; // Removed duplicate definition (defined in spi_nand_flash.c)
+// unsigned int bsize = 0; // Defined in spi_nand_flash.c
+
 
 static bool snor_requires_dual_status(void)
 {
@@ -79,7 +80,7 @@ static void snor_clear_status(void)
 // Function implementations
 int snor_wait_ready(int sleep_ms) {
     int count;
-    uint8_t sr = 0;  // Using uint8_t instead of u8
+    u8 sr = 0;
     last_wait_error_was_epe = false;
 #ifdef __EMSCRIPTEN__
     if (sleep_ms < 100) {
@@ -136,7 +137,7 @@ static bool snor_wait_error_was_epe(void)
 	return last_wait_error_was_epe;
 }
 
-static int snor_read_rg(uint8_t code, uint8_t *val) {  // Using uint8_t
+static int snor_read_rg(u8 code, u8 *val) {
     int retval;
 	SPI_CONTROLLER_Chip_Select_Low();
 #ifdef __EMSCRIPTEN__
@@ -153,7 +154,7 @@ static int snor_read_rg(uint8_t code, uint8_t *val) {  // Using uint8_t
     return 0;
 }
 
-static int snor_write_rg(uint8_t code, uint8_t *val) {  // Using uint8_t
+static int snor_write_rg(u8 code, u8 *val) {
     int retval;
 	SPI_CONTROLLER_Chip_Select_Low();
 	SPI_CONTROLLER_Write_One_Byte(code);
@@ -235,10 +236,6 @@ static void snor_log_status(const char *ctx, u8 sr1)
 		snor_progress.op, snor_progress.addr);
 }
 
-/* Stray code removed:
-    return snor_read_rg(OPCODE_RDSR, val);
-}
-*/
 
 int snor_write_sr(u8 *val) {
 	return snor_write_status_block(val, 1);
@@ -542,7 +539,9 @@ int full_erase_chip(void) {
 }
 
 static struct chip_info chips_data [] = {
-	/* REVISIT: fill in JEDEC ids, for parts that have them */
+	/* JEDEC ID format: 0xMMDDVV00 where MM=mfr, DD=device, VV=variant.
+	   Entries with 0x0000 in lower 16 bits use upper-16-bit matching only.
+	   Full IDs will be filled in as datasheets become available. */
 	{ "FL016AIF",		0x01, 0x02140000, 64 * 1024, 32,  0 },
 	{ "S25FL016P",		0x01, 0x02144D00, 64 * 1024, 32,  0 },
 	{ "S25FL032P",		0x01, 0x02154D00, 64 * 1024, 64,  0 },
@@ -582,7 +581,6 @@ static struct chip_info chips_data [] = {
 	{ "EN25QH64A",		0x1c, 0x70171c70, 64 * 1024, 128, 0 },
 	{ "EN25QH128A",		0x1c, 0x70181c70, 64 * 1024, 256, 0 },
 	{ "EN25Q256",		0x1c, 0x70191c70, 64 * 1024, 512, 1 },
-	{ "EN25XQ128A",         0x1c, 0x71181c71, 64 * 1024, 256, 0 },
 	{ "EN25XQ128A",		0x1c, 0x71181c71, 64 * 1024, 256, 0 },
 
 	{ "AT26DF161",		0x1f, 0x46000000, 64 * 1024, 32,  0 },
@@ -707,7 +705,6 @@ static struct chip_info chips_data [] = {
 	{ "PM25LQ128",		0x7f, 0x9d480000, 64 * 1024, 256, 0 },
 
 	{ "PY25Q64HA",		0x85, 0x20170000, 64 * 1024, 128, 0 },
-	{ "PY25Q64HA",		0x85, 0x20170000, 64 * 1024, 128, 0 },
 	{ "PY25Q128HA",		0x85, 0x20180000, 64 * 1024, 256, 0 },
 	{ "P25D05H",		0x85, 0x60100000, 64 * 1024, 1,   0 },
 	{ "P25D10H",		0x85, 0x60110000, 64 * 1024, 2,   0 },
@@ -733,8 +730,8 @@ static struct chip_info chips_data [] = {
 	{ "IS25LP032D",		0x9d, 0x60160000, 64 * 1024, 64,  0 },
 	{ "IS25LP064D",		0x9d, 0x60170000, 64 * 1024, 128, 0 },
 	{ "IS25LP128F",		0x9d, 0x60180000, 64 * 1024, 256, 0 },
-	{ "IS25LP256D",		0x9d, 0x60190000, 64 * 1024, 512, 1 },
-	{ "IS25LP256D",		0x9d, 0x601A0000, 64 * 1024, 1024, 1 },
+	{ "IS25LP256D",		0x9d, 0x60190000, 64 * 1024, 512, 1 },  /* 256 Mb density */
+	{ "IS25LP256D",		0x9d, 0x601A0000, 64 * 1024, 1024, 1 }, /* 512 Mb density */
 	{ "IS25WP040D",		0x9d, 0x70130000, 64 * 1024, 8,   0 },
 	{ "IS25WP080D",		0x9d, 0x70140000, 64 * 1024, 16,  0 },
 	{ "IS25WP016D",		0x9d, 0x70150000, 64 * 1024, 32,  0 },
@@ -917,31 +914,22 @@ static void verify_chips_sorted(void)
 static struct chip_info *chip_prob_binary_search(u8 mfr_id, u32 jedec, u32 jedec_strip)
 {
 	int left, right, mid;
-	struct chip_info *info;
 
 	left = 0;
 	right = sizeof(chips_data)/sizeof(chips_data[0]) - 1;
 
 	while (left <= right) {
 		mid = (left + right) / 2;
-		info = &chips_data[mid];
+		struct chip_info *info = &chips_data[mid];
 
 		if (info->id == mfr_id) {
-			if ((info->jedec_id == jedec) || ((info->jedec_id & 0xffff0000) == jedec_strip)) {
-				long int size = (info->sector_size * info->n_sectors);
-				if ((size >> 10) >= 1024) {
-					printf("Detected SPI NOR Flash: %s, Flash Size: %ld MB\n", info->name, size >> 20);
-				} else {
-					printf("Detected SPI NOR Flash: %s, Flash Size: %ld KB\n", info->name, size >> 10);
-				}
+			if ((info->jedec_id == jedec) || ((info->jedec_id & 0xffff0000) == jedec_strip))
 				return info;
-			}
 
-			if (jedec_strip > (info->jedec_id & 0xffff0000)) {
+			if (jedec_strip > (info->jedec_id & 0xffff0000))
 				left = mid + 1;
-			} else {
+			else
 				right = mid - 1;
-			}
 		} else if (info->id > mfr_id) {
 			right = mid - 1;
 		} else {
@@ -991,27 +979,36 @@ struct chip_info *chip_prob(void)
 	jedec = (u32)((u32)(buf[1] << 24) | ((u32)buf[2] << 16) | ((u32)buf[3] <<8) | (u32)buf[4]);
 	jedec_strip = jedec & 0xffff0000;
 
-	printf("spi device id: %x %x %x %x %x (%x)\n", buf[0], buf[1], buf[2], buf[3], buf[4], jedec);
-
 	/* Primary lookup: binary search in sorted table (O(log n)) */
 	info = chip_prob_binary_search(buf[0], jedec, jedec_strip);
-	if (info)
-		return info;
 
 	/* Fallback: linear search for closest weight match */
-	weight = 0xffffffff;
-	match = &chips_data[0];
-	for (i = 0; (unsigned long)i < sizeof(chips_data)/sizeof(chips_data[0]); i++) {
-		info = &chips_data[i];
-		if (info->id == buf[0]) {
-			if (weight > (info->jedec_id ^ jedec)) {
-				weight = info->jedec_id ^ jedec;
-				match = info;
+	if (!info) {
+		weight = 0xffffffff;
+		match = &chips_data[0];
+		for (i = 0; (unsigned long)i < sizeof(chips_data)/sizeof(chips_data[0]); i++) {
+			info = &chips_data[i];
+			if (info->id == buf[0]) {
+				if (weight > (info->jedec_id ^ jedec)) {
+					weight = info->jedec_id ^ jedec;
+					match = info;
+				}
 			}
 		}
+		info = match;
 	}
 
-	return match;
+	if (info) {
+		long int size = (info->sector_size * info->n_sectors);
+		printf("\nDetected SPI NOR Flash: %s, Flash Size: %ld %s\n",
+		       info->name,
+		       (size >> 10) >= 1024 ? size >> 20 : size >> 10,
+		       (size >> 10) >= 1024 ? "MB" : "KB");
+		printf("SPI device ID: %02x %02x %02x %02x %02x (%08x)\n",
+		       buf[0], buf[1], buf[2], buf[3], buf[4], jedec);
+	}
+
+	return info;
 }
 
 long snor_init(void)
@@ -1055,17 +1052,10 @@ int snor_erase(unsigned long offs, unsigned long len)
 
 		offs += spi_chip_info->sector_size;
 		len -= spi_chip_info->sector_size;
-		if( timer_progress() )
-		{
-#ifndef __EMSCRIPTEN__
-			printf("\bErase %ld%% [%lu] of [%lu] bytes      ", 100 * (plen - len) / plen, plen - len, plen);
-			printf("\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b");
-			fflush(stdout);
-#endif
-		}
+		timer_progress("Erase", plen - len, plen);
 	}
 #ifndef __EMSCRIPTEN__
-	printf("Erase 100%% [%lu] of [%lu] bytes      \n", plen - len, plen);
+	printf("\rErase 100%% [%lu] of [%lu] bytes      \n", plen - len, plen);
 	timer_end();
 #endif
 
@@ -1085,7 +1075,6 @@ int snor_read(unsigned char *buf, unsigned long from, unsigned long len)
 	timer_start();
 	/* Wait till previous write/erase is done. */
 	if (snor_wait_ready_retry_epe(1)) {
-		/* REVISIT status return?? */
 		return -1;
 	}
 
@@ -1163,13 +1152,7 @@ int snor_read(unsigned char *buf, unsigned long from, unsigned long len)
 #endif
 			remain_len -= spi_chip_info->sector_size - data_offset;
 			read_addr += spi_chip_info->sector_size - data_offset;
-			if( timer_progress() ) {
-#ifndef __EMSCRIPTEN__
-				printf("\bRead %ld%% [%lu] of [%lu] bytes      ", 100 * (len - remain_len) / len, len - remain_len, len);
-				printf("\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b");
-				fflush(stdout);
-#endif
-			}
+			timer_progress("Read", len - remain_len, len);
 		}
 
 		SPI_CONTROLLER_Chip_Select_High();
@@ -1185,7 +1168,7 @@ int snor_read(unsigned char *buf, unsigned long from, unsigned long len)
 	}
 
 #ifndef __EMSCRIPTEN__
-	printf("Read 100%% [%lu] of [%lu] bytes      \n", len - remain_len, len);
+	printf("\rRead 100%% [%lu] of [%lu] bytes      \n", len - remain_len, len);
 #endif
 #ifndef __EMSCRIPTEN__
 	timer_end();
@@ -1257,13 +1240,7 @@ int snor_write(unsigned char *buf, unsigned long to, unsigned long len)
 
 		// snor_dbg("%s: to:%x page_size:%x ret:%x\n", __func__, to, page_size, rc); // Commented out missing function
 
-		if( timer_progress() ) {
-#ifndef __EMSCRIPTEN__
-			printf("\bWritten %ld%% [%lu] of [%lu] bytes      ", 100 * (plen - len) / plen, plen - len, plen);
-			printf("\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b");
-			fflush(stdout);
-#endif
-		}
+		timer_progress("Written", plen - len, plen);
 
 		if (rc > 0) {
 			retlen += rc;
@@ -1297,6 +1274,7 @@ int snor_write(unsigned char *buf, unsigned long to, unsigned long len)
 	snor_clear_progress();
 
 #ifndef __EMSCRIPTEN__
+	printf("\rWritten 100%% [%ld] of [%ld] bytes      \n", plen - len, plen);
 	timer_end();
 #endif
 
@@ -1304,9 +1282,6 @@ int snor_write(unsigned char *buf, unsigned long to, unsigned long len)
 		return err;
 	}
 
-#ifndef __EMSCRIPTEN__
-	printf("Written 100%% [%ld] of [%ld] bytes      \n", plen - len, plen);
-#endif
 	return retlen;
 }
 

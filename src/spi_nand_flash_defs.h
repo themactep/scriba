@@ -282,8 +282,6 @@
 #define _SPI_NAND_GET_DEVICE_INFO_PTR &(_current_flash_info_t)
 
 /* Porting Replacement */
-#define _SPI_NAND_SEMAPHORE_LOCK()      /* Disable interrupt */
-#define _SPI_NAND_SEMAPHORE_UNLOCK()    /* Enable interrupt  */
 #define _SPI_NAND_PRINTF printf         /* Always print information */
 #if !defined(SPI_NAND_FLASH_DEBUG)
 #define _SPI_NAND_DEBUG_PRINTF(level, fmt, ...)

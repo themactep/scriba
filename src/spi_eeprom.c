@@ -273,16 +273,11 @@ int spi_eeprom_read(unsigned char *buf, unsigned long from, unsigned long len)
 			return -1;
 		}
 		pbuf[i] = (uint8_t)read_val; // Cast valid byte value
-		if (timer_progress())
-		{
-			printf("\bRead %d%% [%d] of [%d] bytes      ", 100 * i / seepromsize, i, seepromsize);
-			printf("\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b");
-			fflush(stdout);
-		}
+		timer_progress("Read", i, seepromsize);
 	}
 	memcpy(buf, pbuf + from, len);
 
-	printf("Read 100%% [%lu] bytes from [%s] EEPROM address 0x%08lu\n", len, eepromname, from);
+	printf("\rRead 100%% [%lu] bytes from [%s] EEPROM address 0x%08lu\n", len, eepromname, from);
 	timer_end();
 
 	return (int)len;
@@ -338,15 +333,10 @@ int spi_eeprom_erase(unsigned long offs, unsigned long len)
 				return -1;
 			}
 		}
-		if (timer_progress())
-		{
-			printf("\bErase %d%% [%d] of [%d] bytes      ", 100 * i / seepromsize, i, seepromsize);
-			printf("\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b");
-			fflush(stdout);
-		}
+		timer_progress("Erase", i, seepromsize);
 	}
 
-	printf("Erased 100%% [%lu] bytes of [%s] EEPROM address 0x%08lu\n", len, eepromname, offs);
+	printf("\rErased 100%% [%lu] bytes of [%s] EEPROM address 0x%08lu\n", len, eepromname, offs);
 	timer_end();
 
 	return 0;
@@ -401,15 +391,10 @@ int spi_eeprom_write(unsigned char *buf, unsigned long to, unsigned long len)
 				return -1;
 			}
 		}
-		if (timer_progress())
-		{
-			printf("\bWritten %d%% [%d] of [%d] bytes      ", 100 * i / seepromsize, i, seepromsize);
-			printf("\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b");
-			fflush(stdout);
-		}
+		timer_progress("Written", i, seepromsize);
 	}
 
-	printf("Written 100%% [%lu] bytes to [%s] EEPROM address 0x%08lu\n", len, eepromname, to);
+	printf("\rWritten 100%% [%lu] bytes to [%s] EEPROM address 0x%08lu\n", len, eepromname, to);
 	timer_end();
 
 	return (int)len;

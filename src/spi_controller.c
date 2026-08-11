@@ -1,88 +1,102 @@
 /**
  * @file spi_controller.c
- * @brief SPI bus controller abstraction layer
- * 
- * This module provides standardized SPI operations:
- * - Chip select management (CS high/low)
- * - Byte-level read/write operations
- * - Multi-byte data transfers
- * - Manual mode enable/disable
- * 
- * All operations use ch341a_spi_send_command() as the underlying transport
+ * @brief SPI bus controller abstraction layer with vtable dispatch
  */
 
+#include <stdio.h>
 #include "ch341a_spi.h"
 #include "ezp2019_spi.h"
 #include "spi_controller.h"
 
-PROGRAMMER_TYPE_T programmer_type = PROGRAMMER_AUTO;
+/* Driver vtables (defined in respective driver files) */
+extern const struct spi_programmer ch341a_programmer;
+extern const struct spi_programmer ezp2019_programmer;
 
-/**
- * Enable SPI Controller Manual Mode
- * @return SPI_CONTROLLER_RTN_NO_ERROR
- */
+static const struct spi_programmer *active = NULL;
+static int active_type = PROGRAMMER_AUTO;
+
+int spi_controller_init(int type)
+{
+	if (type == PROGRAMMER_EZP2019) {
+		if (ezp2019_programmer.init() == 0) {
+			active = &ezp2019_programmer;
+			active_type = PROGRAMMER_EZP2019;
+			return 0;
+		}
+		return -1;
+	}
+	if (type == PROGRAMMER_CH341A) {
+		if (ch341a_programmer.init() == 0) {
+			active = &ch341a_programmer;
+			active_type = PROGRAMMER_CH341A;
+			return 0;
+		}
+		return -1;
+	}
+
+	/* PROGRAMMER_AUTO: try EZP first, then CH341A */
+	if (ezp2019_programmer.init() == 0) {
+		active = &ezp2019_programmer;
+		active_type = PROGRAMMER_EZP2019;
+		return 0;
+	}
+	if (ch341a_programmer.init() == 0) {
+		active = &ch341a_programmer;
+		active_type = PROGRAMMER_CH341A;
+		return 0;
+	}
+	return -1;
+}
+
+void spi_controller_shutdown(void)
+{
+	if (active)
+		active->shutdown();
+	active = NULL;
+	active_type = PROGRAMMER_AUTO;
+}
+
+int spi_controller_type(void)
+{
+	return active_type;
+}
+
+const char *spi_controller_name(void)
+{
+	return active ? active->name : "none";
+}
+
+const char *spi_controller_libusb_version(void)
+{
+	return active ? active->libusb_version() : "unknown";
+}
+
 SPI_CONTROLLER_RTN_T SPI_CONTROLLER_Enable_Manual_Mode(void)
 {
-    // CH341A driver might operate in manual mode by default or concept doesn't apply
-    return 0;
+	return SPI_CONTROLLER_RTN_NO_ERROR;
 }
 
-/**
- * Write one byte to SPI bus
- * @param data Byte to write
- * @return SPI_CONTROLLER_RTN_NO_ERROR on success
- */
 SPI_CONTROLLER_RTN_T SPI_CONTROLLER_Write_One_Byte(u8 data)
 {
-    if (programmer_type == PROGRAMMER_EZP2019)
-        return (SPI_CONTROLLER_RTN_T)ezp2019_spi_send_command(1, 0, &data, NULL);
-    return (SPI_CONTROLLER_RTN_T)ch341a_spi_send_command(1, 0, &data, NULL);
+	return (SPI_CONTROLLER_RTN_T)active->send_command(1, 0, &data, NULL);
 }
 
-/**
- * Set chip select high (deselect flash)
- * @return SPI_CONTROLLER_RTN_NO_ERROR on success
- */
 SPI_CONTROLLER_RTN_T SPI_CONTROLLER_Chip_Select_High(void)
 {
-    if (programmer_type == PROGRAMMER_EZP2019)
-        return (SPI_CONTROLLER_RTN_T)ezp_enable_pins(false);
-    return (SPI_CONTROLLER_RTN_T)enable_pins(false);
+	return (SPI_CONTROLLER_RTN_T)active->cs_deselect();
 }
 
-/**
- * Set chip select low (select flash)
- * @return SPI_CONTROLLER_RTN_NO_ERROR on success
- */
 SPI_CONTROLLER_RTN_T SPI_CONTROLLER_Chip_Select_Low(void)
 {
-    if (programmer_type == PROGRAMMER_EZP2019)
-        return (SPI_CONTROLLER_RTN_T)ezp_enable_pins(true);
-    return (SPI_CONTROLLER_RTN_T)enable_pins(true);
+	return (SPI_CONTROLLER_RTN_T)active->cs_select();
 }
 
-/**
- * Read N bytes from SPI bus
- * @param ptr_rtn_data Buffer to receive data
- * @param len Number of bytes to read
- * @return SPI_CONTROLLER_RTN_NO_ERROR on success
- */
 SPI_CONTROLLER_RTN_T SPI_CONTROLLER_Read_NByte(u8 *ptr_rtn_data, u32 len)
 {
-    if (programmer_type == PROGRAMMER_EZP2019)
-        return (SPI_CONTROLLER_RTN_T)ezp2019_spi_send_command(0, len, NULL, ptr_rtn_data);
-    return (SPI_CONTROLLER_RTN_T)ch341a_spi_send_command(0, len, NULL, ptr_rtn_data);
+	return (SPI_CONTROLLER_RTN_T)active->send_command(0, len, NULL, ptr_rtn_data);
 }
 
-/**
- * Write N bytes to SPI bus
- * @param ptr_data Buffer containing data to write
- * @param len Number of bytes to write
- * @return SPI_CONTROLLER_RTN_NO_ERROR on success
- */
 SPI_CONTROLLER_RTN_T SPI_CONTROLLER_Write_NByte(u8 *ptr_data, u32 len)
 {
-    if (programmer_type == PROGRAMMER_EZP2019)
-        return (SPI_CONTROLLER_RTN_T)ezp2019_spi_send_command(len, 0, ptr_data, NULL);
-    return (SPI_CONTROLLER_RTN_T)ch341a_spi_send_command(len, 0, ptr_data, NULL);
+	return (SPI_CONTROLLER_RTN_T)active->send_command(len, 0, ptr_data, NULL);
 }

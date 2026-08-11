@@ -9,6 +9,20 @@
 
 /*****************************[ Notice]******************************/
 /* This file contains the full table of supported SPI NAND devices. */
+/*                                                                   */
+/* Entry fields (struct SPI_NAND_FLASH_INFO_T):                      */
+/*   .mfr_id      — manufacturer ID byte                             */
+/*   .dev_id      — device ID (16-bit)                               */
+/*   .dev_id_2    — second device ID byte (0 if unused)              */
+/*   .ptr_name    — human-readable chip name string                  */
+/*   .device_size — total capacity (use _SPI_NAND_CHIP_SIZE_*)       */
+/*   .page_size   — page size (_SPI_NAND_PAGE_SIZE_*)                */
+/*   .oob_size    — OOB/spare area size per page                     */
+/*   .erase_size  — block erase size (_SPI_NAND_BLOCK_SIZE_*)        */
+/*   .dummy_mode  — read dummy byte placement (PREPEND/APPEND)       */
+/*   .read_mode   — read speed (SINGLE/DUAL/QUAD)                    */
+/*   .write_mode  — write speed (SINGLE/QUAD)                        */
+/*   .feature     — capability flags (_SPI_NAND_FLASH_FEATURE_*)     */
 /*****************************[ Notice]******************************/
 
 /* Define the actual table */

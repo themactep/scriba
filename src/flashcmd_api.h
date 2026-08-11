@@ -23,6 +23,7 @@ struct flash_cmd
 
 long flash_cmd_init(struct flash_cmd *cmd);
 void support_flash_list(void);
-int flashcmd_verify(const unsigned char *data, unsigned long addr, unsigned long len, unsigned long file_len);
+int flashcmd_verify(struct flash_cmd *cmd, const unsigned char *expected,
+		    unsigned long addr, unsigned long len);
 
 #endif /* __FLASHCMD_API_H__ */

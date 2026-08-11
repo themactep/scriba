@@ -37,6 +37,7 @@
 #endif
 
 /* Global debug/trace flags from main.c */
+extern int debug_enabled;
 extern int trace_enabled;
 
 static void trace_dump(const char *label, const unsigned char *buf, unsigned int len)
@@ -672,14 +673,13 @@ int ezp2019_spi_init(void)
 	}
 
 	if (ezp_handle == NULL) {
-		fprintf(stderr, "EZP: could not open device %04x:",
-			EZP2019_VID);
-		for (pid = ezp_pids; *pid; pid++)
-			fprintf(stderr, "%s%04x", (pid == ezp_pids) ? "" : ", ", *pid);
-		fprintf(stderr, "\n");
-		fprintf(stderr, "Check: 1) device is connected  2) run with sudo "
-			"or install 40-persistent-ezp2019.rules\n");
-		/* do NOT libusb_exit here — caller may try CH341A next */
+		if (debug_enabled) {
+			fprintf(stderr, "EZP: could not open device %04x:",
+				EZP2019_VID);
+			for (pid = ezp_pids; *pid; pid++)
+				fprintf(stderr, "%s%04x", (pid == ezp_pids) ? "" : ", ", *pid);
+			fprintf(stderr, "\n");
+		}
 		libusb_exit(NULL);
 		return -1;
 	}
@@ -745,3 +745,18 @@ int ezp2019_spi_init(void)
 
 	return 0;
 }
+
+#include "spi_controller.h"
+
+static int ezp_cs_select(void)   { return ezp_enable_pins(true); }
+static int ezp_cs_deselect(void) { return ezp_enable_pins(false); }
+
+const struct spi_programmer ezp2019_programmer = {
+	.name           = "EZP2019",
+	.init           = ezp2019_spi_init,
+	.shutdown       = ezp2019_spi_shutdown,
+	.send_command   = ezp2019_spi_send_command,
+	.cs_select      = ezp_cs_select,
+	.cs_deselect    = ezp_cs_deselect,
+	.libusb_version = get_libusb_version,
+};

@@ -20,8 +20,6 @@
 #endif
 
 #include "flashcmd_api.h"
-#include "ch341a_spi.h"
-#include "ezp2019_spi.h"
 #include "spi_controller.h"
 #include "spi_nand_flash.h"
 
@@ -69,28 +67,10 @@ static int do_verify(const unsigned char *expected, unsigned long addr, unsigned
 	return 1;
 }
 
-void title(void)
-{
-	const char *prog_name;
-	if (programmer_type == PROGRAMMER_EZP2019)
-		prog_name = "EZP2019";
-	else if (programmer_type == PROGRAMMER_CH341A)
-		prog_name = "CH341A";
-	else
-		prog_name = "Auto-detect";
-	printf("Thingino %s Programming Tool v.%s-%s (based on SNANDer)\n", prog_name, GIT_COMMIT_DATE, GIT_COMMIT_HASH);
-#ifdef CONFIG_STATIC
-	printf("Static");
-#else
-	printf("Dynamic");
-#endif
-	printf(" build using libusb %s\n", get_libusb_version());
-}
-
 void usage(const char *program_name)
 {
 	char use[1024];
-	snprintf(use, sizeof(use), "\nUsage: %s [options]\n"
+	snprintf(use, sizeof(use), "Usage: %s [options]\n"
 				   "Automation:\n"
 				   "  -R <file>    Read chip (read twice and compare)\n"
 				   "  -W <file>    Write chip (erase + write + verify)\n"
@@ -122,7 +102,8 @@ void usage(const char *program_name)
 				   "  -h           Display help\n"
 				   "  -L           List supported chips\n"
 				   "  -P <prog>    Programmer type: ch341a, ezp2019, auto (default: auto)\n"
-				   "  --debug      Enable debug messages for USB communication\n"
+				   "  -V, --version  Show version and exit\n"
+			   "  --debug      Enable debug messages for USB communication\n"
 				   "  --trace      Dump SPI commands and data (implies --debug)\n",
 		 program_name);
 	printf(use);
@@ -135,18 +116,21 @@ int main(int argc, char *argv[])
  	char op = 0;
  	const char *op_arg = NULL;
  	unsigned char *buf = NULL;
- 	int long long len = 0, addr = 0, flen = 0, wlen = 0;
+ 	long long len = 0, addr = 0, flen = 0, wlen = 0;
  	FILE *fp;
+
+	int prog_type = PROGRAMMER_AUTO;
 
 	/* Long options */
 	static struct option long_options[] = {
 		{"debug", no_argument, NULL, 0},
 		{"trace", no_argument, NULL, 0},
+		{"version", no_argument, NULL, 'V'},
 		{0, 0, 0, 0}
 	};
 	int option_index = 0;
 
-	while ((c = getopt_long(argc, argv, "diIhveLkl:a:w:r:W:R:o:s:E:f:8P:", long_options, &option_index)) != -1)
+	while ((c = getopt_long(argc, argv, "diIhveLkl:a:w:r:W:R:o:s:E:f:8P:V", long_options, &option_index)) != -1)
 	{
 		if (c == 0)
 		{
@@ -273,16 +257,25 @@ int main(int argc, char *argv[])
 			break;
 		case 'P':
 			if (strcmp(optarg, "ezp2019") == 0 || strcmp(optarg, "ezp") == 0)
-				programmer_type = PROGRAMMER_EZP2019;
+				prog_type = PROGRAMMER_EZP2019;
 			else if (strcmp(optarg, "ch341a") == 0 || strcmp(optarg, "ch341") == 0)
-				programmer_type = PROGRAMMER_CH341A;
+				prog_type = PROGRAMMER_CH341A;
 			else if (strcmp(optarg, "auto") == 0)
-				programmer_type = PROGRAMMER_AUTO;
+				prog_type = PROGRAMMER_AUTO;
 			else {
 				fprintf(stderr, "Unknown programmer type: %s (use ch341a, ezp2019, or auto)\n", optarg);
 				exit(1);
 			}
 			break;
+		case 'V':
+		printf("Thingino Scriba v.%s-%s\n", GIT_COMMIT_DATE, GIT_COMMIT_HASH);
+#ifdef CONFIG_STATIC
+			printf("Static");
+#else
+			printf("Dynamic");
+#endif
+			printf(" build using libusb %s\n", get_libusb_version());
+			exit(0);
 		case 'L':
 			support_flash_list();
 			exit(0);
@@ -301,29 +294,15 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	if (programmer_type == PROGRAMMER_EZP2019) {
-		if (ezp2019_spi_init() < 0) {
+	if (spi_controller_init(prog_type) < 0) {
+		if (prog_type == PROGRAMMER_EZP2019)
 			fprintf(stderr, "EZP2019 programmer device not found!\n\n");
-			return 1;
-		}
-	} else if (programmer_type == PROGRAMMER_CH341A) {
-		if (ch341a_spi_init() < 0) {
+		else if (prog_type == PROGRAMMER_CH341A)
 			fprintf(stderr, "CH341A programmer device not found!\n\n");
-			return 1;
-		}
-	} else {
-		/* PROGRAMMER_AUTO: try EZP first, then CH341A */
-		if (ezp2019_spi_init() == 0) {
-			programmer_type = PROGRAMMER_EZP2019;
-		} else if (ch341a_spi_init() == 0) {
-			programmer_type = PROGRAMMER_CH341A;
-		} else {
+		else
 			fprintf(stderr, "No supported programmer device found!\n\n");
-			return 1;
-		}
+		return 1;
 	}
-
-	title();
 
 	if ((flen = flash_cmd_init(&prog)) <= 0)
 		goto out;
@@ -387,10 +366,10 @@ int main(int argc, char *argv[])
 		}
 		if (bsize > 0 && (len % bsize))
 		{
-			fprintf(stderr, "Please set len = 0x%016llX multiple of the block size 0x%08X\n", len, bsize);
+			fprintf(stderr, "Please set len = 0x%08llX multiple of the block size 0x%08X\n", len, bsize);
 			goto out;
 		}
-		printf("Erase addr = 0x%016llX, len = 0x%016llX\n", addr, len);
+		printf("Erase addr = 0x%08llX, len = 0x%08llX\n", addr, len);
 		ret = prog.flash_erase(addr, len);
 		if (!ret)
 		{
@@ -407,7 +386,7 @@ if (op == 'W')
  		printf("WRITE (Erase + Write + Verify):\n");
 
  		// Step 1: Erase
- 		printf("Step 1/3 - ERASE:\n");
+ 		printf("\nStep 1/3 - ERASE:\n");
  		if (addr && !len)
  			len = flen - addr;
  		else if (!addr && !len)
@@ -417,10 +396,10 @@ if (op == 'W')
  		}
  		if (bsize > 0 && (len % bsize))
  		{
- 			fprintf(stderr, "Please set len = 0x%016llX multiple of the block size 0x%08X\n", len, bsize);
+ 			fprintf(stderr, "Please set len = 0x%08llX multiple of the block size 0x%08X\n", len, bsize);
  			goto out;
  		}
- 		printf("Erase addr = 0x%016llX, len = 0x%016llX\n", addr, len);
+ 		printf("Erase addr = 0x%08llX, len = 0x%08llX\n", addr, len);
  		ret = prog.flash_erase(addr, len);
  		if (ret)
  		{
@@ -438,7 +417,7 @@ if (op == 'W')
  		}
 
  		// Step 2: Write
- 		printf("Step 2/3 - WRITE:\n");
+ 		printf("\nStep 2/3 - WRITE:\n");
  		fp = fopen(op_arg, "rb");
  		if (!fp)
  		{
@@ -457,7 +436,7 @@ if (op == 'W')
 
  		if (len == flen)
  			len = wlen;
- 		printf("Write addr = 0x%016llX, len = 0x%016llX\n", addr, len);
+ 		printf("Write addr = 0x%08llX, len = 0x%08llX\n", addr, len);
  		ret = prog.flash_write(buf, addr, len);
  		if (ret <= 0)
  		{
@@ -469,7 +448,7 @@ if (op == 'W')
  		printf("Write Status: OK\n");
 
   		// Step 3: Verify
-  		printf("Step 3/3 - VERIFY:\n");
+  		printf("\nStep 3/3 - VERIFY:\n");
   		if (!do_verify(buf, addr, len))
   		{
   			fprintf(stderr, "Write Status: FAILED\n");
@@ -508,8 +487,8 @@ if (op == 'R')
  		}
 
  		// First read
- 		printf("Step 1/2 - First READ:\n");
- 		printf("Read addr = 0x%016llX, len = 0x%016llX\n", addr, len);
+ 		printf("\nStep 1/2 - First READ:\n");
+ 		printf("Read addr = 0x%08llX, len = 0x%08llX\n", addr, len);
  		ret = prog.flash_read(buf1, addr, len);
  		if (ret < 0)
  		{
@@ -521,8 +500,8 @@ if (op == 'R')
  		printf("First Read Status: OK\n");
 
  		// Second read
- 		printf("Step 2/2 - Second READ:\n");
- 		printf("Read addr = 0x%016llX, len = 0x%016llX\n", addr, len);
+ 		printf("\nStep 2/2 - Second READ:\n");
+ 		printf("Read addr = 0x%08llX, len = 0x%08llX\n", addr, len);
  		ret = prog.flash_read(buf2, addr, len);
  		if (ret < 0)
  		{
@@ -549,7 +528,7 @@ if (op == 'R')
  			}
 
  			fprintf(stderr, "Compare Status: BAD - Found %lld mismatched bytes\n", mismatch_count);
- 			fprintf(stderr, "First mismatch at address 0x%016llX (byte1=0x%02X, byte2=0x%02X)\n",
+ 			fprintf(stderr, "First mismatch at address 0x%08llX (byte1=0x%02X, byte2=0x%02X)\n",
  					addr + first_mismatch, buf1[first_mismatch], buf2[first_mismatch]);
  			fprintf(stderr, "Read Status: FAILED - Flash may be unreliable\n");
  			free(buf1);
@@ -621,7 +600,7 @@ if (op == 'R')
 
 		if (len == flen)
 			len = wlen;
-		printf("Write addr = 0x%016llX, len = 0x%016llX\n", addr, len);
+		printf("Write addr = 0x%08llX, len = 0x%08llX\n", addr, len);
 		ret = prog.flash_write(buf, addr, len);
 		if (ret > 0)
 		{
@@ -629,7 +608,7 @@ if (op == 'R')
 			if (vr)
 			{
 				printf("VERIFY:\n");
-				if (!do_verify(buf, addr, len))
+				if (!flashcmd_verify(&prog, buf, addr, len))
 				{
 					fprintf(stderr, "Status: BAD\n");
 					fclose(fp);
@@ -648,7 +627,7 @@ if (op == 'R')
 	if (op == 'r')
 	{
 		printf("READ:\n");
-		printf("Read addr = 0x%016llX, len = 0x%016llX\n", addr, len);
+		printf("Read addr = 0x%08llX, len = 0x%08llX\n", addr, len);
 		ret = prog.flash_read(buf, addr, len);
 		if (ret < 0)
 		{
@@ -678,15 +657,9 @@ if (op == 'R')
 	}
 
 out: // exit with errors
-	if (programmer_type == PROGRAMMER_EZP2019)
-		ezp2019_spi_shutdown();
-	else
-		ch341a_spi_shutdown();
+	spi_controller_shutdown();
 	return 1;
 okout: // exit without errors
-	if (programmer_type == PROGRAMMER_EZP2019)
-		ezp2019_spi_shutdown();
-	else
-		ch341a_spi_shutdown();
+	spi_controller_shutdown();
 	return 0;
 }

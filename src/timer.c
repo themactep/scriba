@@ -1,24 +1,20 @@
 /**
  * @file timer.c
  * @brief Timing and progress tracking utilities
- * 
+ *
  * This module provides:
  * - Operation timing (start/end)
- * - Progress tracking for long operations
+ * - Rate-limited progress display (1 update/sec)
  * - Elapsed time calculation
- * - Progress percentage display
  */
 
 #include <stdio.h>
 #include <time.h>
 
 #include "timer.h"
-#include "types.h"
 
 static time_t start_time = 0; /* Operation start timestamp */
 static time_t print_time = 0; /* Last progress print timestamp */
-
-static volatile int progress_printed = 0; /* Progress display state flag */
 
 void timer_start(void)
 {
@@ -27,40 +23,34 @@ void timer_start(void)
 
 void timer_end(void)
 {
-	time_t end_time = 0, elapsed_seconds = 0;
-
+	time_t end_time;
 	time(&end_time);
-	elapsed_seconds = difftime(end_time, start_time);
-	printf("Elapsed time: %d seconds\n", (int)elapsed_seconds);
+	printf("\rElapsed time: %d seconds\n", (int)difftime(end_time, start_time));
 	print_time = 0;
 }
 
-int timer_progress(void)
+/*
+ * Print progress if at least 1 second has elapsed since last print.
+ * Uses carriage-return to overwrite the same line, then ANSI clear-to-EOL.
+ */
+void timer_progress(const char *msg, unsigned long current, unsigned long total)
 {
-	time_t end_time = 0;
-	int elapsed_seconds = 0;
+#ifndef __EMSCRIPTEN__
+	time_t now;
+	time(&now);
 
-	if (!print_time)
-		print_time = time(0);
+	if (print_time && difftime(now, print_time) < 1.0)
+		return;
 
-	time(&end_time);
+	print_time = now;
 
-	elapsed_seconds = (int)difftime(end_time, print_time);
+	/* \r = go to column 0, \e[K = clear to end of line */
+	if (total > 0)
+		printf("\r%s %lu%% [%lu] of [%lu] bytes",
+		       msg, 100 * current / total, current, total);
+	else
+		printf("\r%s %lu bytes", msg, current);
 
-	if (elapsed_seconds == 1)
-	{
-		print_time = 0;
-		return 1;
-	}
-	return 0;
-}
-
-void timer_print_progress(const char *msg, u32 current, u32 total)
-{
-	if (!progress_printed) {
-		printf("\b%s %d%% [%u] of [%u] bytes      ", msg, 100 * (current / 1024) / (total / 1024), current, total);
-		progress_printed = 1;
-	}
-	printf("\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b");
 	fflush(stdout);
+#endif
 }

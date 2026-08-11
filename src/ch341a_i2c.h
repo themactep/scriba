@@ -102,7 +102,6 @@
 #define CH341_EEPROM_READ_CMD_SZ 0x65 /* Same size for all 24cXX read setup and next packets*/
 
 /* CH341a READ EEPROM setup packet for the 24c01 */
-// TODO: make this into a struct for faster access to individual elements
 #define CH341_EEPROM_24c01_READ_SETUP_CMD                             \
    "\xaa\x74\x82\xa0\x00\x74\x81\xa1\xe0\x00\x0f\x00\x06\x04\x00\x00" \
    "\x00\x00\x00\x00\x01\x00\x00\x00\x11\x4d\x40\x77\xcd\xab\xba\xdc" \
@@ -127,7 +126,6 @@ this is the read setup packet for 24c01
 /* CH341a READ EEPROM next packet for 24c01  (no packets!)*/
 
 /* CH341a READ EEPROM setup packet for the 24c02 */
-// TODO: make this into a struct for faster access to individual elements
 #define CH341_EEPROM_24c02_READ_SETUP_CMD                             \
    "\xaa\x74\x82\xa0\x00\x74\x81\xa1\xe0\x00\x10\x00\x06\x04\x00\x00" \
    "\x00\x00\x00\x00\x02\x00\x00\x00\x11\x4d\x40\x77\xcd\xab\xba\xdc" \

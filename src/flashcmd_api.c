@@ -69,31 +69,23 @@ long flash_cmd_init(struct flash_cmd *cmd)
 	return flen;
 }
 
-int flashcmd_verify(const unsigned char *data, unsigned long addr, unsigned long len, unsigned long file_len __attribute__((unused)))
+int flashcmd_verify(struct flash_cmd *cmd, const unsigned char *expected,
+		    unsigned long addr, unsigned long len)
 {
-	int ret;
-	unsigned char *verify_buf = NULL;
+	unsigned char *verify_buf = (unsigned char *)malloc(len);
 
-	if (!data || !len)
-		return 0;
-
-	verify_buf = (unsigned char *)malloc(len);
-	if (!verify_buf)
-	{
+	if (!verify_buf) {
 		fprintf(stderr, "Malloc failed for verify buffer: len=%ld.\n", len);
 		return 0;
 	}
 
-	ret = snand_read(verify_buf, addr, len);
-	if (ret < 0)
-	{
-		fprintf(stderr, "Verify Read Status: BAD(%d)\n", ret);
+	if (cmd->flash_read(verify_buf, addr, len) < 0) {
+		fprintf(stderr, "Verify Read Status: BAD\n");
 		free(verify_buf);
 		return 0;
 	}
 
-	if (memcmp(verify_buf, data, len) != 0)
-	{
+	if (memcmp(verify_buf, expected, len) != 0) {
 		fprintf(stderr, "Verify Status: BAD - Data mismatch\n");
 		free(verify_buf);
 		return 0;

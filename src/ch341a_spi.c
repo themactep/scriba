@@ -735,8 +735,8 @@ int ch341a_spi_init(void)
 	handle = libusb_open_device_with_vid_pid(NULL, vid, pid);
 	if (handle == NULL)
 	{
-		// This might be a common case (device not plugged in), keep as printf? Or stderr? Using stderr for consistency.
-		fprintf(stderr, "Couldn't open device %04x:%04x.\n", vid, pid); // Use stderr
+		if (debug_enabled)
+			fprintf(stderr, "Couldn't open device %04x:%04x.\n", vid, pid);
 		if (debug_enabled)
 			fprintf(stderr, "[DEBUG] ch341a_spi_init: failed to open device\n");
 		return -1;
@@ -897,3 +897,18 @@ int ch341a_spi_reinit(void)
 	return 0;
 }
 #endif
+
+#include "spi_controller.h"
+
+static int ch341a_cs_select(void)   { return enable_pins(true); }
+static int ch341a_cs_deselect(void) { return enable_pins(false); }
+
+const struct spi_programmer ch341a_programmer = {
+	.name           = "CH341A",
+	.init           = ch341a_spi_init,
+	.shutdown       = ch341a_spi_shutdown,
+	.send_command   = ch341a_spi_send_command,
+	.cs_select      = ch341a_cs_select,
+	.cs_deselect    = ch341a_cs_deselect,
+	.libusb_version = get_libusb_version,
+};

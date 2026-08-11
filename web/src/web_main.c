@@ -15,8 +15,6 @@
 #include <string.h>
 
 #include "flashcmd_api.h"
-#include "ch341a_spi.h"
-#include "ezp2019_spi.h"
 #include "spi_controller.h"
 #include "spi_nand_flash.h"
 #include "spi_nor_flash.h"
@@ -50,18 +48,7 @@ int scriba_init(void) {
     memset(chip_name_buf, 0, sizeof(chip_name_buf));
 
     fprintf(stderr, "*** Scriba WASM build: %s ***\n", build_info);
-
-    programmer_type = PROGRAMMER_AUTO;
-
-    if (ezp2019_spi_init() == 0) {
-        programmer_type = PROGRAMMER_EZP2019;
-    } else if (ch341a_spi_init() == 0) {
-        programmer_type = PROGRAMMER_CH341A;
-    } else {
-        return -1;
-    }
-
-    return 0;
+    return spi_controller_init(PROGRAMMER_AUTO);
 }
 
 int scriba_init_programmer(int type) {
@@ -70,24 +57,7 @@ int scriba_init_programmer(int type) {
     flash_type = 0;
     memset(chip_name_buf, 0, sizeof(chip_name_buf));
 
-    if (type == 0) {
-        programmer_type = PROGRAMMER_CH341A;
-        return ch341a_spi_init();
-    } else if (type == 1) {
-        programmer_type = PROGRAMMER_EZP2019;
-        return ezp2019_spi_init();
-    } else {
-        programmer_type = PROGRAMMER_AUTO;
-        if (ezp2019_spi_init() == 0) {
-            programmer_type = PROGRAMMER_EZP2019;
-            return 0;
-        }
-        if (ch341a_spi_init() == 0) {
-            programmer_type = PROGRAMMER_CH341A;
-            return 0;
-        }
-        return -1;
-    }
+    return spi_controller_init(type);
 }
 
 int scriba_detect_chip(void) {
@@ -122,7 +92,7 @@ const char *scriba_get_chip_name(void) {
 }
 
 int scriba_get_programmer_type(void) {
-    return (int)programmer_type;
+    return spi_controller_type();
 }
 
 unsigned int scriba_get_block_size(void) {
@@ -147,19 +117,8 @@ int scriba_erase_flash(unsigned long offset, unsigned long len) {
     return prog.flash_erase(offset, len);
 }
 
-#ifdef __EMSCRIPTEN__
-extern int ch341a_spi_reinit(void);
-int scriba_reinit(void) {
-    return ch341a_spi_reinit();
-}
-#endif
-
 void scriba_shutdown(void) {
-    if (programmer_type == PROGRAMMER_EZP2019)
-        ezp2019_spi_shutdown();
-    else
-        ch341a_spi_shutdown();
-
+    spi_controller_shutdown();
     flash_size = -1;
     chip_detected = 0;
     flash_type = 0;

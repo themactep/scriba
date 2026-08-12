@@ -32,7 +32,6 @@ static const char build_info[] = "wasmfix-" SCRIBA_WASM_BUILD;
 static struct flash_cmd prog;
 static long flash_size = -1;
 static int chip_detected = 0;
-static int flash_type = 0; /* 0=unknown, 1=NOR, 2=NAND */
 static char chip_name_buf[128] = {0};
 
 extern unsigned int bsize;
@@ -44,7 +43,6 @@ const char *scriba_get_version(void) {
 int scriba_init(void) {
     flash_size = -1;
     chip_detected = 0;
-    flash_type = 0;
     memset(chip_name_buf, 0, sizeof(chip_name_buf));
 
     fprintf(stderr, "*** Scriba WASM build: %s ***\n", build_info);
@@ -54,7 +52,6 @@ int scriba_init(void) {
 int scriba_init_programmer(int type) {
     flash_size = -1;
     chip_detected = 0;
-    flash_type = 0;
     memset(chip_name_buf, 0, sizeof(chip_name_buf));
 
     return spi_controller_init(type);
@@ -66,15 +63,12 @@ int scriba_detect_chip(void) {
         return -1;
 
     if (spi_chip_info != NULL && spi_chip_info->name != NULL) {
-        flash_type = 1;
         snprintf(chip_name_buf, sizeof(chip_name_buf), "NOR: %s", spi_chip_info->name);
     } else {
         struct SPI_NAND_FLASH_INFO_T info;
         if (SPI_NAND_Flash_Get_Flash_Info(&info) == 0 && info.ptr_name) {
-            flash_type = 2;
             snprintf(chip_name_buf, sizeof(chip_name_buf), "NAND: %s", info.ptr_name);
         } else {
-            flash_type = 1;
             snprintf(chip_name_buf, sizeof(chip_name_buf), "Flash (%ld bytes)", flash_size);
         }
     }
@@ -121,7 +115,6 @@ void scriba_shutdown(void) {
     spi_controller_shutdown();
     flash_size = -1;
     chip_detected = 0;
-    flash_type = 0;
 }
 
 #ifdef __EMSCRIPTEN__

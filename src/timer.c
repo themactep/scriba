@@ -13,8 +13,10 @@
 
 #include "timer.h"
 
-static time_t start_time = 0; /* Operation start timestamp */
-static time_t print_time = 0; /* Last progress print timestamp */
+static time_t start_time = 0;
+#ifndef __EMSCRIPTEN__
+static time_t print_time = 0;
+#endif
 
 void timer_start(void)
 {

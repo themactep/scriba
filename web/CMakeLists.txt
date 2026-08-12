@@ -18,12 +18,6 @@ set(SCRIBA_SOURCES
     ${SRC_DIR}/ch341a_spi.c
     ${SRC_DIR}/ezp2019_spi.c
     ${SRC_DIR}/timer.c
-    ${SRC_DIR}/ch341a_i2c.c
-    ${SRC_DIR}/i2c_eeprom.c
-    ${SRC_DIR}/spi_eeprom.c
-    ${SRC_DIR}/bitbang_microwire.c
-    ${SRC_DIR}/mw_eeprom.c
-    ${SRC_DIR}/ch341a_gpio.c
     ${CMAKE_CURRENT_SOURCE_DIR}/src/web_main.c
 )
 
@@ -39,7 +33,6 @@ target_compile_definitions(scriba_web PRIVATE
     GIT_COMMIT_DATE="web"
     GIT_COMMIT_HASH="wasm"
     SCRIBA_WASM_BUILD="${SCRIBA_WASM_BUILD}"
-    EEPROM_SUPPORT
 )
 
 target_compile_options(scriba_web PRIVATE -Wall -Wextra -Wno-unused-parameter -Wno-unused-variable)

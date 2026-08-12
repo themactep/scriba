@@ -25,10 +25,12 @@ void timer_start(void)
 
 void timer_end(void)
 {
+#ifndef __EMSCRIPTEN__
 	time_t end_time;
 	time(&end_time);
 	printf("\rElapsed time: %d seconds\n", (int)difftime(end_time, start_time));
 	print_time = 0;
+#endif
 }
 
 /*

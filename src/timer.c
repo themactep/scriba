@@ -6,6 +6,8 @@
  * - Operation timing (start/end)
  * - Rate-limited progress display (1 update/sec)
  * - Elapsed time calculation
+ *
+ * All functions are no-ops in WASM builds (__EMSCRIPTEN__).
  */
 
 #include <stdio.h>
@@ -13,14 +15,16 @@
 
 #include "timer.h"
 
-static time_t start_time = 0;
 #ifndef __EMSCRIPTEN__
+static time_t start_time = 0;
 static time_t print_time = 0;
 #endif
 
 void timer_start(void)
 {
+#ifndef __EMSCRIPTEN__
 	start_time = time(0);
+#endif
 }
 
 void timer_end(void)

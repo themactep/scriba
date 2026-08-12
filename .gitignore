@@ -2,8 +2,10 @@
 /build/
 /dl/
 /web/build/
+/web/dist/
 /web/emsdk/
 /web/node_modules/
+/web/public/wasm/
 CLAUDE.md
 *.bin
 

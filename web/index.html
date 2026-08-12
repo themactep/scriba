@@ -5,11 +5,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Scriba · Web SPI Flasher</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔌</text></svg>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700&display=swap" rel="stylesheet">
     <style>
-        :root { --bs-font-sans-serif: system-ui, -apple-system, sans-serif; }
-        body { min-height: 100vh; display: flex; flex-direction: column; align-items: center; background: #0d1117; }
+        :root {
+            --thingino-orange: #ff8800;
+            --thingino-orange-hover: #ff9a20;
+            --bs-font-sans-serif: system-ui, -apple-system, sans-serif;
+        }
+        body {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: #0d1117;
+        }
         .flasher-card { width: 100%; max-width: 720px; }
-        .card-title { color: #58a6ff !important; }
+        .card-header h2, .card-header .card-title {
+            font-family: 'Montserrat', system-ui, -apple-system, sans-serif;
+            font-weight: 600;
+            color: #e6edf3 !important;
+        }
+        .card-title i { color: var(--thingino-orange); }
+
+        /* Log */
         #log {
             height: 280px;
             overflow-y: auto;
@@ -23,20 +43,60 @@
             border-radius: 6px;
             padding: 0.6rem;
         }
-        #log .info { color: #c9d1d9; }
+        #log .info  { color: #c9d1d9; }
         #log .debug { color: #484f58; }
-        #log .warn { color: darkorange !important; }
+        #log .warn  { color: var(--thingino-orange) !important; }
         #log .error { color: #f85149; }
+
+        /* Device info */
         .device-info { font-size: 0.9rem; }
         .device-info .label { color: #8b949e; }
-        .device-info .value { color: #58a6ff !important; font-family: monospace; }
+        .device-info .value {
+            color: var(--thingino-orange) !important;
+            font-family: monospace;
+        }
+
+        /* Progress */
         .progress { height: 6px; }
+        .progress-bar { background-color: var(--thingino-orange) !important; }
+
         .file-info { font-size: 0.85rem; color: #8b949e; }
         input[type="file"] { display: none; }
+
+        /* Buttons — Thingino orange accent */
+        .btn-outline-primary {
+            --bs-btn-color: var(--thingino-orange);
+            --bs-btn-border-color: var(--thingino-orange);
+            --bs-btn-hover-bg: var(--thingino-orange);
+            --bs-btn-hover-border-color: var(--thingino-orange);
+            --bs-btn-active-bg: var(--thingino-orange-hover);
+            --bs-btn-active-border-color: var(--thingino-orange-hover);
+        }
+        .btn-warning, .btn-outline-warning {
+            --bs-btn-color: var(--thingino-orange);
+            --bs-btn-border-color: var(--thingino-orange);
+            --bs-btn-hover-bg: var(--thingino-orange);
+            --bs-btn-hover-border-color: var(--thingino-orange);
+            --bs-btn-hover-color: #fff;
+        }
+        .btn-outline-warning {
+            --bs-btn-active-bg: var(--thingino-orange-hover);
+            --bs-btn-active-border-color: var(--thingino-orange-hover);
+        }
+
+        /* Status badge */
+        #status-badge.bg-success { background-color: var(--thingino-orange) !important; }
+
+        /* Pulse warning */
         @keyframes pulse-warn {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
+
+        /* Footer */
+        .footer-link { color: #484f58; }
+        .footer-link:hover { color: var(--thingino-orange); }
+
         @media (max-width: 576px) {
             body { padding: 0.5rem !important; }
             .card-header { padding: 0.6rem 0.75rem; }
@@ -117,7 +177,7 @@
 
             <div id="progress" class="mt-2 d-none">
                 <div class="progress">
-                    <div class="progress-bar bg-warning" id="progress-fill" role="progressbar" style="width: 0%"></div>
+                    <div class="progress-bar" id="progress-fill" role="progressbar" style="width: 0%"></div>
                 </div>
                 <small class="text-secondary" id="progress-label">Initializing...</small>
             </div>
@@ -141,9 +201,9 @@
     </div>
 </div>
 
-<p class="mt-2 small text-center" id="version-text">
-    <a href="https://github.com/wltechblog/scriba" target="_blank" class="text-secondary text-decoration-none">scriba</a>
-    web-wasm
+<p class="mt-2 small text-center">
+    <a href="https://github.com/wltechblog/scriba" target="_blank" class="footer-link text-decoration-none">scriba</a>
+    <span class="text-secondary"> web-wasm</span>
 </p>
 
 <div id="browser-warning" class="alert alert-danger flasher-card mt-3 text-center d-none">

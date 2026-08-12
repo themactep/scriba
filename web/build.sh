@@ -5,7 +5,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BUILD_DIR="$SCRIPT_DIR/build"
-EMSDK_DIR="${EMSDK:-$BUILD_DIR/emsdk}"
+EMSDK_DIR="${EMSDK:-$SCRIPT_DIR/emsdk}"
 
 # --- ensure emcc is available ---
 if ! command -v emcc &> /dev/null; then

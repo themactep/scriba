@@ -1,7 +1,6 @@
 # Scriba Web — WASM + frontend build
 # Just run: make
 
-EMCC      ?= emcc
 EMSDK_DIR ?= $(CURDIR)/emsdk
 NPM       ?= npm
 NPROC     := $(shell nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)
@@ -11,6 +10,8 @@ WEB_SRC   := $(CURDIR)/src
 STUB_DIR  := $(CURDIR)/libusb-stub
 OUT_DIR   := $(CURDIR)/public/wasm
 BUILD     := $(shell date +%Y%m%d-%H%M%S)
+
+_BUNDLED   := $(EMSDK_DIR)/upstream/emscripten/emcc
 
 SRCS := $(SRC_DIR)/flashcmd_api.c \
 	$(SRC_DIR)/spi_controller.c \
@@ -30,7 +31,6 @@ CFLAGS := -std=gnu99 -Wall -Wextra -Wno-unused-parameter -Wno-unused-variable \
 	-DSCRIBA_WASM_BUILD=\"$(BUILD)\" \
 	-I$(STUB_DIR) -I$(SRC_DIR)
 
-# Async libusb functions — keep in sync with libusb-webusb.js
 ASYNCIFY_IMPORTS := emscripten_sleep,libusb_get_device_list,libusb_open,libusb_open_device_with_vid_pid,libusb_set_configuration,libusb_claim_interface,libusb_release_interface,libusb_control_transfer,libusb_bulk_transfer,libusb_interrupt_transfer,libusb_reset_device,usb_clear_halt
 
 EXPORTS := _main,_scriba_init,_scriba_init_programmer,_scriba_detect_chip,_scriba_get_flash_size,_scriba_get_chip_name,_scriba_get_programmer_type,_scriba_get_block_size,_scriba_read_flash,_scriba_write_flash,_scriba_erase_flash,_scriba_reinit,_scriba_shutdown,_scriba_get_version,_malloc,_free
@@ -53,40 +53,36 @@ EMCC_FLAGS := \
 
 TARGET := $(OUT_DIR)/scriba.js
 
-.PHONY: all clean serve
+.PHONY: all clean distclean serve
 
 all: $(TARGET) frontend
 	@echo "Build complete. Output in $(CURDIR)/dist/"
 	@ls -la $(CURDIR)/dist/
 
 # --- WASM ---
-$(TARGET): $(SRCS) $(WEB_SRC)/libusb-webusb.js | $(OUT_DIR)
-	$(EMCC) $(CFLAGS) $(SRCS) $(EMCC_FLAGS) -o $@
+# Use bundled emcc if available, otherwise whatever is on PATH.
+_EMCC = $(or $(shell command -v emcc 2>/dev/null),$(_BUNDLED))
+
+$(TARGET): $(SRCS) $(WEB_SRC)/libusb-webusb.js | $(OUT_DIR) _emsdk
+	$(_EMCC) $(CFLAGS) $(SRCS) $(EMCC_FLAGS) -o $@
 
 $(OUT_DIR):
 	mkdir -p $@
 
 # --- Emscripten bootstrap ---
-# If emcc not on PATH, look in EMSDK_DIR or auto-install.
-_EMSDK_ENV := $(EMSDK_DIR)/emsdk_env.sh
-ifeq (,$(shell command -v $(EMCC) 2>/dev/null))
-  ifneq (,$(wildcard $(_EMSDK_ENV)))
-    EMCC := $(shell . '$(_EMSDK_ENV)' >/dev/null 2>&1 && command -v emcc)
-  endif
-endif
-
-.PHONY: _emsdk_install
-_emsdk_install:
-ifeq (,$(shell command -v $(EMCC) 2>/dev/null))
-  ifeq (,$(wildcard $(_EMSDK_ENV)))
-	git clone --depth 1 https://github.com/emscripten-core/emsdk.git "$(EMSDK_DIR)"
-	cd "$(EMSDK_DIR)" && ./emsdk install latest && ./emsdk activate latest
-  endif
-	@echo "Emscripten installed at $(EMSDK_DIR). Run 'make' again."
-	@exit 1
-endif
-
-$(TARGET): | _emsdk_install
+.PHONY: _emsdk
+_emsdk:
+	@if command -v emcc >/dev/null 2>&1; then true; \
+	elif [ -x "$(_BUNDLED)" ]; then true; \
+	elif [ -d "$(EMSDK_DIR)" ]; then \
+		echo "emsdk found but not installed. Run: cd $(EMSDK_DIR) && ./emsdk install latest"; \
+		exit 1; \
+	else \
+		echo "Downloading Emscripten SDK to $(EMSDK_DIR)..."; \
+		git clone --depth 1 https://github.com/emscripten-core/emsdk.git "$(EMSDK_DIR)"; \
+		cd "$(EMSDK_DIR)" && ./emsdk install latest && ./emsdk activate latest; \
+		echo "Emscripten installed. Continuing build..."; \
+	fi
 
 # --- Frontend ---
 frontend: node_modules

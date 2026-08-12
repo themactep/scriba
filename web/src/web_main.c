@@ -124,6 +124,14 @@ void scriba_shutdown(void) {
     flash_type = 0;
 }
 
+#ifdef __EMSCRIPTEN__
+/* CH341A USB reinit after disconnect/reconnect (WASM only) */
+extern int ch341a_spi_reinit(void);
+int scriba_reinit(void) {
+	return ch341a_spi_reinit();
+}
+#endif
+
 int main(void) {
     return 0;
 }

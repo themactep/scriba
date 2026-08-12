@@ -100,7 +100,7 @@ clean:
 	rm -rf $(OUT_DIR) $(CURDIR)/dist $(CURDIR)/build
 
 distclean: clean
-	rm -rf node_modules
+	rm -rf node_modules $(EMSDK_DIR)
 
 serve:
 	$(NPM) run dev

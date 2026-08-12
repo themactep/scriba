@@ -60,8 +60,8 @@ all: $(TARGET) frontend
 	@ls -la $(CURDIR)/dist/
 
 # --- WASM ---
-# Use bundled emcc if available, otherwise whatever is on PATH.
-_EMCC = $(or $(shell command -v emcc 2>/dev/null),$(_BUNDLED))
+# If emcc is on PATH, use it. Otherwise use the bundled emsdk.
+_EMCC := $(or $(shell command -v emcc 2>/dev/null),$(_BUNDLED))
 
 $(TARGET): $(SRCS) $(WEB_SRC)/libusb-webusb.js | $(OUT_DIR) _emsdk
 	$(_EMCC) $(CFLAGS) $(SRCS) $(EMCC_FLAGS) -o $@

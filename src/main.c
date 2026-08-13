@@ -106,7 +106,7 @@ void usage(const char *program_name)
 			   "  --debug      Enable debug messages for USB communication\n"
 				   "  --trace      Dump SPI commands and data (implies --debug)\n",
 		 program_name);
-	printf(use);
+	printf("%s", use);
 	exit(0);
 }
 

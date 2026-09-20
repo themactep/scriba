@@ -119,6 +119,8 @@ static int ezp_send_raw_command(const uint8_t command[EZP2019_PACKET_SIZE],
 				    &sent, EZP2019_USB_TIMEOUT);
 	if (ret || sent != EZP2019_PACKET_SIZE) {
 		fprintf(stderr, "EZP: failed to send command: %s\n", libusb_error_name(ret));
+		if (ret == LIBUSB_ERROR_PIPE)
+			libusb_clear_halt(ezp_handle, EZP_EP_CMD_OUT);
 		return -1;
 	}
 
@@ -129,6 +131,8 @@ static int ezp_send_raw_command(const uint8_t command[EZP2019_PACKET_SIZE],
 					    &received, EZP2019_USB_TIMEOUT);
 		if (ret || received != EZP2019_PACKET_SIZE) {
 			fprintf(stderr, "EZP: failed to read response: %s\n", libusb_error_name(ret));
+			if (ret == LIBUSB_ERROR_PIPE)
+				libusb_clear_halt(ezp_handle, EZP_EP_IN);
 			return -1;
 		}
 		trace_dump("EZP RESPONSE", result, EZP2019_PACKET_SIZE);
@@ -297,6 +301,8 @@ static int ezp_do_read(uint32_t addr, uint32_t len, uint8_t *buf)
 			} else {
 				fprintf(stderr, "EZP: read error at offset %u: %s (got %d bytes)\n",
 					offset, libusb_error_name(ret), received);
+				if (ret == LIBUSB_ERROR_PIPE)
+					libusb_clear_halt(ezp_handle, EZP_EP_IN);
 				return -1;
 			}
 		} else {
@@ -306,6 +312,8 @@ static int ezp_do_read(uint32_t addr, uint32_t len, uint8_t *buf)
 			if (ret || received != chunk) {
 				fprintf(stderr, "EZP: read error at offset %u: %s\n",
 					offset, libusb_error_name(ret));
+				if (ret == LIBUSB_ERROR_PIPE)
+					libusb_clear_halt(ezp_handle, EZP_EP_IN);
 				return -1;
 			}
 			offset += received;
@@ -362,6 +370,8 @@ static int ezp_do_write(uint32_t addr, uint32_t len, const uint8_t *data)
 				    &written, EZP2019_USB_TIMEOUT);
 	if (ret || written != (int)len) {
 		fprintf(stderr, "EZP: write error: %s\n", libusb_error_name(ret));
+		if (ret == LIBUSB_ERROR_PIPE)
+			libusb_clear_halt(ezp_handle, EZP_EP_DATA_OUT);
 		ezp_write_session = false;
 		return -1;
 	}

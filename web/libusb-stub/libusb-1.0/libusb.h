@@ -124,6 +124,15 @@ int libusb_interrupt_transfer(libusb_device_handle *handle, unsigned char endpoi
 
 int libusb_reset_device(libusb_device_handle *handle);
 
+/* Endpoint halt clearing. Implemented in libusb-webusb.js as usb_clear_halt;
+ * libusb_clear_halt is the public libusb name used by the flash drivers. */
+int usb_clear_halt(void *handle_ptr, int endpoint);
+
+static inline int libusb_clear_halt(libusb_device_handle *handle, unsigned char endpoint)
+{
+    return usb_clear_halt(handle, endpoint);
+}
+
 const char *libusb_error_name(int errcode);
 
 /* Bidirectional bulk transfer for devices that require concurrent OUT/IN */

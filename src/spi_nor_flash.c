@@ -9,6 +9,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <limits.h>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 extern int debug_enabled;
 
@@ -79,17 +83,25 @@ static void snor_clear_status(void)
 
 // Function implementations
 int snor_wait_ready(int sleep_ms) {
-    int count;
+    int count, limit;
     u8 sr = 0;
     last_wait_error_was_epe = false;
 #ifdef __EMSCRIPTEN__
-    if (sleep_ms < 100) {
-        usleep(sleep_ms > 0 ? sleep_ms * 1000 : 1000);
-    }
-    for (count = 0; count < (sleep_ms < 100 ? 10 : sleep_ms * 5 + 5); count++) {
+    /* In the browser every status read is a full WebUSB round trip, which
+     * already paces the loop. Short waits (page program, register writes)
+     * poll back to back until the same wall-clock limit as the native loop
+     * ((sleep_ms + 1) * 1000 polls of 0.5 ms): the chip is normally done by
+     * the first read, so the old fixed sleep_ms pre-sleep only added latency
+     * (3 ms per 256-byte page). Long waits (erase) still poll every 100 ms.
+     * The limit never drops below the old ~1 s browser budget. */
+    const int short_wait = sleep_ms < 100;
+    const double budget_ms = (sleep_ms + 1) * 500.0 > 1000.0 ? (sleep_ms + 1) * 500.0 : 1000.0;
+    const double deadline = emscripten_get_now() + budget_ms;
+    limit = short_wait ? INT_MAX : sleep_ms * 5 + 5;
 #else
-    for (count = 0; count < ((sleep_ms + 1) * 1000); count++) {
+    limit = (sleep_ms + 1) * 1000;
 #endif
+    for (count = 0; count < limit; count++) {
 		if ((snor_read_sr(&sr)) < 0)
 			break;
 		if (sr & SR_EPE) {
@@ -103,12 +115,14 @@ int snor_wait_ready(int sleep_ms) {
             return 0;
         }
 #ifdef __EMSCRIPTEN__
-        usleep(100000);
-    }
+        if (!short_wait)
+            usleep(100000);
+        else if (emscripten_get_now() > deadline)
+            break;
 #else
         usleep(500); // Use usleep instead of udelay
-    }
 #endif
+    }
     printf("%s: read_sr fail: %x\n", __func__, sr);
     return -1;
 }
@@ -1155,15 +1169,18 @@ int snor_write(unsigned char *buf, unsigned long to, unsigned long len)
 	if (spi_chip_info->addr4b)
 		snor_4byte_mode(1);
 
+	/* Clear write protection once per write, not before every page: the
+	 * protection bits and block locks it clears stay cleared until the
+	 * chip is power-cycled, and the per-page check cost 1-3 status-register
+	 * reads (several USB round trips) for each 256-byte page. */
+	if (snor_unprotect())
+		err = -1;
+
 	/* write everything in PAGESIZE chunks */
-	while (len > 0) {
+	while (!err && len > 0) {
 		page_size = min(len, FLASH_PAGESIZE - page_offset);
 		page_offset = 0;
 		/* write the next page to flash */
-		if (snor_unprotect()) {
-			err = -1;
-			break;
-		}
 		snor_set_progress("PP", to);
 		snor_write_enable();
 

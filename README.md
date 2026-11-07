@@ -49,7 +49,8 @@ scriba -P ch347 --spi-speed 30000 -R backup.bin
 ```
 
 In the web version, pick the clock from the CH347 selector next to the Erase
-button. A change takes effect immediately; click Detect afterwards.
+button; it and **Fast CS** appear once a CH347 is connected. A change takes
+effect immediately; click Detect afterwards.
 
 On CH347T firmware 0341 or newer (and any CH347F), scriba carries
 chip-select inside the SPI data frames, as WCH's own Linux driver does,

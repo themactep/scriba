@@ -322,6 +322,14 @@ async function csFlagsChanged(box) {
 
 Object.assign(window, { spiSpeedChanged: spiSpeedChanged, csFlagsChanged: csFlagsChanged });
 
+/* The clock selector and Fast CS only apply to a CH347: show them once one
+ * is connected (before chip detection, so a clock too fast for the wiring
+ * can still be lowered), hide them otherwise. Their values are still sent
+ * at every Connect. */
+function showCh347Controls(show) {
+    document.getElementById('ch347-controls').hidden = !show;
+}
+
 /* ------------------------------------------------------------------ */
 /*  Progress                                                           */
 /* ------------------------------------------------------------------ */
@@ -470,6 +478,7 @@ async function connectDevice() {
         }
 
         log('Programmer connected');
+        showCh347Controls(Module.ccall('scriba_get_programmer_type', 'number', [], []) === 3);
 
         setState('detecting');
         showProgress(50, 'Detecting flash chip...');
@@ -886,6 +895,7 @@ Object.assign(window, {
     navigator.usb.addEventListener('disconnect', function(e) {
         console.log('USB device disconnected');
         wasmBusy = false;
+        showCh347Controls(false);
         setState('idle');
     });
 

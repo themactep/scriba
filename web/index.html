@@ -62,6 +62,10 @@
         #log .error { color: #f85149; }
         #log .ts    { color: #6e7681; }
 
+        /* CH347 clock and Fast CS */
+        .ch347-controls { display: flex; align-items: center; gap: 0.5rem; }
+        .ch347-controls[hidden] { display: none; }
+
         /* Partitions */
         .layout-table {
             --bs-table-bg: transparent;
@@ -198,8 +202,10 @@
                     data-bs-toggle="tooltip" title="Erase the entire flash chip">
                     <i class="bi bi-trash me-1"></i> Erase
                 </button>
-                <select id="spi-speed" class="form-select form-select-sm w-auto ms-auto" onchange="spiSpeedChanged(this)"
-                    data-bs-toggle="tooltip" title="CH347 SPI clock. Lower it for SOIC clips, long leads or in-circuit reads; other programmers ignore it">
+                <!-- CH347 only: shown once a CH347 is connected -->
+                <div id="ch347-controls" class="ch347-controls ms-auto" hidden>
+                <select id="spi-speed" class="form-select form-select-sm w-auto" onchange="spiSpeedChanged(this)"
+                    data-bs-toggle="tooltip" title="CH347 SPI clock. Lower it for SOIC clips, long leads or in-circuit reads">
                     <option value="60000">CH347 60 MHz</option>
                     <option value="30000">CH347 30 MHz</option>
                     <option value="15000" selected>CH347 15 MHz</option>
@@ -213,6 +219,7 @@
                     title="CH347: carry chip-select inside data frames, saving USB round trips (used only on firmware 0341 or newer). Uncheck to use separate chip-select commands">
                     <input class="form-check-input" type="checkbox" id="ch347-csflags" checked onchange="csFlagsChanged(this)">
                     <label class="form-check-label small" for="ch347-csflags">Fast CS</label>
+                </div>
                 </div>
                 <div class="form-check form-check-inline mb-0 me-0" data-bs-toggle="tooltip"
                     title="Read Flash: save the dump only up to its last non-0xFF byte (flash_dump_trimmed.bin). Nothing is lost for Write, which erases the whole chip first; keep full dumps as backups">

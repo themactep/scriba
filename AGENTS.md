@@ -5,7 +5,7 @@ A direct reference for AI coding agents working on Scriba. No fluff. No hedging.
 ## What Is This
 
 Scriba is a **flash programming tool for IP camera chips**. It talks SPI NOR, SPI NAND,
-and EEPROM through cheap USB programmers (CH341A, EZP2019). Two targets:
+and EEPROM through cheap USB programmers (CH341A, CH347, EZP2019). Two targets:
 
 - **CLI** — native C binary, `gcc` + `libusb-1.0`, runs on Linux.
 - **Web** — same C code compiled to WASM via Emscripten, WebUSB bridge in JS,
@@ -32,10 +32,10 @@ License: GPL-2.0-or-later.
 │                  │   + tables    │                │
 ├──────────────────┴───────────────┴───────────────┤
 │  spi_controller.c  —  programmer dispatch         │  ← CS, read/write bytes
-├──────────────────────┬───────────────────────────┤
-│  ch341a_spi.c        │  ezp2019_spi.c             │  ← USB programmer drivers
-│  libusb-1.0          │  libusb-1.0               │
-└──────────────────────┴───────────────────────────┘
+├────────────────┬────────────────┬────────────────┤
+│  ch341a_spi.c  │  ch347_spi.c   │  ezp2019_spi.c │  ← USB programmer drivers
+│  libusb-1.0    │  libusb-1.0    │  libusb-1.0    │
+└────────────────┴────────────────┴────────────────┘
 ```
 
 ### Entry Points
@@ -68,26 +68,58 @@ which flash type is underneath.
 
 ### Programmer Dispatch
 
-`spi_controller.c` holds a global `programmer_type` enum:
+Each driver exports one `const struct spi_programmer` (in `spi_controller.h`):
+`init`, `shutdown`, `send_command`, `cs_select`, `cs_deselect`,
+`libusb_version`, and an optional `reinit` (WASM recovery after a stall, and
+re-applying clock/options).
+`spi_controller.c` keeps a table of them; `spi_controller_init(type)` picks
+one, and every `SPI_CONTROLLER_*` call goes through the active vtable. Types:
 - `PROGRAMMER_CH341A = 0`
 - `PROGRAMMER_EZP2019 = 1`
-- `PROGRAMMER_AUTO = 2` (tries EZP first, then CH341A)
+- `PROGRAMMER_AUTO = 2` (probes EZP2019, then CH347, then CH341A)
+- `PROGRAMMER_CH347 = 3` (appended so the older values stay stable)
 
-Every `SPI_CONTROLLER_*` call checks this global and routes to the right
-driver. There is no vtable or function-pointer indirection at this layer —
-just `if/else` on the global. The flash layers call `SPI_CONTROLLER_*`
-functions, never the driver functions directly.
+The flash layers call `SPI_CONTROLLER_*` functions, never the driver
+functions directly. CS is separate from `send_command`: one flash command is
+`cs_select`, one or more `send_command` calls, `cs_deselect`.
+
+`spi_controller_set_speed_khz()` (CLI `--spi-speed`) records a requested SPI
+clock before init; only drivers with a hardware clock (CH347) read it.
+`spi_controller_set_options()` takes `SPI_OPT_*` flags;
+`SPI_OPT_NO_CS_FLAGS` (CLI `--no-cs-flags`, web "Fast CS" unticked) makes
+the CH347 driver use separate chip-select commands.
+
+The CH347 driver holds writes back while CS is low and sends them as one
+frame (CS high, a following read, or a full frame flushes them), and folds a
+short read after held writes into one full-duplex `0xC2` frame. So a call
+returning success does not mean the bytes are on the wire yet; a USB error
+sets a sticky failure that fails every later call until `reinit`. On CH347T
+firmware 0x0341+ or a CH347F (version from the `0xCA` chip-info read) it
+also defers `cs_select()` and carries CS in `0xC2` length flags (bit 7 =
+assert before, bit 6 = release after), as WCH's Linux driver does in its
+default mode. Nothing is held past `cs_deselect()`.
+
+Sending several commands in one USB transfer does NOT work: CH347T firmware
+0544 answers with an error and drops what follows (tested 2026-11). WCH's
+"quick speed" mode merges SPI transfers into one `0xC2` command instead.
 
 ### USB Drivers
 
 - **ch341a_spi.c** (26 KB, most complex): bit-bangs SPI over CH341A USB-I2C/SPI
   bridge IC. Also has I2C (`ch341a_i2c.c`), GPIO (`ch341a_gpio.c`), and
-  Microwire (`bitbang_microwire.c`) support for EEPROM variants.
+  Microwire (`bitbang_microwire.c`) support for EEPROM variants. Its USB
+  handle is a global named `handle` that those helpers use directly.
+- **ch347_spi.c**: WCH CH347T (mode 1, `1a86:55db`, interface 2) and CH347F
+  (`1a86:55de`, interface 4). Hardware SPI master with framed bulk commands on
+  EP 0x06/0x86: `0xC0` config, `0xC1` CS, `0xC4` write (4-byte status reply),
+  `0xC3` read (`[C3 len data]` frames). Read frames are 510 bytes on older
+  firmware and up to 4 KB on newer firmware, so the driver parses IN data as a
+  stream of frames and always requests whole 512-byte packets (no overflow) that
+  the device is certain to send (no stall). Interface 0 is the UART; only
+  the SPI interface is claimed. I2C/Microwire EEPROM is CH341A-only for now
+  (`main.c` refuses `-E` for those on a CH347).
 - **ezp2019_spi.c** (22 KB): packet protocol over bulk USB endpoints for the
   EZP2019/2023 programmer family. Simpler than CH341A — dedicated SPI commands.
-
-Both expose the same three functions used by `spi_controller`:
-`*_spi_init()`, `*_spi_shutdown()`, `*_spi_send_command(writecnt, readcnt, writearr, readarr)`.
 
 ### Global State
 
@@ -96,7 +128,7 @@ Several globals cross-cut the codebase. All defined in `main.c` and declared
 
 | Variable | File | Meaning |
 |---|---|---|
-| `programmer_type` | `spi_controller.c` | Which programmer is active |
+| `active`, `active_type` | `spi_controller.c` | Active programmer vtable and its type |
 | `debug_enabled`, `trace_enabled` | `main.c` | USB/SPI debug logging |
 | `bsize` | `spi_nor_flash.c` | Flash block erase size (set at init) |
 | `ECC_fcheck`, `ECC_ignore`, `OOB_size`, `Skip_BAD_page`, `_ondie_ecc_flag` | NAND subsystem | ECC control flags |
@@ -118,6 +150,7 @@ src/
 ├── ch341a_spi.c / .h          CH341A USB-SPI driver
 ├── ch341a_i2c.c / .h          CH341A I2C bit-bang (EEPROM)
 ├── ch341a_gpio.c / .h         CH341A GPIO helpers
+├── ch347_spi.c / .h           CH347T/CH347F USB-SPI driver
 ├── ezp2019_spi.c / .h         EZP2019/2023 USB-SPI driver
 ├── spi_nor_flash.c / .h       SPI NOR commands, chip table, erase/write
 ├── spi_nand_flash.c / .h      SPI NAND core
@@ -132,6 +165,7 @@ src/
 ├── mw_eeprom.c                Microwire EEPROM support
 ├── bitbang_microwire.c / .h   Microwire 3-wire bit-bang
 ├── 40-persistent-ch341a.rules udev rules
+├── 40-persistent-ch347.rules
 └── 40-persistent-ezp2019.rules
 
 web/
@@ -196,15 +230,10 @@ The `flash_cmd` struct is the only vtable-like pattern. It's filled once at
 init based on chip probe, then the CLI/WASM layer calls through it. Clean.
 Don't break this abstraction by casting to concrete types in main/web_main.
 
-### Global programmer_type + if/else
-`spi_controller.c` dispatches on `programmer_type` with if/else. Adding a
-third programmer (e.g., FTDI) means adding branches to every
-`SPI_CONTROLLER_*` function. Ugly but small surface area — only 6 functions.
-If you add a programmer:
-- Add enum value in `spi_controller.h`
-- Add branches in `spi_controller.c`
-- Add auto-detection in both `main.c` and `web_main.c`
-- See `add-streamer` skill for a methodical checklist
+### Programmer vtable table
+`spi_controller.c` holds a `programmers[]` table of `{type, vtable}` pairs in
+auto-probe order; `spi_controller_init()` walks it. Adding a programmer is
+one table row plus the driver file — see "Adding a new programmer" below.
 
 ### malloc + free pairing
 The PHASE1 work added proper `malloc` return checks. Every `malloc` in `main.c`
@@ -241,13 +270,18 @@ enough that linear scan is fine.
    other chip in the same family does.
 
 ### Adding a new programmer
-See `add-streamer` skill. Summary:
-1. Implement `*_spi_init`, `*_spi_shutdown`, `*_spi_send_command` matching
-   the signatures in `ch341a_spi.h` / `ezp2019_spi.h`.
-2. Add enum + branches in `spi_controller.c`.
-3. Add auto-detection in `main.c` and `web_main.c`.
-4. Add udev rules.
-5. Wire up in `flashcmd_api.c` if needed (usually not — flashcmd only
+`ch347_spi.c` is the most recent worked example. Steps:
+1. Write `src/<name>_spi.c` exporting a `const struct spi_programmer`
+   (keep the USB handle `static`; `handle` is already taken by the CH341A).
+2. Append a `PROGRAMMER_*` value in `spi_controller.h` and a row in
+   `programmers[]` in `spi_controller.c`.
+3. `main.c`: `-P` name, not-found message, usage text.
+4. Add the source to `SRCS` in both `Makefile` and `web/Makefile`.
+5. Add a udev rules file and install it from `install-rules`.
+6. Web: add the VID:PID to the `requestDevice` filters in `web/src/app.js`
+   and to `SCRIBA_PIDS` in `web/src/libusb-webusb.js`, and the name to the
+   `progNames` map in `app.js`.
+7. Wire up in `flashcmd_api.c` if needed (usually not — flashcmd only
    cares about the chip, not the programmer).
 
 ### Changing CLI behavior

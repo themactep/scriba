@@ -63,6 +63,79 @@ function toggleEraseDebug() {
 Object.assign(window, { toggleEraseDebug: toggleEraseDebug });
 
 /* ------------------------------------------------------------------ */
+/*  CH347 SPI clock                                                    */
+/* ------------------------------------------------------------------ */
+
+var lastSpiSpeed = '15000';
+
+function spiSpeedKhz() {
+    return parseInt(document.getElementById('spi-speed').value, 10) || 0;
+}
+
+/* wasm/scriba.js keeps one name across builds, so a browser can pair this
+ * script with a cached older WASM build that lacks the export; ccall would
+ * then abort the whole page. Warn and carry on at the default clock. */
+function applySpiSpeed() {
+    if (typeof Module['_scriba_set_spi_speed_khz'] !== 'function') {
+        log('This WASM build has no SPI clock control - reload with Ctrl+Shift+R to fetch the current build', 'warn');
+        return false;
+    }
+    Module.ccall('scriba_set_spi_speed_khz', null, ['number'], [spiSpeedKhz()]);
+    return true;
+}
+
+/* Sent before Connect; while a CH347 is connected it is applied at once. */
+async function spiSpeedChanged(sel) {
+    if (!scribaReady) return;
+    var busy = ['connecting', 'detecting', 'reading', 'writing', 'erasing'];
+    if (busy.indexOf(currentState) !== -1) {
+        sel.value = lastSpiSpeed;
+        log('Wait for the current operation to finish before changing the SPI clock', 'warn');
+        return;
+    }
+    lastSpiSpeed = sel.value;
+    if (!applySpiSpeed()) return;
+    if (currentState === 'idle') return;
+    if (Module.ccall('scriba_get_programmer_type', 'number', [], []) !== 3) return;
+    var r = await wasmCall('scriba_reinit', 'number', [], []);
+    if (r !== 0)
+        log('Failed to apply the new SPI clock', 'error');
+    else
+        log('Click Detect to re-detect at the new clock');
+}
+
+/* CH347 chip-select flags: on by default (used when the firmware supports
+ * them); unchecking sets SPI_OPT_NO_CS_FLAGS = 1. Sent before Connect; while
+ * a CH347 is connected, a change re-runs the driver setup. */
+function applyOptions() {
+    if (typeof Module['_scriba_set_options'] !== 'function') {
+        log('This WASM build has no CH347 options - reload with Ctrl+Shift+R to fetch the current build', 'warn');
+        return false;
+    }
+    var fast = document.getElementById('ch347-csflags').checked;
+    Module.ccall('scriba_set_options', null, ['number'], [fast ? 0 : 1]);
+    return true;
+}
+
+async function csFlagsChanged(box) {
+    if (!scribaReady) return;
+    var busy = ['connecting', 'detecting', 'reading', 'writing', 'erasing'];
+    if (busy.indexOf(currentState) !== -1) {
+        box.checked = !box.checked;
+        log('Wait for the current operation to finish before changing Fast CS', 'warn');
+        return;
+    }
+    if (!applyOptions()) return;
+    if (currentState === 'idle') return;
+    if (Module.ccall('scriba_get_programmer_type', 'number', [], []) !== 3) return;
+    var r = await wasmCall('scriba_reinit', 'number', [], []);
+    if (r !== 0)
+        log('Failed to apply the Fast CS change - reconnect the programmer', 'error');
+}
+
+Object.assign(window, { spiSpeedChanged: spiSpeedChanged, csFlagsChanged: csFlagsChanged });
+
+/* ------------------------------------------------------------------ */
 /*  Progress                                                           */
 /* ------------------------------------------------------------------ */
 
@@ -116,7 +189,7 @@ function showChipInfo(name, size, programmer) {
     document.getElementById('chip-info').classList.remove('d-none');
     document.getElementById('info-chip').textContent = name || 'Unknown';
     document.getElementById('info-size').textContent = size ? formatSize(size) : 'Unknown';
-    var progNames = {0: 'CH341A', 1: 'EZP2019', 2: 'Auto'};
+    var progNames = {0: 'CH341A', 1: 'EZP2019', 2: 'Auto', 3: 'CH347'};
     document.getElementById('info-programmer').textContent = progNames[programmer] || 'Unknown';
 }
 
@@ -176,6 +249,8 @@ async function connectDevice() {
     try {
         var filters = [
             { vendorId: 0x1A86, productId: 0x5512 },
+            { vendorId: 0x1A86, productId: 0x55DB },  // CH347T, mode 1
+            { vendorId: 0x1A86, productId: 0x55DE },  // CH347F
             { vendorId: 0x1FC8, productId: 0x310B },
             { vendorId: 0x1FC8, productId: 0x310C },
             { vendorId: 0x1FC8, productId: 0x310D },
@@ -198,6 +273,8 @@ async function connectDevice() {
             ' PID=0x' + device.productId.toString(16));
 
         log('Connecting to programmer...');
+        applySpiSpeed();
+        applyOptions();
         var result = await wasmCall('scriba_init', 'number', [], []);
         if (result !== 0) {
             log('Failed to connect to programmer', 'error');

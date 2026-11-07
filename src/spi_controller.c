@@ -4,48 +4,68 @@
  */
 
 #include <stdio.h>
-#include "ch341a_spi.h"
-#include "ezp2019_spi.h"
 #include "spi_controller.h"
 
 /* Driver vtables (defined in respective driver files) */
 extern const struct spi_programmer ch341a_programmer;
+extern const struct spi_programmer ch347_programmer;
 extern const struct spi_programmer ezp2019_programmer;
+
+/* PROGRAMMER_AUTO probes in this order */
+static const struct {
+	int type;
+	const struct spi_programmer *prog;
+} programmers[] = {
+	{ PROGRAMMER_EZP2019, &ezp2019_programmer },
+	{ PROGRAMMER_CH347,   &ch347_programmer },
+	{ PROGRAMMER_CH341A,  &ch341a_programmer },
+};
 
 static const struct spi_programmer *active = NULL;
 static int active_type = PROGRAMMER_AUTO;
+static unsigned int speed_khz = 0;
 
 int spi_controller_init(int type)
 {
-	if (type == PROGRAMMER_EZP2019) {
-		if (ezp2019_programmer.init() == 0) {
-			active = &ezp2019_programmer;
-			active_type = PROGRAMMER_EZP2019;
+	for (size_t i = 0; i < sizeof(programmers) / sizeof(programmers[0]); i++) {
+		if (type != PROGRAMMER_AUTO && type != programmers[i].type)
+			continue;
+		if (programmers[i].prog->init() == 0) {
+			active = programmers[i].prog;
+			active_type = programmers[i].type;
 			return 0;
 		}
-		return -1;
-	}
-	if (type == PROGRAMMER_CH341A) {
-		if (ch341a_programmer.init() == 0) {
-			active = &ch341a_programmer;
-			active_type = PROGRAMMER_CH341A;
-			return 0;
-		}
-		return -1;
-	}
-
-	/* PROGRAMMER_AUTO: try EZP first, then CH341A */
-	if (ezp2019_programmer.init() == 0) {
-		active = &ezp2019_programmer;
-		active_type = PROGRAMMER_EZP2019;
-		return 0;
-	}
-	if (ch341a_programmer.init() == 0) {
-		active = &ch341a_programmer;
-		active_type = PROGRAMMER_CH341A;
-		return 0;
 	}
 	return -1;
+}
+
+int spi_controller_reinit(void)
+{
+	if (!active || !active->reinit)
+		return -1;
+	return active->reinit();
+}
+
+void spi_controller_set_speed_khz(unsigned int khz)
+{
+	speed_khz = khz;
+}
+
+unsigned int spi_controller_get_speed_khz(void)
+{
+	return speed_khz;
+}
+
+static unsigned int options = 0;
+
+void spi_controller_set_options(unsigned int opts)
+{
+	options = opts;
+}
+
+unsigned int spi_controller_get_options(void)
+{
+	return options;
 }
 
 void spi_controller_shutdown(void)

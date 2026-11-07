@@ -20,6 +20,7 @@ SRCS := $(SRC_DIR)/flashcmd_api.c \
 	$(SRC_DIR)/spi_nand_flash_tables.c \
 	$(SRC_DIR)/spi_nor_flash.c \
 	$(SRC_DIR)/ch341a_spi.c \
+	$(SRC_DIR)/ch347_spi.c \
 	$(SRC_DIR)/ezp2019_spi.c \
 	$(SRC_DIR)/timer.c \
 	$(WEB_SRC)/web_main.c
@@ -33,7 +34,7 @@ CFLAGS := -std=gnu99 -Wall -Wextra -Wno-unused-parameter -Wno-unused-variable \
 
 ASYNCIFY_IMPORTS := emscripten_sleep,libusb_get_device_list,libusb_open,libusb_open_device_with_vid_pid,libusb_set_configuration,libusb_claim_interface,libusb_release_interface,libusb_control_transfer,libusb_bulk_transfer,libusb_interrupt_transfer,libusb_reset_device,usb_clear_halt
 
-EXPORTS := _main,_scriba_init,_scriba_init_programmer,_scriba_detect_chip,_scriba_get_flash_size,_scriba_get_chip_name,_scriba_get_programmer_type,_scriba_get_block_size,_scriba_read_flash,_scriba_write_flash,_scriba_erase_flash,_scriba_reinit,_scriba_shutdown,_scriba_get_version,_malloc,_free
+EXPORTS := _main,_scriba_init,_scriba_init_programmer,_scriba_detect_chip,_scriba_get_flash_size,_scriba_get_chip_name,_scriba_get_programmer_type,_scriba_get_block_size,_scriba_read_flash,_scriba_write_flash,_scriba_erase_flash,_scriba_reinit,_scriba_set_spi_speed_khz,_scriba_set_options,_scriba_shutdown,_scriba_get_version,_malloc,_free
 
 RUNTIME := ccall,cwrap,UTF8ToString,stringToUTF8,HEAPU8,HEAPU32,FS
 

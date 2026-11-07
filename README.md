@@ -30,13 +30,32 @@ Scriba auto-detects the connected programmer — no configuration needed.
 | **CH341A** (black PCB) | `1a86:5512` | Must be modified for 3.3 V; see [CH341A guide](https://github.com/themactep/thingino-firmware/wiki/CH341A-Programmer) |
 | **EZP2019** / **EZP2019+** | `1fc8:310b` / `310c` | Works out of the box |
 | **EZP2023** | `1fc8:310d` | |
+| **CH347T** / **CH347F** | `1a86:55db` / `55de` | Put a CH347T board in mode 1 (UART + SPI + I2C); the other modes have no usable SPI interface. SPI flash and SPI EEPROM only, no I2C or Microwire EEPROM yet. Hardware SPI clock, 15 MHz by default; change it with `--spi-speed` |
 
 Force a specific programmer with `-P`:
 
 ```bash
 scriba -P ch341a -i
+scriba -P ch347 -i
 scriba -P ezp2019 -i
 ```
+
+Set the CH347 SPI clock with `--spi-speed <kHz>`. It picks the fastest of
+60, 30, 15, 7.5, 3.75, 1.875, 0.9375 or 0.46875 MHz that does not exceed the
+request; use a lower clock for long clip leads or in-circuit reads:
+
+```bash
+scriba -P ch347 --spi-speed 30000 -R backup.bin
+```
+
+In the web version, pick the clock from the CH347 selector next to the Erase
+button. A change takes effect immediately; click Detect afterwards.
+
+On CH347T firmware 0341 or newer (and any CH347F), scriba carries
+chip-select inside the SPI data frames, as WCH's own Linux driver does,
+which saves USB round trips on every flash command. The connect log shows the
+firmware version and whether this is on. `--no-cs-flags` (web: untick
+**Fast CS**) uses separate chip-select commands instead.
 
 ## Build & Install
 
@@ -48,13 +67,20 @@ make static       # static build (bundles libusb)
 sudo make install # installs binary + udev rules, reloads udev
 ```
 
-`make install` copies udev rules for both programmers and reloads them. If your
-programmer was already plugged in, unplug and replug it after installation.
+`make install` copies udev rules for all supported programmers and reloads
+them. If your programmer was already plugged in, unplug and replug it after
+installation.
 
 ## Web Version (WebUSB / WASM)
 
 Scriba also runs in the browser via WebAssembly and WebUSB — no driver
 installation needed. Requires a Chromium-based browser (Chrome, Edge, Opera).
+
+On Windows, WebUSB can only open a USB interface bound to the WinUSB driver.
+The CH347 is a composite device: bind WinUSB to its SPI interface only
+(Interface 2 on a CH347T, Interface 4 on a CH347F), for example with
+[Zadig](https://zadig.akeo.ie/) (Options → List All Devices). Leave the UART
+interfaces on their serial driver.
 
 ### Build
 
@@ -123,7 +149,9 @@ EEPROM:
   -s <bytes>   Page size (SPI EEPROM)
 
 General:
-  -P <prog>    Programmer: ch341a, ezp2019, auto (default)
+  -P <prog>    Programmer: ch341a, ch347, ezp2019, auto (default)
+  --spi-speed <kHz>  SPI clock limit (CH347 only; default 15000)
+  --no-cs-flags  CH347: separate chip-select commands even on firmware 0341+
   --debug      USB debug output
   --trace      Dump all SPI traffic
   -h           Help

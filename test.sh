@@ -82,6 +82,39 @@ else
     fail "-i" "unexpected output"
 fi
 
+# --- programmer selection ---
+echo "[programmer selection]"
+if "$BIN" -h 2>&1 | grep -q "ch347"; then
+    ok "-h lists the ch347 programmer"
+else
+    fail "-h" "ch347 not listed"
+fi
+
+if "$BIN" -P bogus -i 2>&1 | grep -q "use ch341a, ch347, ezp2019, or auto"; then
+    ok "-P rejects an unknown programmer"
+else
+    fail "-P bogus" "no error listing valid programmers"
+fi
+
+# -P ch347 -i either finds the CH347 or names it in the not-found error
+if "$BIN" -P ch347 -i 2>&1 | grep -qE "CH347 programmer device not found|Found programmer device: WinChipHead \(WCH\) - CH347"; then
+    ok "-P ch347 selects only the CH347 driver"
+else
+    fail "-P ch347" "unexpected output"
+fi
+
+if "$BIN" --spi-speed fast -i 2>&1 | grep -q "Invalid --spi-speed"; then
+    ok "--spi-speed rejects a non-numeric value"
+else
+    fail "--spi-speed fast" "no error"
+fi
+
+if "$BIN" --spi-speed 0 -i 2>&1 | grep -q "Invalid --spi-speed"; then
+    ok "--spi-speed rejects zero"
+else
+    fail "--spi-speed 0" "no error"
+fi
+
 # --- conflicting options ---
 echo "[conflicting options]"
 if "$BIN" -i -e 2>&1 | grep -qi "conflicting\|only one option"; then

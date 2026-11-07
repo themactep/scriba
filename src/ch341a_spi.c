@@ -911,4 +911,7 @@ const struct spi_programmer ch341a_programmer = {
 	.cs_select      = ch341a_cs_select,
 	.cs_deselect    = ch341a_cs_deselect,
 	.libusb_version = get_libusb_version,
+#ifdef __EMSCRIPTEN__
+	.reinit         = ch341a_spi_reinit,
+#endif
 };

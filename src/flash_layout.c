@@ -433,6 +433,9 @@ static int describe_header(const unsigned char *img, unsigned long len, unsigned
 
 		memcpy(name, p + 32, 32);
 		name[32] = '\0';
+		for (char *c = name; *c; c++)   /* the name is free-form bytes */
+			if (*c < ' ' || *c > '~')
+				*c = '.';
 		fmt_used(u, sizeof(u), size + 64);
 		snprintf(what, n, "uImage \"%s\" (%s, %s), %s", name, uimage_type(p[30]),
 			 uimage_comp(p[31]), u);
@@ -673,6 +676,84 @@ void flash_layout_print(const struct fl_layout *l)
 		printf("  0x%06lX-0x%06lX %*s %-*s %s\n", p->start, p->start + p->size - 1,
 		       szw, sz, namew, p->name[0] ? p->name : "-", p->what);
 	}
+}
+
+/* A bounded JSON writer: once something does not fit, `over` is set and
+ * nothing more is written. */
+struct jbuf {
+	char *p;
+	size_t n, len;
+	int over;
+};
+
+static void jput(struct jbuf *b, const char *s, size_t k)
+{
+	if (b->over || b->len + k >= b->n) {
+		b->over = 1;
+		return;
+	}
+	memcpy(b->p + b->len, s, k);
+	b->len += k;
+	b->p[b->len] = '\0';
+}
+
+static void jputs(struct jbuf *b, const char *s)
+{
+	jput(b, s, strlen(s));
+}
+
+static void jstr(struct jbuf *b, const char *s)
+{
+	char e[8];
+
+	jputs(b, "\"");
+	for (; *s; s++) {
+		unsigned char c = (unsigned char)*s;
+
+		if (c == '"' || c == '\\') {
+			e[0] = '\\';
+			e[1] = (char)c;
+			jput(b, e, 2);
+		} else if (c < 0x20 || c > 0x7E) {
+			snprintf(e, sizeof(e), "\\u%04x", c);
+			jputs(b, e);
+		} else {
+			jput(b, s, 1);
+		}
+	}
+	jputs(b, "\"");
+}
+
+int flash_layout_json(const struct fl_layout *l, char *out, size_t n)
+{
+	struct jbuf b = { out, n, 0, 0 };
+	char num[64];
+
+	if (!out || n == 0)
+		return -1;
+	out[0] = '\0';
+	jputs(&b, "{\"source\":");
+	jstr(&b, l->source);
+	jputs(&b, ",\"note\":");
+	jstr(&b, l->note);
+	jputs(&b, ",\"parts\":[");
+	for (int i = 0; i < l->nparts; i++) {
+		const struct fl_part *p = &l->parts[i];
+
+		snprintf(num, sizeof(num), "%s{\"start\":%lu,\"size\":%lu,\"name\":",
+			 i ? "," : "", p->start, p->size);
+		jputs(&b, num);
+		jstr(&b, p->name);
+		jputs(&b, ",\"what\":");
+		jstr(&b, p->what);
+		jputs(&b, "}");
+	}
+	jputs(&b, "]}");
+	if (b.over) {
+		out[0] = '\0';
+		return -1;
+	}
+	return (int)b.len;
 }
 
 void flash_layout_report(const unsigned char *img, unsigned long len, unsigned long flash_size)

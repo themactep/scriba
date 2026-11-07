@@ -5,6 +5,8 @@
 #ifndef __FLASH_LAYOUT_H__
 #define __FLASH_LAYOUT_H__
 
+#include <stddef.h>
+
 #define FL_MAX_PARTS 32
 
 struct fl_part {
@@ -31,6 +33,12 @@ int flash_layout_analyze(const unsigned char *img, unsigned long len,
 
 /* Print an analyzed layout, one partition per line. */
 void flash_layout_print(const struct fl_layout *l);
+
+/* An analyzed layout as JSON, for the web UI:
+ * {"source":"...","note":"...","parts":[{"start":N,"size":N,"name":"...",
+ * "what":"..."},...]}. Returns the length written, or -1 (and an empty
+ * string) when it does not fit in n bytes. */
+int flash_layout_json(const struct fl_layout *l, char *out, size_t n);
 
 /* Analyze and print. */
 void flash_layout_report(const unsigned char *img, unsigned long len,

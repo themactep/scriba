@@ -21,7 +21,16 @@
             align-items: center;
             background: #0d1117;
         }
-        .flasher-card { width: 100%; max-width: 720px; }
+        /* Wide enough for the log's longest line: a 14-column timestamp,
+         * 80 columns of text (app.js LOG_COLS breaks longer messages) and
+         * one spare, at 0.6 em per Courier New column, plus the card, log
+         * padding, borders and scrollbar */
+        .flasher-card {
+            --log-font: 0.78rem;
+            --log-cols: 95;
+            width: 100%;
+            max-width: calc(var(--log-cols) * 0.6 * var(--log-font) + 2.2rem + 22px);
+        }
         .card-header h2, .card-header .card-title {
             font-family: 'Montserrat', system-ui, -apple-system, sans-serif;
             font-weight: 600;
@@ -34,20 +43,41 @@
             height: 280px;
             overflow-y: auto;
             font-family: 'Courier New', monospace;
-            font-size: 0.78rem;
+            font-size: var(--log-font);
             line-height: 1.4;
             white-space: pre-wrap;
-            word-break: break-all;
+            overflow-wrap: anywhere;
+            scrollbar-gutter: stable;
             background: #010409;
             border: 1px solid #30363d;
             border-radius: 6px;
             padding: 0.6rem;
         }
+        /* a line that still wraps continues under its text, not under the
+         * 14-column timestamp */
+        #log > div { padding-left: 14ch; text-indent: -14ch; }
         #log .info  { color: #c9d1d9; }
         #log .debug { color: #484f58; }
         #log .warn  { color: var(--thingino-orange) !important; }
         #log .error { color: #f85149; }
         #log .ts    { color: #6e7681; }
+
+        /* Partitions */
+        .layout-table {
+            --bs-table-bg: transparent;
+            font-size: 0.8rem;
+            margin-bottom: 0.25rem;
+        }
+        .layout-table th { color: #8b949e; font-weight: 500; }
+        .layout-table td.range, .layout-table td.size {
+            font-family: 'Courier New', monospace;
+            white-space: nowrap;
+        }
+        .layout-table td.size { text-align: right; }
+        .layout-table td.name { color: var(--thingino-orange); white-space: nowrap; }
+        .layout-table tr.dim td { color: #6e7681; }
+        .layout-meta { font-size: 0.8rem; color: #8b949e; }
+        .layout-note { font-size: 0.8rem; color: var(--thingino-orange); }
 
         /* Device info */
         .device-info { font-size: 0.9rem; }
@@ -110,7 +140,7 @@
             #chip-info .row { flex-direction: column; gap: 0.15rem !important; }
             .card-footer .d-flex { flex-direction: column; }
             .card-footer .d-flex .btn { width: 100%; }
-            #log { height: 200px; font-size: 0.7rem; }
+            #log { height: 200px; --log-font: 0.7rem; }
         }
     </style>
 </head>
@@ -203,6 +233,29 @@
                 </div>
                 <small class="text-secondary" id="progress-label">Initializing...</small>
             </div>
+        </div>
+    </div>
+
+    <!-- Partitions: the layout of the last flash read or loaded image -->
+    <div id="layout-card" class="card mb-3 d-none">
+        <div class="card-header d-flex align-items-center gap-2">
+            <h2 class="card-title mb-0 fs-6 text-nowrap">
+                <i class="bi bi-diagram-3 me-1"></i> Partitions
+            </h2>
+            <span id="layout-image" class="small text-secondary ms-auto text-truncate"></span>
+        </div>
+        <div class="card-body p-2">
+            <div id="layout-note" class="layout-note mb-1 d-none"></div>
+            <div id="layout-source" class="layout-meta mb-1"></div>
+            <div class="table-responsive">
+                <table class="table table-sm layout-table">
+                    <thead>
+                        <tr><th>Range</th><th class="text-end">Size</th><th>Name</th><th>Contents</th></tr>
+                    </thead>
+                    <tbody id="layout-rows"></tbody>
+                </table>
+            </div>
+            <div id="layout-extent" class="layout-meta"></div>
         </div>
     </div>
 

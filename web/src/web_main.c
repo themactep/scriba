@@ -62,11 +62,21 @@ void scriba_set_options(unsigned int opts) {
     spi_controller_set_options(opts);
 }
 
-/* Print the partition layout of an image in WASM memory (a flash read or a
- * loaded file) to the log. flash_size is the chip size, 0 if unknown. */
-void scriba_describe_layout(const unsigned char *buf, unsigned long len,
-                            unsigned long flash_size) {
-    flash_layout_report(buf, len, flash_size);
+/* The partition layout of an image in WASM memory (a flash read or a loaded
+ * file) as JSON in out (see flash_layout_json). flash_size is the chip size,
+ * 0 if unknown. Returns the JSON length, or -1 if it does not fit in outlen
+ * bytes or memory runs out. */
+int scriba_layout_json(const unsigned char *buf, unsigned long len,
+                       unsigned long flash_size, char *out, unsigned long outlen) {
+    struct fl_layout *l = malloc(sizeof(*l));
+    int r;
+
+    if (!l)
+        return -1;
+    flash_layout_analyze(buf, len, flash_size, l);
+    r = flash_layout_json(l, out, outlen);
+    free(l);
+    return r;
 }
 
 int scriba_init_programmer(int type) {

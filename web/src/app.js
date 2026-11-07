@@ -44,20 +44,42 @@ function timestamp() {
         pad(d.getSeconds()) + '.' + pad(d.getMilliseconds(), 3);
 }
 
+/* Columns of text after the timestamp; index.html sizes the page to fit
+ * them (--log-cols there is this plus the 14-column timestamp and one
+ * spare). Longer messages are broken at spaces into continuation lines. */
+var LOG_COLS = 80;
+
+function wrapLogText(msg) {
+    var lines = [], indent = msg.match(/^ */)[0] + '  ';
+    while (msg.length > LOG_COLS) {
+        var cut = msg.lastIndexOf(' ', LOG_COLS);
+        if (cut <= indent.length) break;     /* one long word: the page wraps it */
+        lines.push(msg.slice(0, cut));
+        msg = indent + msg.slice(cut + 1).replace(/^ +/, '');
+    }
+    lines.push(msg);
+    return lines;
+}
+
 function log(msg, level) {
     level = level || 'info';
     var el = document.getElementById('log');
-    var line = document.createElement('div');
-    line.className = level;
+    var ts = timestamp() + '  ';
     msg = String(msg).replace(/^\r+/, '');   /* C progress lines start with \r */
-    if (msg.trim()) {
-        var ts = document.createElement('span');
-        ts.className = 'ts';
-        ts.textContent = timestamp() + '  ';
-        line.appendChild(ts);
-    }
-    line.appendChild(document.createTextNode(msg));
-    el.appendChild(line);
+    msg.split('\n').forEach(function(part) {
+        (part.trim() ? wrapLogText(part) : [part]).forEach(function(text) {
+            var line = document.createElement('div');
+            line.className = level;
+            if (text.trim()) {
+                var span = document.createElement('span');
+                span.className = 'ts';
+                span.textContent = ts;
+                line.appendChild(span);
+            }
+            line.appendChild(document.createTextNode(text));
+            el.appendChild(line);
+        });
+    });
     el.scrollTop = el.scrollHeight;
 }
 
@@ -96,45 +118,108 @@ function imageExtent(data) {
     return { pages: pages, blank: blank, ranges: ranges, dataEnd: dataEnd };
 }
 
-/* "0x000000-0x2FFFFF, 0x350000-0x3AFFFF" or a summary when fragmented */
-function describeRanges(ranges) {
-    var fmt = function(r) { return hexAddr(r[0]) + '-' + hexAddr(r[1] - 1); };
-    if (ranges.length <= 6) return ranges.map(fmt).join(', ');
-    return ranges.length + ' ranges from ' + hexAddr(ranges[0][0]) + ' to ' +
-        hexAddr(ranges[ranges.length - 1][1] - 1);
+function rangeText(r) {
+    return hexAddr(r[0]) + '-' + hexAddr(r[1] - 1);
 }
 
+/* "7.3 MB of data in 29881 of 65536 pages" */
+function extentAmount(x) {
+    var used = x.pages - x.blank;
+    return formatSize(used * PAGE_SIZE) + ' of data in ' + used + ' of ' + x.pages + ' pages';
+}
+
+/* "last data byte at 0xFF000B, then a 64.0 KB blank (0xFF) tail" */
+function extentTail(x, len) {
+    return 'last data byte at ' + hexAddr(x.dataEnd - 1) + (x.dataEnd < len ?
+        ', then a ' + formatSize(len - x.dataEnd) + ' blank (0xFF) tail' : '');
+}
+
+/* Log where an image holds data, in lines that fit the log's width: the
+ * amount, the ranges (three per line, or first to last when fragmented)
+ * and where the blank tail starts. */
 function logImageExtent(label, data) {
-    var x = imageExtent(data);
-    if (!x.ranges.length) {
+    var x = imageExtent(data), n = x.ranges.length;
+    if (!n) {
         log(label + ' is entirely blank (0xFF)');
         return x;
     }
-    var dataBytes = (x.pages - x.blank) * PAGE_SIZE;
-    log(label + ': data in ' + describeRanges(x.ranges) + ' (' + formatSize(dataBytes) +
-        ' in ' + (x.pages - x.blank) + ' of ' + x.pages + ' pages); last data byte at ' +
-        hexAddr(x.dataEnd - 1) + (x.dataEnd < data.length ?
-            ', then ' + formatSize(data.length - x.dataEnd) + ' of blank (0xFF) tail' : ''));
+    log(label + ': ' + extentAmount(x) + ', in ' + n + (n === 1 ? ' range' : ' ranges'));
+    if (n <= 6) {
+        for (var i = 0; i < n; i += 3)
+            log('  ' + x.ranges.slice(i, i + 3).map(rangeText).join(', '));
+    } else {
+        log('  from ' + hexAddr(x.ranges[0][0]) + ' to ' + hexAddr(x.ranges[n - 1][1] - 1));
+    }
+    log('  ' + extentTail(x, data.length));
     return x;
 }
 
-/* Log the partition layout of an image (src/flash_layout.c prints it).
- * ptr: the image already in WASM memory, or 0 to copy `data` in. Skipped
- * while a USB call is suspended, and on an older cached WASM build. */
-function logLayout(ptr, len, data) {
-    if (typeof Module['_scriba_describe_layout'] !== 'function' || wasmBusy || !len) return;
-    var own = !ptr;
-    if (own) {
-        ptr = Module._malloc(len);
-        if (!ptr) return;
-        Module.HEAPU8.set(data, ptr);
-    }
+/* Partition sizes as mtdparts writes them */
+function partSize(v) {
+    return v % 1024 ? v + ' B' : (v / 1024) + ' KB';
+}
+
+/* Fill the Partitions card from the layout showLayout got from C, and the
+ * image's data extent. */
+function renderLayout(title, layout, extent, len) {
+    document.getElementById('layout-image').textContent = title;
+    var note = document.getElementById('layout-note');
+    note.textContent = layout.note ? 'Note: ' + layout.note : '';
+    note.classList.toggle('d-none', !layout.note);
+    document.getElementById('layout-source').textContent = layout.parts.length ?
+        'Layout from ' + layout.source : 'No partitions found (' + layout.source + ')';
+
+    var rows = document.getElementById('layout-rows');
+    rows.textContent = '';
+    layout.parts.forEach(function(p) {
+        var tr = document.createElement('tr');
+        if (/^(blank|not in this image)/.test(p.what)) tr.className = 'dim';
+        [['range', hexAddr(p.start) + '-' + hexAddr(p.start + p.size - 1)],
+         ['size', partSize(p.size)],
+         ['name', p.name || '-'],
+         ['what', p.what]].forEach(function(c) {
+            var td = document.createElement('td');
+            td.className = c[0];
+            td.textContent = c[1];
+            tr.appendChild(td);
+        });
+        rows.appendChild(tr);
+    });
+
+    document.getElementById('layout-extent').textContent = !extent.ranges.length ?
+        'Entirely blank (0xFF)' :
+        extentAmount(extent) + ' (' + extent.ranges.length +
+        (extent.ranges.length === 1 ? ' range); ' : ' ranges); ') + extentTail(extent, len);
+    document.getElementById('layout-card').classList.remove('d-none');
+}
+
+/* Show the partition layout of an image in the Partitions card, from
+ * src/flash_layout.c as JSON. ptr: the image already in WASM memory, or 0
+ * to copy `data` in. Skipped while a USB call is suspended, and on an older
+ * cached WASM build. */
+function showLayout(title, ptr, len, data, extent) {
+    if (typeof Module['_scriba_layout_json'] !== 'function' || wasmBusy || !len) return;
+    var own = !ptr, outLen = 32768, out = Module._malloc(outLen), layout = null;
+    if (!out) return;
     try {
-        Module.ccall('scriba_describe_layout', null, ['number', 'number', 'number'],
-            [ptr, len, flashSize > 0 ? flashSize : 0]);
+        if (own) {
+            ptr = Module._malloc(len);
+            if (!ptr) return;
+            Module.HEAPU8.set(data, ptr);
+        }
+        var n = Module.ccall('scriba_layout_json', 'number',
+            ['number', 'number', 'number', 'number', 'number'],
+            [ptr, len, flashSize > 0 ? flashSize : 0, out, outLen]);
+        if (n > 0) layout = JSON.parse(Module.UTF8ToString(out, n));
     } finally {
-        if (own) Module._free(ptr);
+        if (own && ptr) Module._free(ptr);
+        Module._free(out);
     }
+    if (!layout) return;
+    renderLayout(title, layout, extent, len);
+    log('Layout: ' + layout.parts.length + (layout.parts.length === 1 ? ' partition' : ' partitions') +
+        ' from ' + layout.source);
+    if (layout.note) log('Layout note: ' + layout.note, 'warn');
 }
 
 function progressLogger(label, total) {
@@ -179,7 +264,7 @@ function spiSpeedKhz() {
  * then abort the whole page. Warn and carry on at the default clock. */
 function applySpiSpeed() {
     if (typeof Module['_scriba_set_spi_speed_khz'] !== 'function') {
-        log('This WASM build has no SPI clock control - reload with Ctrl+Shift+R to fetch the current build', 'warn');
+        log('Old cached WASM build without SPI clock control: reload with Ctrl+Shift+R', 'warn');
         return false;
     }
     Module.ccall('scriba_set_spi_speed_khz', null, ['number'], [spiSpeedKhz()]);
@@ -211,7 +296,7 @@ async function spiSpeedChanged(sel) {
  * a CH347 is connected, a change re-runs the driver setup. */
 function applyOptions() {
     if (typeof Module['_scriba_set_options'] !== 'function') {
-        log('This WASM build has no CH347 options - reload with Ctrl+Shift+R to fetch the current build', 'warn');
+        log('Old cached WASM build without CH347 options: reload with Ctrl+Shift+R', 'warn');
         return false;
     }
     var fast = document.getElementById('ch347-csflags').checked;
@@ -505,7 +590,7 @@ async function doRead() {
          * page's write erases the whole chip first, which leaves the tail
          * blank again. Offsets are unchanged; blank gaps inside stay. */
         var extent = logImageExtent('Flash', data);
-        logLayout(bufPtr, flashSize);
+        showLayout('Flash read at ' + timestamp().slice(0, 8), bufPtr, flashSize, null, extent);
         Module._free(bufPtr);
         var name = 'flash_dump.bin';
         if (document.getElementById('trim-tail').checked && extent.dataEnd > 0 &&
@@ -556,8 +641,8 @@ function firmwareSelected(input) {
         document.getElementById('file-info').textContent =
             firmwareFileName + ' (' + sizeMB + ' MB)';
         log('Firmware loaded: ' + firmwareFileName + ' (' + sizeMB + ' MB)');
-        logImageExtent('Image', firmwareData);
-        logLayout(0, firmwareData.length, firmwareData);
+        var extent = logImageExtent('Image', firmwareData);
+        showLayout(firmwareFileName, 0, firmwareData.length, firmwareData, extent);
 
         if (firmwareData.length > flashSize) {
             log('Warning: firmware (' + formatSize(firmwareData.length) +
@@ -602,10 +687,10 @@ async function doWrite() {
         setState('writing');
         var writeExtent = imageExtent(firmwareData.subarray(0, writeLen));
         var isNor = document.getElementById('info-chip').textContent.indexOf('NOR') === 0;
-        log('Writing ' + firmwareFileName + ' (' + formatSize(writeLen) + ')' +
-            (isNor && writeExtent.blank ?
-                ': programming ' + (writeExtent.pages - writeExtent.blank) + ' pages, skipping ' +
-                writeExtent.blank + ' blank (0xFF) pages' : '') + '...');
+        log('Writing ' + firmwareFileName + ' (' + formatSize(writeLen) + ')...');
+        if (isNor && writeExtent.blank)
+            log('  programming ' + (writeExtent.pages - writeExtent.blank) + ' pages, skipping ' +
+                writeExtent.blank + ' blank (0xFF) pages');
 
         var dataPtr = Module._malloc(writeLen);
         if (!dataPtr) {
@@ -727,9 +812,9 @@ async function doErase() {
 
         if (eraseSec < 3) {
             log('WARNING: Erase completed in ' + eraseSec.toFixed(1) +
-                's which is too fast for this chip.' +
-                ' The command may not have been accepted.' +
-                ' Try re-seating the flash chip and reloading the page.', 'error');
+                's which is too fast for this chip.', 'error');
+            log('  The command may not have been accepted.', 'error');
+            log('  Try re-seating the flash chip and reloading the page.', 'error');
             hideProgress();
             setState('error');
             return;

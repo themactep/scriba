@@ -172,9 +172,9 @@ layout out from the image: names and boundaries from an `mtdparts=` string
 (preferring one in a U-Boot environment whose CRC checks out), and each
 partition's contents from its headers: Ingenic and SigmaStar boot images,
 U-Boot environment, uImage, FIT/device tree, squashfs, JFFS2, UBI. With no
-`mtdparts=` string the headers alone give the boundaries. The layout is
-printed after a whole-chip read, by `--layout <file>` for any image file,
-and in the web log after a read or when an image is loaded:
+`mtdparts=` string the headers alone give the boundaries. The CLI prints
+the layout after a whole-chip read, and for any image file with
+`--layout <file>`:
 
 ```text
 Layout from mtdparts (jz_sfc) in the U-Boot env at 0x050000:
@@ -189,6 +189,12 @@ Layout from mtdparts (jz_sfc) in the U-Boot env at 0x050000:
 It also notes images that are not raw flash images (vendor upgrade
 packages), layouts larger than the chip, and dumps that end inside the
 layout.
+
+The web version shows the layout in a **Partitions** card after a read or
+when an image is loaded, with where the data ends; blank partitions are
+dimmed. Here, after a read of a Wyze Pan v3 flash on a CH347:
+
+![Scriba web version: the Partitions card after reading a 16 MB flash](docs/images/web-partitions.png)
 
 ## Examples
 

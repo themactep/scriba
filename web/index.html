@@ -184,6 +184,11 @@
                     <input class="form-check-input" type="checkbox" id="ch347-csflags" checked onchange="csFlagsChanged(this)">
                     <label class="form-check-label small" for="ch347-csflags">Fast CS</label>
                 </div>
+                <div class="form-check form-check-inline mb-0 me-0" data-bs-toggle="tooltip"
+                    title="Read Flash: save the dump only up to its last non-0xFF byte (flash_dump_trimmed.bin). Nothing is lost for Write, which erases the whole chip first; keep full dumps as backups">
+                    <input class="form-check-input" type="checkbox" id="trim-tail">
+                    <label class="form-check-label small" for="trim-tail">Trim 0xFF tail</label>
+                </div>
             </div>
             <div class="file-info mt-1" id="file-info"></div>
             <button id="btn-start-write" class="btn btn-warning btn-sm mt-1 d-none" onclick="doWrite()"

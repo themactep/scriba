@@ -64,6 +64,60 @@ function log(msg, level) {
 /* Log overall progress at every 10% step. The C flash layers only see one
  * 64 KB chunk per call, so their own completion lines are suppressed in the
  * WASM build; with timestamps these lines also show the transfer rate. */
+function hexAddr(n) {
+    return '0x' + n.toString(16).toUpperCase().padStart(6, '0');
+}
+
+/* Where the data in an image is, by 256-byte page: the ranges of pages that
+ * are not all 0xFF, how many pages are blank, and where the last non-0xFF
+ * byte is. The NOR layer skips programming exactly these blank pages
+ * (programming 0xFF changes nothing). */
+var PAGE_SIZE = 256;
+
+function imageExtent(data) {
+    var pages = Math.ceil(data.length / PAGE_SIZE), blank = 0, ranges = [], start = -1;
+    for (var p = 0; p < pages; p++) {
+        var s = p * PAGE_SIZE, e = Math.min(s + PAGE_SIZE, data.length), isBlank = true;
+        for (var i = s; i < e; i++) {
+            if (data[i] !== 0xFF) { isBlank = false; break; }
+        }
+        if (isBlank) {
+            blank++;
+            if (start >= 0) { ranges.push([start, s]); start = -1; }
+        } else if (start < 0) {
+            start = s;
+        }
+    }
+    if (start >= 0) ranges.push([start, data.length]);
+    var dataEnd = 0;
+    for (var j = data.length - 1; j >= 0; j--) {
+        if (data[j] !== 0xFF) { dataEnd = j + 1; break; }
+    }
+    return { pages: pages, blank: blank, ranges: ranges, dataEnd: dataEnd };
+}
+
+/* "0x000000-0x2FFFFF, 0x350000-0x3AFFFF" or a summary when fragmented */
+function describeRanges(ranges) {
+    var fmt = function(r) { return hexAddr(r[0]) + '-' + hexAddr(r[1] - 1); };
+    if (ranges.length <= 6) return ranges.map(fmt).join(', ');
+    return ranges.length + ' ranges from ' + hexAddr(ranges[0][0]) + ' to ' +
+        hexAddr(ranges[ranges.length - 1][1] - 1);
+}
+
+function logImageExtent(label, data) {
+    var x = imageExtent(data);
+    if (!x.ranges.length) {
+        log(label + ' is entirely blank (0xFF)');
+        return x;
+    }
+    var dataBytes = (x.pages - x.blank) * PAGE_SIZE;
+    log(label + ': data in ' + describeRanges(x.ranges) + ' (' + formatSize(dataBytes) +
+        ' in ' + (x.pages - x.blank) + ' of ' + x.pages + ' pages); last data byte at ' +
+        hexAddr(x.dataEnd - 1) + (x.dataEnd < data.length ?
+            ', then ' + formatSize(data.length - x.dataEnd) + ' of blank (0xFF) tail' : ''));
+    return x;
+}
+
 function progressLogger(label, total) {
     var lastStep = 0;
     return function(done) {
@@ -429,16 +483,28 @@ async function doRead() {
         var data = Module.HEAPU8.slice(bufPtr, bufPtr + flashSize);
         Module._free(bufPtr);
 
+        /* Trimming the blank tail loses nothing for a later write: the
+         * page's write erases the whole chip first, which leaves the tail
+         * blank again. Offsets are unchanged; blank gaps inside stay. */
+        var extent = logImageExtent('Flash', data);
+        var name = 'flash_dump.bin';
+        if (document.getElementById('trim-tail').checked && extent.dataEnd > 0 &&
+            extent.dataEnd < data.length) {
+            data = data.slice(0, extent.dataEnd);
+            name = 'flash_dump_trimmed.bin';
+        }
+
         var blob = new Blob([data], { type: 'application/octet-stream' });
         var url = URL.createObjectURL(blob);
         var a = document.createElement('a');
         a.href = url;
-        a.download = 'flash_dump.bin';
+        a.download = name;
         a.click();
         URL.revokeObjectURL(url);
 
         showProgress(100, 'Read complete');
-        log('Flash read complete - downloaded as flash_dump.bin (' + formatSize(flashSize) + ')');
+        log('Flash read complete - downloaded as ' + name + ' (' + formatSize(data.length) +
+            (data.length < flashSize ? ', blank tail trimmed' : '') + ')');
         setTimeout(hideProgress, 1500);
         setState('done');
     } catch (e) {
@@ -470,6 +536,7 @@ function firmwareSelected(input) {
         document.getElementById('file-info').textContent =
             firmwareFileName + ' (' + sizeMB + ' MB)';
         log('Firmware loaded: ' + firmwareFileName + ' (' + sizeMB + ' MB)');
+        logImageExtent('Image', firmwareData);
 
         if (firmwareData.length > flashSize) {
             log('Warning: firmware (' + formatSize(firmwareData.length) +
@@ -512,7 +579,12 @@ async function doWrite() {
         log('Erase complete');
 
         setState('writing');
-        log('Writing ' + firmwareFileName + ' (' + formatSize(writeLen) + ')...');
+        var writeExtent = imageExtent(firmwareData.subarray(0, writeLen));
+        var isNor = document.getElementById('info-chip').textContent.indexOf('NOR') === 0;
+        log('Writing ' + firmwareFileName + ' (' + formatSize(writeLen) + ')' +
+            (isNor && writeExtent.blank ?
+                ': programming ' + (writeExtent.pages - writeExtent.blank) + ' pages, skipping ' +
+                writeExtent.blank + ' blank (0xFF) pages' : '') + '...');
 
         var dataPtr = Module._malloc(writeLen);
         if (!dataPtr) {

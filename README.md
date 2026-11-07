@@ -82,6 +82,13 @@ The CH347 is a composite device: bind WinUSB to its SPI interface only
 [Zadig](https://zadig.akeo.ie/) (Options → List All Devices). Leave the UART
 interfaces on their serial driver.
 
+The log shows where an image or a flash dump holds data: the address ranges
+of 256-byte pages that are not all 0xFF, and where the blank (0xFF) tail
+starts. Writes to NOR flash skip blank pages, since programming 0xFF changes
+nothing. **Trim 0xFF tail** saves a read only up to its last data byte, as
+`flash_dump_trimmed.bin`; writing that back loses nothing, because Write
+erases the whole chip first. Keep full dumps as backups.
+
 ### Build
 
 ```bash

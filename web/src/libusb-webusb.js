@@ -199,10 +199,11 @@ mergeInto(LibraryManager.library, {
                     idx = webusb_state.devices.length - 1;
                 }
 
+                /* Like real libusb, open without claiming: each driver claims
+                 * its own interface. The CH347's SPI interface is 2 or 4;
+                 * interface 0 is its serial port, owned by the OS driver. */
                 var p = match.opened ? Promise.resolve() : match.open();
                 return p.then(function() {
-                    return match.claimInterface(0);
-                }).then(function() {
                     var handle_id = webusb_state.next_handle_id++;
                     webusb_state.handles[handle_id] = match;
                     webusb_state.handle_device_map[handle_id] = idx;

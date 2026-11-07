@@ -36,14 +36,43 @@ async function wasmCall(name, returnType, argTypes, args) {
 /*  Logging                                                            */
 /* ------------------------------------------------------------------ */
 
+/* Wall-clock HH:MM:SS.mmm, so operation times can be read off the log */
+function timestamp() {
+    var d = new Date();
+    function pad(n, w) { return String(n).padStart(w || 2, '0'); }
+    return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' +
+        pad(d.getSeconds()) + '.' + pad(d.getMilliseconds(), 3);
+}
+
 function log(msg, level) {
     level = level || 'info';
     var el = document.getElementById('log');
     var line = document.createElement('div');
     line.className = level;
-    line.textContent = msg;
+    msg = String(msg).replace(/^\r+/, '');   /* C progress lines start with \r */
+    if (msg.trim()) {
+        var ts = document.createElement('span');
+        ts.className = 'ts';
+        ts.textContent = timestamp() + '  ';
+        line.appendChild(ts);
+    }
+    line.appendChild(document.createTextNode(msg));
     el.appendChild(line);
     el.scrollTop = el.scrollHeight;
+}
+
+/* Log overall progress at every 10% step. The C flash layers only see one
+ * 64 KB chunk per call, so their own completion lines are suppressed in the
+ * WASM build; with timestamps these lines also show the transfer rate. */
+function progressLogger(label, total) {
+    var lastStep = 0;
+    return function(done) {
+        var step = Math.floor(done * 10 / total);
+        if (step > lastStep) {
+            lastStep = step;
+            log(label + ' ' + (step * 10) + '% (' + formatSize(done) + ' / ' + formatSize(total) + ')');
+        }
+    };
 }
 
 function toggleEraseDebug() {
@@ -373,6 +402,7 @@ async function doRead() {
 
         var chunkSize = 65536;
         var offset = 0;
+        var readProgress = progressLogger('Read', flashSize);
 
         while (offset < flashSize) {
             var len = Math.min(chunkSize, flashSize - offset);
@@ -391,6 +421,7 @@ async function doRead() {
                 return;
             }
             offset += len;
+            readProgress(offset);
         }
 
         showProgress(95, 'Preparing download...');
@@ -494,6 +525,7 @@ async function doWrite() {
 
         var writeChunk = 65536;
         var writeOffset = 0;
+        var writeProgress = progressLogger('Written', writeLen);
 
         while (writeOffset < writeLen) {
             var len = Math.min(writeChunk, writeLen - writeOffset);
@@ -512,6 +544,7 @@ async function doWrite() {
                 return;
             }
             writeOffset += len;
+            writeProgress(writeOffset);
             await new Promise(function(r) { setTimeout(r, 10); });
         }
 
@@ -526,6 +559,7 @@ async function doWrite() {
             var verifyOk = true;
             var verifyChunk = 65536;
             var verifyOffset = 0;
+            var verifyProgress = progressLogger('Verified', writeLen);
 
             while (verifyOffset < writeLen) {
                 var len = Math.min(verifyChunk, writeLen - verifyOffset);
@@ -551,6 +585,7 @@ async function doWrite() {
                     break;
                 }
                 verifyOffset += len;
+                verifyProgress(verifyOffset);
             }
 
             Module._free(verifyBuf);

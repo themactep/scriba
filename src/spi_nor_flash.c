@@ -1051,7 +1051,7 @@ int snor_erase(unsigned long offs, unsigned long len)
 		len -= spi_chip_info->sector_size;
 		timer_progress("Erase", plen - len, plen);
 	}
-	printf("\rErase 100%% [%lu] of [%lu] bytes      \n", plen - len, plen);
+	timer_done("Erase", plen - len, plen);
 	timer_end();
 
 	return 0;
@@ -1131,7 +1131,7 @@ int snor_read(unsigned char *buf, unsigned long from, unsigned long len)
 		return -1;
 	}
 
-	printf("\rRead 100%% [%lu] of [%lu] bytes      \n", len - remain_len, len);
+	timer_done("Read", len - remain_len, len);
 	timer_end();
 
 	return len;
@@ -1236,7 +1236,7 @@ int snor_write(unsigned char *buf, unsigned long to, unsigned long len)
 	snor_write_disable();
 	snor_clear_progress();
 
-	printf("\rWritten 100%% [%ld] of [%ld] bytes      \n", plen - len, plen);
+	timer_done("Written", plen - len, plen);
 	timer_end();
 
 	if (err) {

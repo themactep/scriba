@@ -62,3 +62,12 @@ void timer_progress(const char *msg, unsigned long current, unsigned long total)
 	fflush(stdout);
 #endif
 }
+
+void timer_done(const char *msg, unsigned long current, unsigned long total)
+{
+#ifndef __EMSCRIPTEN__
+	printf("\r%s 100%% [%lu] of [%lu] bytes      \n", msg, current, total);
+#else
+	(void)msg; (void)current; (void)total;
+#endif
+}

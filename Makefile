@@ -29,6 +29,7 @@ LIBS      ?= -lusb-1.0
 EEPROM_SUPPORT = yes
 
 SRCS  = src/flashcmd_api.c \
+	src/flash_layout.c \
 	src/spi_controller.c \
 	src/spi_nand_flash.c \
 	src/spi_nand_flash_protocol.c \

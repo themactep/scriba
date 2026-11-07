@@ -159,10 +159,36 @@ General:
   -P <prog>    Programmer: ch341a, ch347, ezp2019, auto (default)
   --spi-speed <kHz>  SPI clock limit (CH347 only; default 15000)
   --no-cs-flags  CH347: separate chip-select commands even on firmware 0341+
+  --layout <file>  Show the partitions of an image file (no programmer)
   --debug      USB debug output
   --trace      Dump all SPI traffic
   -h           Help
 ```
+
+## Partition layout
+
+SPI NOR flash in cameras carries no partition table, so scriba works the
+layout out from the image: names and boundaries from an `mtdparts=` string
+(preferring one in a U-Boot environment whose CRC checks out), and each
+partition's contents from its headers: Ingenic and SigmaStar boot images,
+U-Boot environment, uImage, FIT/device tree, squashfs, JFFS2, UBI. With no
+`mtdparts=` string the headers alone give the boundaries. The layout is
+printed after a whole-chip read, by `--layout <file>` for any image file,
+and in the web log after a read or when an image is loaded:
+
+```text
+Layout from mtdparts (jz_sfc) in the U-Boot env at 0x050000:
+  0x000000-0x04FFFF  320 KB boot   Ingenic boot image (SPL + U-Boot), 186 KB used
+  0x050000-0x05FFFF   64 KB env    U-Boot env (32 KB, CRC OK, 26 variables)
+  0x060000-0x06FFFF   64 KB backup blank
+  0x070000-0x1FFFFF 1600 KB kernel uImage "Linux-3.10.14__isvp_swan_1.0__" (kernel, lzma), 1.37 MB
+  0x200000-0x7BFFFF 5888 KB rootfs squashfs 4.0 (xz), 5.72 MB used
+  0x7C0000-0xFFFFFF 8448 KB data   JFFS2, 1 of 132 erase blocks in use
+```
+
+It also notes images that are not raw flash images (vendor upgrade
+packages), layouts larger than the chip, and dumps that end inside the
+layout.
 
 ## Examples
 
@@ -180,6 +206,9 @@ scriba -W firmware.bin
 scriba -r dump.bin -a 0 -l 0x400000    # read 4 MB from offset 0
 scriba -w bootloader.bin -v            # write and verify
 scriba -e                              # full chip erase
+
+# Partition layout of a dump or firmware image
+scriba --layout dump.bin
 
 # Debugging
 scriba --debug -i                      # see USB communication

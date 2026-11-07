@@ -115,6 +115,28 @@ else
     fail "--spi-speed 0" "no error"
 fi
 
+# --- partition layout (no programmer needed) ---
+echo "[layout]"
+IMG=$(mktemp)
+trap 'rm -f "$IMG"' EXIT
+head -c 262144 /dev/zero | tr '\0' '\377' > "$IMG"
+printf 'mtdparts=test:64k(boot),64k(env),-(rootfs)' | dd of="$IMG" bs=1 seek=256 conv=notrunc 2>/dev/null
+LAYOUT=$("$BIN" --layout "$IMG" 2>&1)
+if echo "$LAYOUT" | grep -q "mtdparts (test)" &&
+   echo "$LAYOUT" | grep -qE "0x000000-0x00FFFF +64 KB +boot +data" &&
+   echo "$LAYOUT" | grep -qE "0x010000-0x01FFFF +64 KB +env +blank" &&
+   echo "$LAYOUT" | grep -qE "0x020000-0x03FFFF +128 KB +rootfs +blank"; then
+    ok "--layout parses mtdparts and identifies partitions"
+else
+    fail "--layout" "unexpected output: $LAYOUT"
+fi
+
+if "$BIN" --layout /nonexistent/image.bin 2>&1 | grep -q "Couldn't open file"; then
+    ok "--layout reports a missing file"
+else
+    fail "--layout missing file" "no error"
+fi
+
 # --- conflicting options ---
 echo "[conflicting options]"
 if "$BIN" -i -e 2>&1 | grep -qi "conflicting\|only one option"; then

@@ -15,6 +15,7 @@
 #include <string.h>
 
 #include "flashcmd_api.h"
+#include "flash_layout.h"
 #include "spi_controller.h"
 #include "spi_nand_flash.h"
 #include "spi_nor_flash.h"
@@ -59,6 +60,13 @@ void scriba_set_spi_speed_khz(unsigned int khz) {
  * immediately via scriba_reinit(). */
 void scriba_set_options(unsigned int opts) {
     spi_controller_set_options(opts);
+}
+
+/* Print the partition layout of an image in WASM memory (a flash read or a
+ * loaded file) to the log. flash_size is the chip size, 0 if unknown. */
+void scriba_describe_layout(const unsigned char *buf, unsigned long len,
+                            unsigned long flash_size) {
+    flash_layout_report(buf, len, flash_size);
 }
 
 int scriba_init_programmer(int type) {

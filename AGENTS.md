@@ -146,6 +146,7 @@ WASM build uses ASYNCIFY (Emscripten) — libusb calls are async-suspended.
 src/
 ├── main.c                     CLI entry, option parsing, operation dispatch
 ├── flashcmd_api.c / .h        Flash-type detection, cmd struct init
+├── flash_layout.c / .h        Partition layout of an image: mtdparts + header scan
 ├── spi_controller.c / .h      Programmer abstraction, CS, byte r/w
 ├── ch341a_spi.c / .h          CH341A USB-SPI driver
 ├── ch341a_i2c.c / .h          CH341A I2C bit-bang (EEPROM)

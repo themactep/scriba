@@ -118,6 +118,25 @@ function logImageExtent(label, data) {
     return x;
 }
 
+/* Log the partition layout of an image (src/flash_layout.c prints it).
+ * ptr: the image already in WASM memory, or 0 to copy `data` in. Skipped
+ * while a USB call is suspended, and on an older cached WASM build. */
+function logLayout(ptr, len, data) {
+    if (typeof Module['_scriba_describe_layout'] !== 'function' || wasmBusy || !len) return;
+    var own = !ptr;
+    if (own) {
+        ptr = Module._malloc(len);
+        if (!ptr) return;
+        Module.HEAPU8.set(data, ptr);
+    }
+    try {
+        Module.ccall('scriba_describe_layout', null, ['number', 'number', 'number'],
+            [ptr, len, flashSize > 0 ? flashSize : 0]);
+    } finally {
+        if (own) Module._free(ptr);
+    }
+}
+
 function progressLogger(label, total) {
     var lastStep = 0;
     return function(done) {
@@ -481,12 +500,13 @@ async function doRead() {
         showProgress(95, 'Preparing download...');
 
         var data = Module.HEAPU8.slice(bufPtr, bufPtr + flashSize);
-        Module._free(bufPtr);
 
         /* Trimming the blank tail loses nothing for a later write: the
          * page's write erases the whole chip first, which leaves the tail
          * blank again. Offsets are unchanged; blank gaps inside stay. */
         var extent = logImageExtent('Flash', data);
+        logLayout(bufPtr, flashSize);
+        Module._free(bufPtr);
         var name = 'flash_dump.bin';
         if (document.getElementById('trim-tail').checked && extent.dataEnd > 0 &&
             extent.dataEnd < data.length) {
@@ -537,6 +557,7 @@ function firmwareSelected(input) {
             firmwareFileName + ' (' + sizeMB + ' MB)';
         log('Firmware loaded: ' + firmwareFileName + ' (' + sizeMB + ' MB)');
         logImageExtent('Image', firmwareData);
+        logLayout(0, firmwareData.length, firmwareData);
 
         if (firmwareData.length > flashSize) {
             log('Warning: firmware (' + formatSize(firmwareData.length) +

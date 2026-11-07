@@ -20,10 +20,43 @@
 #endif
 
 #include "flashcmd_api.h"
+#include "flash_layout.h"
 #include "spi_controller.h"
 #include "spi_nand_flash.h"
 
 struct flash_cmd prog;
+
+/* --layout <file>: print the partition layout of an image file; needs no
+ * programmer */
+static int report_file_layout(const char *path)
+{
+	FILE *f = fopen(path, "rb");
+	unsigned char *buf;
+	long len;
+
+	if (!f) {
+		fprintf(stderr, "Couldn't open file %s for reading.\n", path);
+		return 1;
+	}
+	if (fseek(f, 0, SEEK_END) || (len = ftell(f)) < 0 || fseek(f, 0, SEEK_SET)) {
+		fprintf(stderr, "Couldn't size file %s.\n", path);
+		fclose(f);
+		return 1;
+	}
+	buf = malloc(len ? len : 1);
+	if (!buf || fread(buf, 1, len, f) != (size_t)len) {
+		fprintf(stderr, "Couldn't read file %s.\n", path);
+		free(buf);
+		fclose(f);
+		return 1;
+	}
+	fclose(f);
+	printf("%s: %ld bytes\n", path, len);
+	flash_layout_report(buf, len, 0);
+	free(buf);
+	return 0;
+}
+
 extern unsigned int bsize;
 
 /* Global debug/trace flags */
@@ -104,6 +137,7 @@ void usage(const char *program_name)
 				   "  -P <prog>    Programmer type: ch341a, ch347, ezp2019, auto (default: auto)\n"
 				   "  --spi-speed <kHz>  SPI clock limit (CH347 only; default 15000)\n"
 				   "  --no-cs-flags  CH347: separate chip-select commands even on firmware 0341+\n"
+				   "  --layout <file> Show the partitions of an image file (no programmer)\n"
 				   "  -V, --version  Show version and exit\n"
 			   "  --debug      Enable debug messages for USB communication\n"
 				   "  --trace      Dump SPI commands and data (implies --debug)\n",
@@ -129,6 +163,7 @@ int main(int argc, char *argv[])
 		{"trace", no_argument, NULL, 0},
 		{"spi-speed", required_argument, NULL, 0},
 		{"no-cs-flags", no_argument, NULL, 0},
+		{"layout", required_argument, NULL, 0},
 		{"version", no_argument, NULL, 'V'},
 		{0, 0, 0, 0}
 	};
@@ -170,6 +205,8 @@ int main(int argc, char *argv[])
 				spi_controller_set_options(spi_controller_get_options() | SPI_OPT_NO_CS_FLAGS);
 				continue;
 			}
+			if (strcmp(lname, "layout") == 0)
+				return report_file_layout(optarg);
 		}
 		switch (c)
 		{
@@ -592,6 +629,8 @@ if (op == 'R')
  			fclose(fp);
 
  			printf("Read Status: OK - Verified data saved to %s\n", op_arg);
+ 			if (addr == 0 && len == flen && !eepromsize && !mw_eepromsize && !seepromsize)
+ 				flash_layout_report(buf1, len, flen);
  			free(buf1);
  			free(buf2);
  			goto okout;
@@ -684,8 +723,10 @@ if (op == 'R')
 			goto out;
 		}
 		fclose(fp);
-		free(buf);
 		printf("Status: OK\n");
+		if (addr == 0 && len == flen && !eepromsize && !mw_eepromsize && !seepromsize)
+			flash_layout_report(buf, len, flen);
+		free(buf);
 		goto okout;
 	}
 

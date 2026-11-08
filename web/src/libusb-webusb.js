@@ -553,13 +553,21 @@ mergeInto(LibraryManager.library, {
         var timeoutMs = (timeout && timeout > 0) ? timeout : 30000;
 
         return Asyncify.handleAsync(function() {
+            /* WebUSB cannot cancel a posted transferIn. Once the stream has
+             * failed or timed out, a late completion must neither write into
+             * the caller's buffer nor queue more transfers: the C call has
+             * already returned and its buffer may be in use again. */
+            var dead = false;
+
             function fail(code, what) {
+                dead = true;
                 return Promise.reject({name: 'StreamError', code: code, what: what});
             }
 
             var outDone = out_len <= 0 ? Promise.resolve() :
                 device.transferOut(epOutNum, HEAPU8.slice(data_out_ptr, data_out_ptr + out_len))
                     .then(function(r) {
+                        if (dead) return;
                         if (r.status !== 'ok' || r.bytesWritten !== out_len)
                             return fail(-9, 'OUT ' + r.status + ', ' + r.bytesWritten +
                                 ' of ' + out_len + ' bytes');
@@ -567,7 +575,7 @@ mergeInto(LibraryManager.library, {
 
             var posted = 0, queue = [];
             function post() {
-                while (posted < in_len && queue.length < depth) {
+                while (!dead && posted < in_len && queue.length < depth) {
                     var n = Math.min(in_pkt, in_len - posted);
                     var p = device.transferIn(epInNum, n);
                     p.catch(function() {});   /* left pending if the stream fails */
@@ -576,9 +584,10 @@ mergeInto(LibraryManager.library, {
                 }
             }
             function drain() {
-                if (!queue.length) return outDone;
+                if (dead || !queue.length) return outDone;
                 var t = queue.shift();
                 return t.p.then(function(r) {
+                    if (dead) return;
                     if (r.status !== 'ok')
                         return fail(r.status === 'babble' ? -8 : -9, 'IN ' + r.status);
                     if (r.data.byteLength !== t.n)
@@ -594,12 +603,16 @@ mergeInto(LibraryManager.library, {
 
             var timer;
             var timeoutP = new Promise(function(_, reject) {
-                timer = setTimeout(function() { reject({name: 'TimeoutError'}); }, timeoutMs);
+                timer = setTimeout(function() {
+                    dead = true;
+                    reject({name: 'TimeoutError'});
+                }, timeoutMs);
             });
             return Promise.race([Promise.all([outDone, drain()]), timeoutP]).then(function() {
                 clearTimeout(timer);
                 return 0;
             }, function(e) {
+                dead = true;
                 clearTimeout(timer);
                 if (e.name === 'TimeoutError') {
                     console.error('usb_bulk_stream TIMEOUT after ' + timeoutMs + 'ms (' +

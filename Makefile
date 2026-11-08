@@ -32,7 +32,8 @@ LIBS      ?= -lusb-1.0
 
 EEPROM_SUPPORT = yes
 
-SRCS  = src/core/flashcmd_api.c \
+SRCS  = src/core/flash_layout.c \
+	src/core/flashcmd_api.c \
 	src/core/operations.c \
 	src/core/validation.c \
 	src/hal/spi_controller.c \
@@ -155,7 +156,8 @@ WEB_CFLAGS += -I$(WEB_DIR)/libusb-stub -I$(SRC_DIR) -I$(SRC_DIR)/core -I$(SRC_DI
 WEB_CFLAGS += -I$(SRC_DIR)/hal/ch341a -I$(SRC_DIR)/hal/ch347 -I$(SRC_DIR)/hal/ezp2019 -I$(SRC_DIR)/hal/usb
 WEB_CFLAGS += -I$(SRC_DIR)/protocol/nor -I$(SRC_DIR)/protocol/nand -I$(SRC_DIR)/protocol/eeprom
 
-WEB_SRCS = $(SRC_DIR)/core/flashcmd_api.c \
+WEB_SRCS = $(SRC_DIR)/core/flash_layout.c \
+           $(SRC_DIR)/core/flashcmd_api.c \
            $(SRC_DIR)/core/operations.c \
            $(SRC_DIR)/core/validation.c \
            $(SRC_DIR)/hal/spi_controller.c \
@@ -171,7 +173,7 @@ WEB_SRCS = $(SRC_DIR)/core/flashcmd_api.c \
            $(SRC_DIR)/hal/usb/webusb.c \
            $(SRC_DIR)/timer.c
 
-WEB_EXPORTED_FUNCTIONS = _scriba_init,_scriba_init_programmer,_scriba_detect_chip,_scriba_get_flash_size,_scriba_get_chip_name,_scriba_get_programmer_type,_scriba_get_block_size,_scriba_read_flash,_scriba_write_flash,_scriba_erase_flash,_scriba_reinit,_scriba_set_spi_speed_khz,_scriba_set_options,_scriba_shutdown,_scriba_get_version,_malloc,_free
+WEB_EXPORTED_FUNCTIONS = _scriba_init,_scriba_init_programmer,_scriba_detect_chip,_scriba_get_flash_size,_scriba_get_chip_name,_scriba_get_programmer_type,_scriba_get_block_size,_scriba_read_flash,_scriba_write_flash,_scriba_erase_flash,_scriba_reinit,_scriba_set_spi_speed_khz,_scriba_set_options,_scriba_layout_json,_scriba_shutdown,_scriba_get_version,_malloc,_free
 
 WEB_EXPORTED_RUNTIME = ccall,cwrap,UTF8ToString,stringToUTF8,HEAPU8,HEAPU32,FS
 

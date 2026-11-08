@@ -26,6 +26,7 @@
 #include "ch341a_spi.h"
 #include "ch347_spi.h"
 #include "ezp2019_spi.h"
+#include "flash_layout.h"
 #include "flashcmd_api.h"
 #include "scriba.h"
 #include "spi_controller.h"
@@ -281,6 +282,20 @@ int scriba_erase_flash(unsigned long offset, unsigned long len) {
 
 int scriba_reinit(void) {
   return SPI_CONTROLLER_Reinit();
+}
+
+int scriba_layout_json(const unsigned char *buf, unsigned long len,
+                       unsigned long flash_size, char *out,
+                       unsigned long outlen) {
+  struct fl_layout *layout = malloc(sizeof(*layout));
+  int ret;
+
+  if (!layout)
+    return -1;
+  flash_layout_analyze(buf, len, flash_size, layout);
+  ret = flash_layout_json(layout, out, outlen);
+  free(layout);
+  return ret;
 }
 
 void scriba_set_spi_speed_khz(unsigned int khz) {

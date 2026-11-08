@@ -6,7 +6,8 @@ and EZP2023 programmers.
 
 ## Layout
 - `src/core/` — shared library: lifecycle (`scriba.c`), flash dispatch
-  (`flashcmd_api.c`), operations and validation.
+  (`flashcmd_api.c`), operations and validation; `flash_layout.c` identifies
+  the partitions of an image (mtdparts + header scan) for the CLI and web.
 - `src/hal/` — hardware abstraction: `spi_controller.c` backend dispatch,
   `usb/` transport HAL (libusb / WebUSB), and one directory per programmer
   (`ch341a/`, `ch347/`, `ezp2019/`).

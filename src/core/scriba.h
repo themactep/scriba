@@ -53,6 +53,14 @@ unsigned int scriba_get_block_size(void);
 const char *scriba_get_libusb_version(void);
 const char *scriba_get_version(void);
 
+/* Partition layout of an image as JSON (see core/flash_layout.h), for
+ * frontends that already hold the whole image. flash_size is the chip size,
+ * 0 when unknown. Returns the JSON length, or -1 if it does not fit in
+ * outlen bytes or memory runs out. */
+int scriba_layout_json(const unsigned char *buf, unsigned long len,
+                       unsigned long flash_size, char *out,
+                       unsigned long outlen);
+
 /* Flash operations */
 int scriba_read_flash(unsigned char *buf, unsigned long offset,
                       unsigned long len);

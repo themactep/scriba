@@ -1,9 +1,23 @@
 #include "operations.h"
+#include "flash_layout.h"
 #include "scriba.h"
 #include "validation.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+/* The layout scanner is for raw NOR images. NAND dumps interleave OOB bytes,
+ * and a partial read has no full picture, so only a whole-chip NOR read is
+ * reported. */
+static void report_layout_after_read(unsigned long addr, unsigned long len,
+                                     long flash_size,
+                                     const unsigned char *buf) {
+  if (addr != 0 || len != (unsigned long)flash_size)
+    return;
+  if (strncmp(scriba_get_chip_name(), "NOR: ", 5) != 0)
+    return;
+  flash_layout_report(buf, len, (unsigned long)flash_size);
+}
 
 int op_erase(unsigned long addr, unsigned long len) {
   long flash_size = scriba_get_flash_size();
@@ -62,8 +76,9 @@ int op_read(const char *filepath, unsigned long addr, unsigned long len) {
     return -1;
   }
   fclose(fp);
-  free(buf);
   printf("Status: OK\n");
+  report_layout_after_read(addr, len, flash_size, buf);
+  free(buf);
   return 0;
 }
 
@@ -344,6 +359,7 @@ int op_read_macro(const char *filepath, unsigned long addr, unsigned long len) {
   }
   fclose(fp);
   printf("Read Status: OK - Verified data saved to %s\n", filepath);
+  report_layout_after_read(addr, len, flash_size, buf1);
 
   free(buf1);
   free(buf2);

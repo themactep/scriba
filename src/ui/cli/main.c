@@ -30,6 +30,7 @@
 #include "ch341a_i2c.h"
 #include "ch341a_spi.h"
 #include "ezp2019_spi.h"
+#include "flash_layout.h"
 #include "flashcmd_api.h"
 #include "operations.h"
 #include "scriba.h"
@@ -60,6 +61,35 @@ static void title(void) {
   printf("Dynamic");
 #endif
   printf(" build using libusb %s\n", scriba_get_libusb_version());
+}
+
+/* --layout <file>: print the partition layout of an image; no programmer. */
+static int print_file_layout(const char *path) {
+  FILE *f = fopen(path, "rb");
+  unsigned char *buf;
+  long len;
+
+  if (!f) {
+    fprintf(stderr, "Couldn't open file %s for reading.\n", path);
+    return 1;
+  }
+  if (fseek(f, 0, SEEK_END) || (len = ftell(f)) < 0 || fseek(f, 0, SEEK_SET)) {
+    fprintf(stderr, "Couldn't size file %s.\n", path);
+    fclose(f);
+    return 1;
+  }
+  buf = malloc(len ? len : 1);
+  if (!buf || fread(buf, 1, len, f) != (size_t)len) {
+    fprintf(stderr, "Couldn't read file %s.\n", path);
+    free(buf);
+    fclose(f);
+    return 1;
+  }
+  fclose(f);
+  printf("%s: %ld bytes\n", path, len);
+  flash_layout_report(buf, len, 0);
+  free(buf);
+  return 0;
 }
 
 static void usage(const char *program_name) {
@@ -98,10 +128,10 @@ static void usage(const char *program_name) {
            "  -L           List supported chips\n"
            "  -P <prog>    Programmer type: ch341a, ch347, ezp2019, auto "
            "(default: auto)\n"
-           "  --spi-speed <kHz>  SPI clock limit (CH347 only; default 15000)\n"
-           "  --no-cs-flags  CH347: separate chip-select commands even on "
-           "firmware 0341+\n"
-           "  --debug      Enable debug messages for USB communication\n"
+      "  --spi-speed <kHz>  SPI clock limit (CH347 only; default 15000)\n"
+      "  --no-cs-flags  CH347: separate chip-select commands even on firmware 0341+\n"
+      "  --layout <file> Show the partitions of an image file (no programmer)\n"
+      "  --debug      Enable debug messages for USB communication\n"
            "  --trace      Dump SPI commands and data (implies --debug)\n"
            "  --version    Print version and exit\n",
            program_name);
@@ -193,10 +223,11 @@ int main(int argc, char *argv[]) {
   static struct option long_options[] = {
       {"debug", no_argument, NULL, 0},
       {"trace", no_argument, NULL, 0},
-      {"spi-speed", required_argument, NULL, 0},
-      {"no-cs-flags", no_argument, NULL, 0},
-      {"version", no_argument, NULL, 0},
-      {0, 0, 0, 0}};
+                                         {"spi-speed", required_argument, NULL, 0},
+                                         {"no-cs-flags", no_argument, NULL, 0},
+                                         {"layout", required_argument, NULL, 0},
+                                         {"version", no_argument, NULL, 0},
+                                         {0, 0, 0, 0}};
   int option_index = 0;
 
   while ((c = getopt_long(argc, argv, "diIhveLkl:a:w:r:W:R:o:s:E:f:8P:",
@@ -229,6 +260,8 @@ int main(int argc, char *argv[]) {
         scriba_set_options(SPI_OPT_NO_CS_FLAGS);
         continue;
       }
+      if (strcmp(lname, "layout") == 0)
+        return print_file_layout(optarg);
       if (strcmp(lname, "version") == 0) {
         title();
         exit(0);

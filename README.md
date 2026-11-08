@@ -90,6 +90,10 @@ nothing. **Trim 0xFF tail** saves a read only up to its last data byte, as
 `flash_dump_trimmed.bin`; writing that back loses nothing, because Write
 erases the whole chip first. Keep full dumps as backups.
 
+**Read twice** reads the chip a second time and saves the dump only if both
+reads match, as `-R` does on the command line; a mismatch is logged with the
+first differing address. Every saved read ends with its SHA-256 in the log.
+
 ### Build
 
 ```bash

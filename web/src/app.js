@@ -552,44 +552,92 @@ async function readChipId() {
 /*  Read Flash                                                         */
 /* ------------------------------------------------------------------ */
 
+/* Read the whole chip, 64 KB at a time, into WASM memory at dest(offset).
+ * after(offset, len), when given, runs after each chunk. The progress bar
+ * covers [pctFrom, pctTo]. Returns false, having logged why, on a read
+ * error. */
+async function readPass(label, pctFrom, pctTo, dest, after) {
+    var chunkSize = 65536, offset = 0;
+    var logProgress = progressLogger(label, flashSize);
+    while (offset < flashSize) {
+        var len = Math.min(chunkSize, flashSize - offset);
+        var done = Math.round((offset / flashSize) * 100);
+        showProgress(Math.round(pctFrom + (pctTo - pctFrom) * offset / flashSize),
+            label + '... ' + done + '% (' + formatSize(offset) + ' / ' + formatSize(flashSize) + ')');
+
+        var result = await wasmCall('scriba_read_flash', 'number',
+            ['number', 'number', 'number'], [dest(offset), offset, len]);
+        if (result < 0) {
+            log('Read failed at offset 0x' + offset.toString(16) + ': error ' + result, 'error');
+            return false;
+        }
+        if (after) after(offset, len);
+        offset += len;
+        logProgress(offset);
+    }
+    return true;
+}
+
+async function sha256Hex(data) {
+    if (!window.crypto || !crypto.subtle) return '';
+    var d = new Uint8Array(await crypto.subtle.digest('SHA-256', data));
+    return Array.prototype.map.call(d, function(b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+}
+
 async function doRead() {
     if (!scribaReady || flashSize <= 0) return;
 
+    /* Read twice: like the CLI's -R, read the chip a second time and save
+     * only if both reads match. The second read compares 64 KB at a time,
+     * so it needs no second full-size buffer. */
+    var twice = document.getElementById('read-twice').checked;
     setState('reading');
-    log('Reading flash (' + formatSize(flashSize) + ')...');
+    log('Reading flash (' + formatSize(flashSize) + ')' + (twice ? ' twice, to compare' : '') + '...');
 
+    var bufPtr = 0, chunkPtr = 0;
     try {
-        var bufPtr = Module._malloc(flashSize);
-        if (!bufPtr) {
+        bufPtr = Module._malloc(flashSize);
+        chunkPtr = twice ? Module._malloc(65536) : 0;
+        if (!bufPtr || (twice && !chunkPtr)) {
             log('Failed to allocate memory', 'error');
             hideProgress();
             setState('error');
             return;
         }
 
-        var chunkSize = 65536;
-        var offset = 0;
-        var readProgress = progressLogger('Read', flashSize);
+        var ok = await readPass(twice ? 'Read 1/2' : 'Read', 0, twice ? 47 : 95,
+            function(offset) { return bufPtr + offset; });
 
-        while (offset < flashSize) {
-            var len = Math.min(chunkSize, flashSize - offset);
-            var pct = Math.round((offset / flashSize) * 100);
-            showProgress(pct, 'Reading... ' + pct + '% (' + formatSize(offset) + ' / ' + formatSize(flashSize) + ')');
-
-            var result = await wasmCall('scriba_read_flash', 'number',
-                ['number', 'number', 'number'],
-                [bufPtr + offset, offset, len]);
-
-            if (result < 0) {
-                log('Read failed at offset 0x' + offset.toString(16) + ': error ' + result, 'error');
-                Module._free(bufPtr);
-                hideProgress();
-                setState('error');
-                return;
-            }
-            offset += len;
-            readProgress(offset);
+        var diffBytes = 0, diffBlocks = 0, firstDiff = -1;
+        if (ok && twice) {
+            ok = await readPass('Read 2/2', 47, 95,
+                function() { return chunkPtr; },
+                function(offset, len) {
+                    var heap = Module.HEAPU8, before = diffBytes;
+                    for (var i = 0; i < len; i++) {
+                        if (heap[bufPtr + offset + i] !== heap[chunkPtr + i]) {
+                            if (firstDiff < 0) firstDiff = offset + i;
+                            diffBytes++;
+                        }
+                    }
+                    if (diffBytes > before) diffBlocks++;
+                });
         }
+        if (!ok) {
+            hideProgress();
+            setState('error');
+            return;
+        }
+        if (diffBytes) {
+            log('The two reads differ: ' + diffBytes + (diffBytes === 1 ? ' byte' : ' bytes') +
+                ' in ' + diffBlocks + ' of ' + Math.ceil(flashSize / 65536) +
+                ' blocks of 64 KB, first at ' + hexAddr(firstDiff), 'error');
+            log('Nothing saved. Re-seat the clip (CH347: try a lower clock) and read again.', 'error');
+            hideProgress();
+            setState('error');
+            return;
+        }
+        if (twice) log('Both reads match');
 
         showProgress(95, 'Preparing download...');
 
@@ -600,7 +648,6 @@ async function doRead() {
          * blank again. Offsets are unchanged; blank gaps inside stay. */
         var extent = logImageExtent('Flash', data);
         showLayout('Flash read at ' + timestamp().slice(0, 8), bufPtr, flashSize, null, extent);
-        Module._free(bufPtr);
         var name = 'flash_dump.bin';
         if (document.getElementById('trim-tail').checked && extent.dataEnd > 0 &&
             extent.dataEnd < data.length) {
@@ -619,6 +666,8 @@ async function doRead() {
         showProgress(100, 'Read complete');
         log('Flash read complete - downloaded as ' + name + ' (' + formatSize(data.length) +
             (data.length < flashSize ? ', blank tail trimmed' : '') + ')');
+        var hash = await sha256Hex(data);
+        if (hash) log('  SHA-256 ' + hash);
         setTimeout(hideProgress, 1500);
         setState('done');
     } catch (e) {
@@ -626,6 +675,9 @@ async function doRead() {
         console.error(e);
         hideProgress();
         setState('error');
+    } finally {
+        if (chunkPtr) Module._free(chunkPtr);
+        if (bufPtr) Module._free(bufPtr);
     }
 }
 

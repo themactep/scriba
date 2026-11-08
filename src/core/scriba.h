@@ -20,6 +20,7 @@
 #define SCRIBA_PROGRAMMER_AUTO 2
 #define SCRIBA_PROGRAMMER_CH341A 0
 #define SCRIBA_PROGRAMMER_EZP2019 1
+#define SCRIBA_PROGRAMMER_CH347 3
 
 /* Maximum number of programmer types that can be returned by
  * scriba_probe_available */
@@ -36,6 +37,12 @@ void scriba_shutdown(void);
 void scriba_set_debug(int enable);
 int scriba_get_debug(void);
 void scriba_set_trace(int enable);
+
+/* SPI clock request in kHz (0 = driver default) and SPI_OPT_* flags. Applied
+ * at the next init, or immediately to a connected programmer via
+ * scriba_reinit(). Only the CH347 honors the clock. */
+void scriba_set_spi_speed_khz(unsigned int khz);
+void scriba_set_options(unsigned int opts);
 
 /* Chip detection */
 int scriba_detect_chip(void);

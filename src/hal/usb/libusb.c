@@ -167,6 +167,20 @@ int usb_hal_reset_device(struct usb_hal *hal) {
   return libusb_reset_device(hal->handle);
 }
 
+int usb_hal_set_auto_detach_kernel_driver(struct usb_hal *hal, int enable) {
+  return libusb_set_auto_detach_kernel_driver(hal->handle, enable);
+}
+
+int usb_hal_bulk_transfer(struct usb_hal *hal, int ep, uint8_t *data, int len,
+                          int *transferred, unsigned int timeout) {
+  return libusb_bulk_transfer(hal->handle, (unsigned char)ep, data, len,
+                              transferred, timeout);
+}
+
+const char *usb_hal_error_name(int errcode) {
+  return libusb_error_name(errcode);
+}
+
 const char *usb_hal_version(struct usb_hal *hal) {
   (void)hal;
   return usb_hal_backend_version();

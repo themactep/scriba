@@ -54,7 +54,7 @@ mergeInto(LibraryManager.library, {
     libusb_get_device_list: function(ctx, list_ptr) {
         return Asyncify.handleAsync(function() {
             var SCRIBA_VIDS = [0x1A86, 0x1FC8];
-            var SCRIBA_PIDS = [0x5512, 0x310B, 0x310C, 0x310D];
+            var SCRIBA_PIDS = [0x5512, 0x55DB, 0x55DE, 0x310B, 0x310C, 0x310D];
 
             return navigator.usb.getDevices().then(function(allDevices) {
                 var extra = (typeof window !== 'undefined' && window._webusb_devices) || [];

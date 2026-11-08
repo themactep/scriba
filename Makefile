@@ -24,7 +24,7 @@ PREFIX    ?= /usr
 BINDIR    ?= $(PREFIX)/bin
 CFLAGS     = -std=gnu99 -Wall -O2 -D_FILE_OFFSET_BITS=64 -DGIT_COMMIT_DATE=\"$(GIT_COMMIT_DATE)\" -DGIT_COMMIT_HASH=\"$(GIT_COMMIT_HASH)\"
 CFLAGS    += -I$(SRC_DIR) -I$(SRC_DIR)/core -I$(SRC_DIR)/hal -I$(SRC_DIR)/hal/ch341a
-CFLAGS    += -I$(SRC_DIR)/hal/ezp2019 -I$(SRC_DIR)/hal/usb
+CFLAGS    += -I$(SRC_DIR)/hal/ch347 -I$(SRC_DIR)/hal/ezp2019 -I$(SRC_DIR)/hal/usb
 CFLAGS    += -I$(SRC_DIR)/protocol/nor -I$(SRC_DIR)/protocol/nand -I$(SRC_DIR)/protocol/eeprom
 CFLAGS    += -I$(SRC_DIR)/ui/cli
 LDFLAGS   ?= -pthread
@@ -42,6 +42,7 @@ SRCS  = src/core/flashcmd_api.c \
 	src/protocol/nor/spi_nor_flash.c \
 	src/protocol/nor/spi_nor_flash_tables.c \
 	src/hal/ch341a/ch341a_spi.c \
+	src/hal/ch347/ch347_spi.c \
 	src/hal/ezp2019/ezp2019_spi.c \
 	src/hal/usb/libusb.c \
 	src/core/scriba.c \
@@ -151,7 +152,7 @@ WEB_ASYNCIFY_JSON = $(WEB_BUILD_DIR)/asyncify_imports.json
 WEB_CFLAGS  = -std=gnu99 -Wall -Wextra -Wno-unused-parameter -Wno-unused-variable -O2
 WEB_CFLAGS += -DGIT_COMMIT_DATE=\"web\" -DGIT_COMMIT_HASH=\"wasm\"
 WEB_CFLAGS += -I$(WEB_DIR)/libusb-stub -I$(SRC_DIR) -I$(SRC_DIR)/core -I$(SRC_DIR)/hal
-WEB_CFLAGS += -I$(SRC_DIR)/hal/ch341a -I$(SRC_DIR)/hal/ezp2019 -I$(SRC_DIR)/hal/usb
+WEB_CFLAGS += -I$(SRC_DIR)/hal/ch341a -I$(SRC_DIR)/hal/ch347 -I$(SRC_DIR)/hal/ezp2019 -I$(SRC_DIR)/hal/usb
 WEB_CFLAGS += -I$(SRC_DIR)/protocol/nor -I$(SRC_DIR)/protocol/nand -I$(SRC_DIR)/protocol/eeprom
 
 WEB_SRCS = $(SRC_DIR)/core/flashcmd_api.c \
@@ -164,12 +165,13 @@ WEB_SRCS = $(SRC_DIR)/core/flashcmd_api.c \
            $(SRC_DIR)/protocol/nor/spi_nor_flash.c \
            $(SRC_DIR)/protocol/nor/spi_nor_flash_tables.c \
            $(SRC_DIR)/hal/ch341a/ch341a_spi.c \
+           $(SRC_DIR)/hal/ch347/ch347_spi.c \
            $(SRC_DIR)/hal/ezp2019/ezp2019_spi.c \
            $(SRC_DIR)/core/scriba.c \
            $(SRC_DIR)/hal/usb/webusb.c \
            $(SRC_DIR)/timer.c
 
-WEB_EXPORTED_FUNCTIONS = _scriba_init,_scriba_init_programmer,_scriba_detect_chip,_scriba_get_flash_size,_scriba_get_chip_name,_scriba_get_programmer_type,_scriba_get_block_size,_scriba_read_flash,_scriba_write_flash,_scriba_erase_flash,_scriba_reinit,_scriba_shutdown,_scriba_get_version,_malloc,_free
+WEB_EXPORTED_FUNCTIONS = _scriba_init,_scriba_init_programmer,_scriba_detect_chip,_scriba_get_flash_size,_scriba_get_chip_name,_scriba_get_programmer_type,_scriba_get_block_size,_scriba_read_flash,_scriba_write_flash,_scriba_erase_flash,_scriba_reinit,_scriba_set_spi_speed_khz,_scriba_set_options,_scriba_shutdown,_scriba_get_version,_malloc,_free
 
 WEB_EXPORTED_RUNTIME = ccall,cwrap,UTF8ToString,stringToUTF8,HEAPU8,HEAPU32,FS
 
@@ -249,6 +251,7 @@ test-img:
 
 install-rules:
 	$(INSTALL) -m 0664 -D res/40-persistent-ch341a.rules $(DESTDIR)/etc/udev/rules.d/40-persistent-ch341a.rules
+	$(INSTALL) -m 0664 -D res/40-persistent-ch347.rules $(DESTDIR)/etc/udev/rules.d/40-persistent-ch347.rules
 	$(INSTALL) -m 0664 -D res/40-persistent-ezp2019.rules $(DESTDIR)/etc/udev/rules.d/40-persistent-ezp2019.rules
 	@if [ -z "$(DESTDIR)" ]; then \
 		echo "Reloading udev rules..."; \

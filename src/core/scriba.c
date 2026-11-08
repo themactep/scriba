@@ -24,6 +24,7 @@
 #include <libusb-1.0/libusb.h>
 
 #include "ch341a_spi.h"
+#include "ch347_spi.h"
 #include "ezp2019_spi.h"
 #include "flashcmd_api.h"
 #include "scriba.h"
@@ -83,6 +84,8 @@ static const struct prog_id prog_ids[] = {
     {0x1fc8, 0x310b, SCRIBA_PROGRAMMER_EZP2019, "EZP2019"},
     {0x1fc8, 0x310c, SCRIBA_PROGRAMMER_EZP2019, "EZP2019 Plus"},
     {0x1fc8, 0x310d, SCRIBA_PROGRAMMER_EZP2019, "EZP2023"},
+    {0x1a86, 0x55db, SCRIBA_PROGRAMMER_CH347, "CH347T"},
+    {0x1a86, 0x55de, SCRIBA_PROGRAMMER_CH347, "CH347F"},
     {0x1a86, 0x5512, SCRIBA_PROGRAMMER_CH341A, "CH341A"},
     {0},
 };
@@ -151,7 +154,7 @@ int scriba_probe_available(int *types, const char **descriptions,
 }
 
 /* Auto-detect: try EZP2019 first (it uses the same CH341A chip inside but
-   with a different USB VID/PID), then fall back to plain CH341A. */
+   with a different USB VID/PID), then CH347, then fall back to plain CH341A. */
 int scriba_init(void) {
   flash_size = -1;
   chip_detected = 0;
@@ -161,6 +164,8 @@ int scriba_init(void) {
 
   if (ezp2019_spi_init() == 0) {
     programmer_type = PROGRAMMER_EZP2019;
+  } else if (ch347_spi_init() == 0) {
+    programmer_type = PROGRAMMER_CH347;
   } else if (ch341a_spi_init() == 0) {
     programmer_type = PROGRAMMER_CH341A;
   } else {
@@ -187,11 +192,22 @@ int scriba_init_programmer(int type) {
     if (ret == 0)
       SPI_CONTROLLER_Init(PROGRAMMER_EZP2019);
     return ret;
+  } else if (type == SCRIBA_PROGRAMMER_CH347) {
+    programmer_type = PROGRAMMER_CH347;
+    int ret = ch347_spi_init();
+    if (ret == 0)
+      SPI_CONTROLLER_Init(PROGRAMMER_CH347);
+    return ret;
   } else {
     programmer_type = PROGRAMMER_AUTO;
     if (ezp2019_spi_init() == 0) {
       programmer_type = PROGRAMMER_EZP2019;
       SPI_CONTROLLER_Init(PROGRAMMER_EZP2019);
+      return 0;
+    }
+    if (ch347_spi_init() == 0) {
+      programmer_type = PROGRAMMER_CH347;
+      SPI_CONTROLLER_Init(PROGRAMMER_CH347);
       return 0;
     }
     if (ch341a_spi_init() == 0) {
@@ -264,16 +280,22 @@ int scriba_erase_flash(unsigned long offset, unsigned long len) {
 }
 
 int scriba_reinit(void) {
-#ifdef __EMSCRIPTEN__
-  return ch341a_spi_reinit();
-#else
-  return -1;
-#endif
+  return SPI_CONTROLLER_Reinit();
+}
+
+void scriba_set_spi_speed_khz(unsigned int khz) {
+  SPI_CONTROLLER_Set_Speed_Khz(khz);
+}
+
+void scriba_set_options(unsigned int opts) {
+  SPI_CONTROLLER_Set_Options(opts);
 }
 
 void scriba_shutdown(void) {
   if (programmer_type == PROGRAMMER_EZP2019)
     ezp2019_spi_shutdown();
+  else if (programmer_type == PROGRAMMER_CH347)
+    ch347_spi_shutdown();
   else
     ch341a_spi_shutdown();
 

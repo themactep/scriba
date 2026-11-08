@@ -9,7 +9,9 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
+#include <errno.h>
 #include <getopt.h>
+#include <limits.h>
 #include <signal.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -61,45 +63,48 @@ static void title(void) {
 }
 
 static void usage(const char *program_name) {
-  char use[1024];
-  snprintf(
-      use, sizeof(use),
-      "\nUsage: %s [options]\n"
-      "Automation:\n"
-      "  -R <file>    Read chip (read twice and compare)\n"
-      "  -W <file>    Write chip (erase + write + verify)\n"
-      "\n"
-      "Single operations:\n"
-      "  -i           Read chip ID\n"
-      "  -e           Erase chip\n"
-      "  -r <file>    Read chip to file\n"
-      "  -w <file>    Write file to chip\n"
-      "  -v           Verify after write\n"
-      "\n"
-      "Granularity:\n"
-      "  -a <address> Set address\n"
-      "  -l <bytes>   Set length\n"
-      "\n"
-      "SPI NAND:\n"
-      "  -d           Disable internal ECC\n"
-      "  -o <bytes>   Set OOB size\n"
-      "  -I           Ignore ECC errors\n"
-      "  -k           Skip BAD pages\n"
-      "\n"
-      "EEPROM:\n"
-      "  -E <chip>    Select EEPROM type\n"
-      "  -8           Set 8-bit organization\n"
-      "  -f <bits>    Set address size\n"
-      "  -s <bytes>   Set page size\n"
-      "\n"
-      "General:\n"
-      "  -h           Display help\n"
-      "  -L           List supported chips\n"
-      "  -P <prog>    Programmer type: ch341a, ezp2019, auto (default: auto)\n"
-      "  --debug      Enable debug messages for USB communication\n"
-      "  --trace      Dump SPI commands and data (implies --debug)\n"
-      "  --version    Print version and exit\n",
-      program_name);
+  char use[2048];
+  snprintf(use, sizeof(use),
+           "\nUsage: %s [options]\n"
+           "Automation:\n"
+           "  -R <file>    Read chip (read twice and compare)\n"
+           "  -W <file>    Write chip (erase + write + verify)\n"
+           "\n"
+           "Single operations:\n"
+           "  -i           Read chip ID\n"
+           "  -e           Erase chip\n"
+           "  -r <file>    Read chip to file\n"
+           "  -w <file>    Write file to chip\n"
+           "  -v           Verify after write\n"
+           "\n"
+           "Granularity:\n"
+           "  -a <address> Set address\n"
+           "  -l <bytes>   Set length\n"
+           "\n"
+           "SPI NAND:\n"
+           "  -d           Disable internal ECC\n"
+           "  -o <bytes>   Set OOB size\n"
+           "  -I           Ignore ECC errors\n"
+           "  -k           Skip BAD pages\n"
+           "\n"
+           "EEPROM:\n"
+           "  -E <chip>    Select EEPROM type\n"
+           "  -8           Set 8-bit organization\n"
+           "  -f <bits>    Set address size\n"
+           "  -s <bytes>   Set page size\n"
+           "\n"
+           "General:\n"
+           "  -h           Display help\n"
+           "  -L           List supported chips\n"
+           "  -P <prog>    Programmer type: ch341a, ch347, ezp2019, auto "
+           "(default: auto)\n"
+           "  --spi-speed <kHz>  SPI clock limit (CH347 only; default 15000)\n"
+           "  --no-cs-flags  CH347: separate chip-select commands even on "
+           "firmware 0341+\n"
+           "  --debug      Enable debug messages for USB communication\n"
+           "  --trace      Dump SPI commands and data (implies --debug)\n"
+           "  --version    Print version and exit\n",
+           program_name);
   printf(use);
   exit(0);
 }
@@ -185,10 +190,13 @@ int main(int argc, char *argv[]) {
   long flen = 0;
   int exit_code = 1;
 
-  static struct option long_options[] = {{"debug", no_argument, NULL, 0},
-                                         {"trace", no_argument, NULL, 0},
-                                         {"version", no_argument, NULL, 0},
-                                         {0, 0, 0, 0}};
+  static struct option long_options[] = {
+      {"debug", no_argument, NULL, 0},
+      {"trace", no_argument, NULL, 0},
+      {"spi-speed", required_argument, NULL, 0},
+      {"no-cs-flags", no_argument, NULL, 0},
+      {"version", no_argument, NULL, 0},
+      {0, 0, 0, 0}};
   int option_index = 0;
 
   while ((c = getopt_long(argc, argv, "diIhveLkl:a:w:r:W:R:o:s:E:f:8P:",
@@ -203,6 +211,22 @@ int main(int argc, char *argv[]) {
       if (strcmp(lname, "trace") == 0) {
         scriba_set_trace(1);
         printf("Trace mode enabled (debug forced on)\n");
+        continue;
+      }
+      if (strcmp(lname, "spi-speed") == 0) {
+        char *end = NULL;
+        errno = 0;
+        long khz = strtol(optarg, &end, 10);
+        if (!end || *end || errno == ERANGE || khz <= 0 || khz > INT_MAX) {
+          fprintf(stderr, "Invalid --spi-speed value: %s (kHz, e.g. 30000)\n",
+                  optarg);
+          exit(1);
+        }
+        scriba_set_spi_speed_khz((unsigned int)khz);
+        continue;
+      }
+      if (strcmp(lname, "no-cs-flags") == 0) {
+        scriba_set_options(SPI_OPT_NO_CS_FLAGS);
         continue;
       }
       if (strcmp(lname, "version") == 0) {
@@ -310,11 +334,14 @@ int main(int argc, char *argv[]) {
         programmer_type = PROGRAMMER_EZP2019;
       else if (strcmp(optarg, "ch341a") == 0 || strcmp(optarg, "ch341") == 0)
         programmer_type = PROGRAMMER_CH341A;
+      else if (strcmp(optarg, "ch347") == 0)
+        programmer_type = PROGRAMMER_CH347;
       else if (strcmp(optarg, "auto") == 0)
         programmer_type = PROGRAMMER_AUTO;
       else {
         fprintf(stderr,
-                "Unknown programmer type: %s (use ch341a, ezp2019, or auto)\n",
+                "Unknown programmer type: %s (use ch341a, ch347, ezp2019, or "
+                "auto)\n",
                 optarg);
         exit(1);
       }
@@ -374,8 +401,21 @@ int main(int argc, char *argv[]) {
   }
 
   if (scriba_init_programmer(programmer_type) < 0) {
-    fprintf(stderr, "No supported programmer device found!\n\n");
+    if (programmer_type == PROGRAMMER_CH347)
+      fprintf(stderr, "CH347 programmer device not found (CH347T must be in "
+                      "mode 1)!\n\n");
+    else
+      fprintf(stderr, "No supported programmer device found!\n\n");
     return 1;
+  }
+
+  /* I2C and Microwire EEPROMs are driven through CH341A-specific code that
+   * uses the CH341A's USB handle directly. */
+  if ((eepromsize > 0 || mw_eepromsize > 0) &&
+      programmer_type == PROGRAMMER_CH347) {
+    fprintf(stderr, "I2C and Microwire EEPROMs are not supported on the CH347 "
+                    "yet; use a CH341A.\n\n");
+    goto shutdown;
   }
 
   if (scriba_detect_chip() < 0) {

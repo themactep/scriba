@@ -70,15 +70,11 @@ void usb_hal_close(struct usb_hal *hal) {
 }
 
 int usb_hal_claim_interface(struct usb_hal *hal, int iface) {
-  (void)hal;
-  (void)iface;
-  return 0;
+  return libusb_claim_interface(hal->handle, iface);
 }
 
 int usb_hal_release_interface(struct usb_hal *hal, int iface) {
-  (void)hal;
-  (void)iface;
-  return 0;
+  return libusb_release_interface(hal->handle, iface);
 }
 
 int usb_hal_detach_kernel_driver(struct usb_hal *hal, int iface) {
@@ -104,6 +100,22 @@ int usb_hal_clear_halt(struct usb_hal *hal, int ep) {
 int usb_hal_reset_device(struct usb_hal *hal) {
   (void)hal;
   return 0; /* not applicable to WebUSB */
+}
+
+int usb_hal_set_auto_detach_kernel_driver(struct usb_hal *hal, int enable) {
+  (void)hal;
+  (void)enable;
+  return 0; /* no kernel drivers behind WebUSB */
+}
+
+int usb_hal_bulk_transfer(struct usb_hal *hal, int ep, uint8_t *data, int len,
+                          int *transferred, unsigned int timeout) {
+  return libusb_bulk_transfer(hal->handle, (unsigned char)ep, data, len,
+                              transferred, timeout);
+}
+
+const char *usb_hal_error_name(int errcode) {
+  return libusb_error_name(errcode);
 }
 
 void usb_hal_suppress_errors(struct usb_hal *hal, int suppress) {

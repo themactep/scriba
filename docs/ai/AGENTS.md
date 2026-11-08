@@ -1,7 +1,18 @@
 # AGENTS.md — Persistent Context for AI Agents
 
 ## Project
-Thingino **scriba** — a CH341A SPI flash programmer tool.
+Thingino **scriba** — a SPI flash programmer tool for CH341A, CH347, EZP2019
+and EZP2023 programmers.
+
+## Layout
+- `src/core/` — shared library: lifecycle (`scriba.c`), flash dispatch
+  (`flashcmd_api.c`), operations and validation.
+- `src/hal/` — hardware abstraction: `spi_controller.c` backend dispatch,
+  `usb/` transport HAL (libusb / WebUSB), and one directory per programmer
+  (`ch341a/`, `ch347/`, `ezp2019/`).
+- `src/protocol/` — `nor/`, `nand/`, `eeprom/` flash protocols.
+- `src/ui/cli/` — CLI frontend; `web/` — Vite/WebUSB frontend.
+- `res/` — udev rules.
 
 ## Status: All Issues Fixed ✓
 
@@ -29,10 +40,12 @@ Thingino **scriba** — a CH341A SPI flash programmer tool.
 - All operations verified at 20KHz SPI speed on CH341A rev 3.0.4 + ZB25VQ128
 
 ## Key Files
-- `src/ch341a_spi.c` — `pluck_cs()`, `cs_deassert()`, modified `ch341a_spi_send_command()`
-- `src/spi_controller.c` — `SPI_CONTROLLER_WriteRead_NByte()`, no-op chip_select for CH341A
-- `src/spi_nor_flash.c` — `snor_requires_sr3()` includes "ZB25", `SR3_TB` clearing in `snor_unprotect()`
-- `src/spi_nor_flash.h` — `SR3_TB 0x04` define
+- `src/hal/ch341a/ch341a_spi.c` — `pluck_cs()`, `cs_deassert()`, modified `ch341a_spi_send_command()`
+- `src/hal/ch347/ch347_spi.c` — CH347T/F driver: framed bulk commands, held writes, CS flags
+- `src/hal/spi_controller.c` — `SPI_CONTROLLER_WriteRead_NByte()`, backend table, clock/options
+- `src/hal/usb/usb_hal.h` — transport HAL; `libusb.c` (native) and `webusb.c` (WASM)
+- `src/protocol/nor/spi_nor_flash.c` — `snor_requires_sr3()` includes "ZB25", `SR3_TB` clearing in `snor_unprotect()`
+- `src/protocol/nor/spi_nor_flash.h` — `SR3_TB 0x04` define
 
 ## Test Commands
 ```bash

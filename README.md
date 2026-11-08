@@ -30,13 +30,29 @@ Scriba auto-detects the connected programmer — no configuration needed.
 | **CH341A** (black PCB) | `1a86:5512` | Must be modified for 3.3 V; see [CH341A guide](https://github.com/themactep/thingino-firmware/wiki/CH341A-Programmer) |
 | **EZP2019** / **EZP2019+** | `1fc8:310b` / `310c` | Works out of the box |
 | **EZP2023** | `1fc8:310d` | |
+| **CH347T** / **CH347F** | `1a86:55db` / `55de` | Put a CH347T board in mode 1 (UART + SPI + I2C). SPI flash and SPI EEPROM only, no I2C or Microwire EEPROM yet. Hardware SPI clock, 15 MHz by default |
 
 Force a specific programmer with `-P`:
 
 ```bash
 scriba -P ch341a -i
+scriba -P ch347 -i
 scriba -P ezp2019 -i
 ```
+
+Set the CH347 SPI clock with `--spi-speed <kHz>`. It picks the fastest of
+60, 30, 15, 7.5, 3.75, 1.875, 0.9375 or 0.46875 MHz that does not exceed the
+request; use a lower clock for long clip leads or in-circuit reads:
+
+```bash
+scriba -P ch347 --spi-speed 30000 -R backup.bin
+```
+
+On CH347T firmware 0341 or newer (and any CH347F), scriba carries chip-select
+inside the SPI data frames, as WCH's own Linux driver does, which saves USB
+round trips on every flash command. `--no-cs-flags` uses separate chip-select
+commands instead. In the web version, the clock selector and **Fast CS**
+appear once a CH347 is connected.
 
 ## Build & Install
 
@@ -48,7 +64,7 @@ make static       # static build (bundles libusb)
 sudo make install # installs binary + udev rules, reloads udev
 ```
 
-`make install` copies udev rules for both programmers and reloads them. If your
+`make install` copies the udev rules for every supported programmer and reloads them. If your
 programmer was already plugged in, unplug and replug it after installation.
 
 ## Web Version (WebUSB / WASM)
@@ -123,7 +139,9 @@ EEPROM:
   -s <bytes>   Page size (SPI EEPROM)
 
 General:
-  -P <prog>    Programmer: ch341a, ezp2019, auto (default)
+  -P <prog>    Programmer: ch341a, ch347, ezp2019, auto (default)
+  --spi-speed <kHz>  SPI clock limit (CH347 only)
+  --no-cs-flags      CH347: separate chip-select commands
   --debug      USB debug output
   --trace      Dump all SPI traffic
   -h           Help

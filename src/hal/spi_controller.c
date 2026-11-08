@@ -20,9 +20,13 @@
 
 #include "spi_controller.h"
 #include "ch341a_spi.h"
+#include "ch347_spi.h"
 #include "ezp2019_spi.h"
 
 PROGRAMMER_TYPE_T programmer_type = PROGRAMMER_AUTO;
+
+static unsigned int speed_khz = 0;
+static unsigned int options = 0;
 
 struct spi_backend {
   SPI_CONTROLLER_RTN_T (*write_one_byte)(u8 data);
@@ -33,6 +37,7 @@ struct spi_backend {
   SPI_CONTROLLER_RTN_T (*chip_select_low)(void);
   SPI_CONTROLLER_RTN_T (*chip_select_high)(void);
   void (*set_flash_params)(uint32_t size, uint16_t pagesize, uint16_t protocol);
+  int (*reinit)(void);
 };
 
 static SPI_CONTROLLER_RTN_T ch_write_one_byte(u8 data) {
@@ -74,7 +79,8 @@ static SPI_CONTROLLER_RTN_T ezp_read_nbyte(u8 *ptr_rtn_data, u32 len) {
                                                         ptr_rtn_data);
 }
 static SPI_CONTROLLER_RTN_T ezp_write_read_nbyte(u8 *ptr_data, u32 writelen,
-                                                 u8 *ptr_rtn_data, u32 readlen) {
+                                                 u8 *ptr_rtn_data,
+                                                 u32 readlen) {
   return (SPI_CONTROLLER_RTN_T)ezp2019_spi_send_command(writelen, readlen,
                                                         ptr_data, ptr_rtn_data);
 }
@@ -89,6 +95,35 @@ static void ezp_set_flash_params(uint32_t size, uint16_t pagesize,
   ezp_set_chip_params(size, pagesize, protocol);
 }
 
+static SPI_CONTROLLER_RTN_T c347_write_one_byte(u8 data) {
+  return (SPI_CONTROLLER_RTN_T)ch347_spi_send_command(1, 0, &data, NULL);
+}
+static SPI_CONTROLLER_RTN_T c347_write_nbyte(u8 *ptr_data, u32 len) {
+  return (SPI_CONTROLLER_RTN_T)ch347_spi_send_command(len, 0, ptr_data, NULL);
+}
+static SPI_CONTROLLER_RTN_T c347_read_nbyte(u8 *ptr_rtn_data, u32 len) {
+  return (SPI_CONTROLLER_RTN_T)ch347_spi_send_command(0, len, NULL,
+                                                      ptr_rtn_data);
+}
+static SPI_CONTROLLER_RTN_T c347_write_read_nbyte(u8 *ptr_data, u32 writelen,
+                                                  u8 *ptr_rtn_data,
+                                                  u32 readlen) {
+  return (SPI_CONTROLLER_RTN_T)ch347_spi_send_command(writelen, readlen,
+                                                      ptr_data, ptr_rtn_data);
+}
+static SPI_CONTROLLER_RTN_T c347_chip_select_low(void) {
+  return (SPI_CONTROLLER_RTN_T)ch347_cs_select();
+}
+static SPI_CONTROLLER_RTN_T c347_chip_select_high(void) {
+  return (SPI_CONTROLLER_RTN_T)ch347_cs_deselect();
+}
+static void c347_set_flash_params(uint32_t size, uint16_t pagesize,
+                                  uint16_t protocol) {
+  (void)size;
+  (void)pagesize;
+  (void)protocol;
+}
+
 static const struct spi_backend ch341a_backend = {
     .write_one_byte = ch_write_one_byte,
     .write_nbyte = ch_write_nbyte,
@@ -97,6 +132,9 @@ static const struct spi_backend ch341a_backend = {
     .chip_select_low = ch_chip_select_low,
     .chip_select_high = ch_chip_select_high,
     .set_flash_params = ch_set_flash_params,
+#ifdef __EMSCRIPTEN__
+    .reinit = ch341a_spi_reinit,
+#endif
 };
 
 static const struct spi_backend ezp2019_backend = {
@@ -109,14 +147,49 @@ static const struct spi_backend ezp2019_backend = {
     .set_flash_params = ezp_set_flash_params,
 };
 
+static const struct spi_backend ch347_backend = {
+    .write_one_byte = c347_write_one_byte,
+    .write_nbyte = c347_write_nbyte,
+    .read_nbyte = c347_read_nbyte,
+    .write_read_nbyte = c347_write_read_nbyte,
+    .chip_select_low = c347_chip_select_low,
+    .chip_select_high = c347_chip_select_high,
+    .set_flash_params = c347_set_flash_params,
+    .reinit = ch347_spi_reinit,
+};
+
 static const struct spi_backend *active_backend = &ch341a_backend;
 
 void SPI_CONTROLLER_Init(PROGRAMMER_TYPE_T type) {
   programmer_type = type;
   if (type == PROGRAMMER_EZP2019)
     active_backend = &ezp2019_backend;
+  else if (type == PROGRAMMER_CH347)
+    active_backend = &ch347_backend;
   else
     active_backend = &ch341a_backend;
+}
+
+void SPI_CONTROLLER_Set_Speed_Khz(unsigned int khz) {
+  speed_khz = khz;
+}
+
+unsigned int SPI_CONTROLLER_Get_Speed_Khz(void) {
+  return speed_khz;
+}
+
+void SPI_CONTROLLER_Set_Options(unsigned int opts) {
+  options = opts;
+}
+
+unsigned int SPI_CONTROLLER_Get_Options(void) {
+  return options;
+}
+
+int SPI_CONTROLLER_Reinit(void) {
+  if (!active_backend->reinit)
+    return -1;
+  return active_backend->reinit();
 }
 
 /**
@@ -171,8 +244,8 @@ SPI_CONTROLLER_RTN_T SPI_CONTROLLER_Read_NByte(u8 *ptr_rtn_data, u32 len) {
  * @return SPI_CONTROLLER_RTN_NO_ERROR on success
  */
 SPI_CONTROLLER_RTN_T SPI_CONTROLLER_WriteRead_NByte(u8 *ptr_data, u32 writelen,
-                                                     u8 *ptr_rtn_data,
-                                                     u32 readlen) {
+                                                    u8 *ptr_rtn_data,
+                                                    u32 readlen) {
   return (SPI_CONTROLLER_RTN_T)active_backend->write_read_nbyte(
       ptr_data, writelen, ptr_rtn_data, readlen);
 }

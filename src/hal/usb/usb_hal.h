@@ -39,6 +39,12 @@ int usb_hal_get_bcd_device(struct usb_hal *hal, uint16_t *bcd);
 
 int usb_hal_reset_device(struct usb_hal *hal);
 int usb_hal_clear_halt(struct usb_hal *hal, int ep);
+int usb_hal_set_auto_detach_kernel_driver(struct usb_hal *hal, int enable);
+/* Generic bulk transfer on any endpoint, for devices that frame commands and
+ * replies on dedicated bulk endpoints (CH347). */
+int usb_hal_bulk_transfer(struct usb_hal *hal, int ep, uint8_t *data, int len,
+                          int *transferred, unsigned int timeout);
+const char *usb_hal_error_name(int errcode);
 void usb_hal_suppress_errors(struct usb_hal *hal, int suppress);
 void *usb_hal_get_handle(struct usb_hal *hal);
 const char *usb_hal_version(struct usb_hal *hal);

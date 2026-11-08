@@ -935,9 +935,11 @@ async function doErase() {
     try {
         showProgress(0, 'Erasing entire chip (BE command)...');
 
+        var eraseStart = Date.now();
         var result = await wasmCall('scriba_erase_flash', 'number',
             ['number', 'number'],
             [0, flashSize]);
+        var eraseSec = (Date.now() - eraseStart) / 1000;
 
         if (result !== 0) {
             log('Full chip erase failed: error ' + result, 'error');
@@ -946,23 +948,35 @@ async function doErase() {
             return;
         }
 
+        /* A chip that did not take WREN returns from BE at once; the C side
+         * checks and retries WEL once, and this catches what is left. */
+        if (eraseSec < 3) {
+            log('WARNING: Erase completed in ' + eraseSec.toFixed(1) +
+                's which is too fast for this chip. The command may not have been accepted.' +
+                ' Try re-seating the flash chip and reloading the page.', 'error');
+            hideProgress();
+            setState('error');
+            return;
+        }
+
         showProgress(100, 'Verifying erase...');
-        var verifyPtr = Module._malloc(256);
+        var verifyLen = 65536;
+        var verifyPtr = Module._malloc(verifyLen);
         if (verifyPtr) {
             var readResult = await wasmCall('scriba_read_flash', 'number',
                 ['number', 'number', 'number'],
-                [verifyPtr, 0, 256]);
+                [verifyPtr, 0, verifyLen]);
             if (readResult >= 0) {
                 var allFF = true;
                 var firstNonFF = -1;
-                for (var i = 0; i < 256; i++) {
+                for (var i = 0; i < verifyLen; i++) {
                     if (Module.HEAPU8[verifyPtr + i] !== 0xFF) {
                         allFF = false;
                         if (firstNonFF < 0) firstNonFF = i;
                     }
                 }
                 if (allFF) {
-                    log('Erase verified: first 256 bytes are all 0xFF', 'success');
+                    log('Erase verified: first 64 KB are all 0xFF', 'success');
                 } else {
                     log('Erase FAILED: byte ' + firstNonFF + ' is 0x' + Module.HEAPU8[verifyPtr + firstNonFF].toString(16) + ' (expected 0xFF)', 'error');
                     var hex = '';

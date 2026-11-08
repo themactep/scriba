@@ -143,7 +143,7 @@ $(LIBUSB_TARBALL):
 # Web / WASM build
 #
 WEB_DIR        = web
-EMSDK_DIR      = emsdk
+EMSDK_DIR      = $(WEB_DIR)/emsdk
 EMCC           = $(EMSDK_DIR)/upstream/emscripten/emcc
 WEB_BUILD_DIR  = $(WEB_DIR)/build
 WEB_OUT_DIR    = $(WEB_DIR)/public/wasm
@@ -193,10 +193,10 @@ WEB_LDFLAGS += --js-library $(WEB_JS_LIB)
 WEB_OUT_JS  = $(WEB_OUT_DIR)/scriba.js
 WEB_OUT_WASM = $(WEB_OUT_DIR)/scriba.wasm
 
-# Auto-init emsdk submodule and install Emscripten on first build.
+# Fetch the Emscripten SDK on first web build.
 $(EMSDK_DIR):
-	@echo "Initialising emsdk submodule..."
-	git submodule update --init $(EMSDK_DIR)
+	@echo "Downloading Emscripten SDK to $(EMSDK_DIR)..."
+	git clone --depth 1 https://github.com/emscripten-core/emsdk.git $(EMSDK_DIR)
 
 $(EMCC): | $(EMSDK_DIR)
 	@echo "Emscripten SDK not yet installed. Running installer..."

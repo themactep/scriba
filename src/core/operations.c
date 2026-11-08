@@ -130,9 +130,9 @@ int op_write(const char *filepath, unsigned long addr, unsigned long len,
     free(buf);
     return -1;
   }
-  if (len == flash_size)
+  if (len == (unsigned long)flash_size)
     len = wlen;
-  if (len > flash_size) {
+  if (len > (unsigned long)flash_size) {
     fprintf(stderr, "File size %lu exceeds chip capacity %ld.\n", len,
             flash_size);
     fclose(fp);
@@ -210,9 +210,9 @@ int op_write_macro(const char *filepath, unsigned long addr,
     free(buf);
     return -1;
   }
-  if (len == flash_size)
+  if (len == (unsigned long)flash_size)
     len = wlen;
-  if (len > flash_size) {
+  if (len > (unsigned long)flash_size) {
     fprintf(stderr, "File size %lu exceeds chip capacity %ld.\n", len,
             flash_size);
     fclose(fp);
@@ -222,7 +222,7 @@ int op_write_macro(const char *filepath, unsigned long addr,
   fclose(fp);
 
   printf("WRITE (Erase + Write + Verify):\n");
-  if (len == flash_size)
+  if (len == (unsigned long)flash_size)
     printf("Set full erase chip!\n");
 
   printf("Step 1/3 - ERASE:\n");
@@ -322,10 +322,10 @@ int op_read_macro(const char *filepath, unsigned long addr, unsigned long len) {
   if (memcmp(buf1, buf2, len) != 0) {
     long long mismatch_count = 0;
     long long first_mismatch = -1;
-    for (long long i = 0; i < len; i++) {
+    for (unsigned long i = 0; i < len; i++) {
       if (buf1[i] != buf2[i]) {
         if (first_mismatch == -1)
-          first_mismatch = i;
+          first_mismatch = (long long)i;
         mismatch_count++;
       }
     }

@@ -526,6 +526,22 @@ int full_erase_chip(void) {
   }
   snor_set_progress("BE", 0);
   snor_write_enable();
+#ifdef __EMSCRIPTEN__
+  /* A chip that did not take WREN accepts BE and returns at once, which
+   * looks like a successful erase. Check WEL and recover once. */
+  {
+    uint8_t sr = 0;
+    if (snor_read_sr(&sr) == 0 && !(sr & SR_WEL)) {
+      fprintf(stderr,
+              "[WARN] WEL not set after WREN (SR=0x%02x), reinitializing\n",
+              sr);
+      SPI_CONTROLLER_Reinit();
+      snor_write_enable();
+      if (snor_read_sr(&sr) == 0)
+        fprintf(stderr, "[WARN] WEL after retry: SR=0x%02x\n", sr);
+    }
+  }
+#endif
   if (SPI_CONTROLLER_Write_One_Byte(OPCODE_BE1)) {
     snor_write_disable();
     snor_clear_progress();

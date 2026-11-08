@@ -132,10 +132,11 @@ static void usage(const char *program_name) {
       "  --no-cs-flags  CH347: separate chip-select commands even on firmware 0341+\n"
       "  --layout <file> Show the partitions of an image file (no programmer)\n"
       "  --debug      Enable debug messages for USB communication\n"
-           "  --trace      Dump SPI commands and data (implies --debug)\n"
-           "  --version    Print version and exit\n",
+      "  --trace      Dump SPI commands and data (implies --debug)\n"
+      "  -V           Print version and exit\n"
+      "  --version    Print version and exit\n",
            program_name);
-  printf(use);
+  printf("%s", use);
   exit(0);
 }
 
@@ -230,7 +231,7 @@ int main(int argc, char *argv[]) {
                                          {0, 0, 0, 0}};
   int option_index = 0;
 
-  while ((c = getopt_long(argc, argv, "diIhveLkl:a:w:r:W:R:o:s:E:f:8P:",
+  while ((c = getopt_long(argc, argv, "diIhveLkl:a:w:r:W:R:o:s:E:f:8P:V",
                           long_options, &option_index)) != -1) {
     if (c == 0) {
       const char *lname = long_options[option_index].name;
@@ -382,6 +383,9 @@ int main(int argc, char *argv[]) {
       break;
     case 'L':
       support_flash_list();
+      exit(0);
+    case 'V':
+      title();
       exit(0);
     case 'h':
     default:

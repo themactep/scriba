@@ -40,6 +40,15 @@ scriba -P ch347 -i
 scriba -P ezp2019 -i
 ```
 
+With more than one supported programmer connected, auto-detect lists them and
+asks which one to use; `-P` skips the question. Only the programmer wired to
+the chip can detect it.
+
+**Check the flash supply voltage.** Winbond `...FW` and `...JW` parts are
+1.8 V and need level shifting on a 3.3 V CH341A. A marginal clip or a voltage
+mismatch shows up as sporadic bit flips in repeated reads; use `-R` (or
+**Read twice** in the web version) to catch it before trusting a dump.
+
 Set the CH347 SPI clock with `--spi-speed <kHz>`. It picks the fastest of
 60, 30, 15, 7.5, 3.75, 1.875, 0.9375 or 0.46875 MHz that does not exceed the
 request; use a lower clock for long clip leads or in-circuit reads:
@@ -152,6 +161,7 @@ General:
   --layout <file>  Show the partitions of an image file (no programmer)
   --debug      USB debug output
   --trace      Dump all SPI traffic
+  -V           Print version
   -h           Help
 ```
 
@@ -208,6 +218,18 @@ scriba --trace -r dump.bin             # dump every SPI byte
 scriba -E 93c46 -r eeprom.bin
 scriba -E 24c32 -w eeprom.bin
 ```
+
+## Testing
+
+```bash
+make
+./test.sh                                    # CLI tests, no hardware needed
+SCRIBA_HW=1 SCRIBA_HW_PROG=ch341a ./test.sh  # + identify and a 4 KB read
+```
+
+The hardware pass is read-only: it identifies the chip and reads the first
+4 KB. Use `SCRIBA_HW_PROG` to pick the programmer when more than one is
+connected.
 
 ---
 

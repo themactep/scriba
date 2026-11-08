@@ -1,8 +1,12 @@
 /.vscode/
+/.kilo/
 /build/
-/frontends/web/build/
 /dl/
-/frontends/web/node-modules/
+/web/build/
+/web/dist/
+/web/emsdk/
+/web/node_modules/
+/web/public/wasm/
 CLAUDE.md
 *.bin
-
+*.log

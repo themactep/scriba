@@ -726,11 +726,19 @@ int snor_read(unsigned char *buf, unsigned long from, unsigned long len) {
   return len;
 }
 
+static int snor_is_blank(const unsigned char *p, u32 n) {
+  while (n--)
+    if (*p++ != 0xFF)
+      return 0;
+  return 1;
+}
+
 int snor_write(unsigned char *buf, unsigned long to, unsigned long len) {
   u32 page_offset, page_size;
   int rc = 0, retlen = 0;
   int err = 0;
   unsigned long plen = len;
+  unsigned long skipped = 0;
 
   // snor_dbg("%s: to:%x len:%x \n", __func__, to, len); // Commented out
   // missing function
@@ -767,6 +775,21 @@ int snor_write(unsigned char *buf, unsigned long to, unsigned long len) {
   while (len > 0) {
     page_size = min(len, FLASH_PAGESIZE - page_offset);
     page_offset = 0;
+
+    /* Programming only clears bits (1 -> 0), so a page of all 0xFF changes
+     * nothing, erased or not: skip it. Images with blank areas (unused
+     * partitions, padding) then cost nothing there. */
+    if (snor_is_blank(buf, page_size)) {
+      skipped++;
+      retlen += page_size;
+      len -= page_size;
+      to += page_size;
+      buf += page_size;
+      if (progress_cb)
+        progress_cb("Written", plen - len, plen);
+      continue;
+    }
+
     snor_set_progress("PP", to);
     snor_write_enable();
 
@@ -819,6 +842,16 @@ int snor_write(unsigned char *buf, unsigned long to, unsigned long len) {
 
   snor_write_disable();
   snor_clear_progress();
+
+#ifndef __EMSCRIPTEN__
+  /* The web UI calls the flash layer once per 64 KB chunk and reports from
+   * the whole image, so this line would repeat there. */
+  if (skipped)
+    printf("Skipped %lu blank (all 0xFF) page%s\n", skipped,
+           skipped == 1 ? "" : "s");
+#else
+  (void)skipped;
+#endif
 
   if (err) {
     return err;

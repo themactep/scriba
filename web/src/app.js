@@ -578,10 +578,18 @@ async function readPass(label, pctFrom, pctTo, dest, after) {
     return true;
 }
 
+/* Lowercase hex SHA-256 of data, or '' when the browser cannot compute one
+ * (no WebCrypto, or the digest fails). A dump that has already been saved
+ * must not be reported as a failed read because of a missing hash. */
 async function sha256Hex(data) {
     if (!window.crypto || !crypto.subtle) return '';
-    var d = new Uint8Array(await crypto.subtle.digest('SHA-256', data));
-    return Array.prototype.map.call(d, function(b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+    try {
+        var d = new Uint8Array(await crypto.subtle.digest('SHA-256', data));
+        return Array.prototype.map.call(d, function(b) { return ('0' + b.toString(16)).slice(-2); }).join('');
+    } catch (e) {
+        log('Could not compute the SHA-256: ' + e.message, 'warn');
+        return '';
+    }
 }
 
 async function doRead() {

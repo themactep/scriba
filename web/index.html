@@ -32,6 +32,19 @@
         #log .debug { color: #484f58; }
         #log .warn { color: darkorange !important; }
         #log .error { color: #f85149; }
+        #log .ts, #op-log .ts { color: #6e7681; }
+        /* Partitions */
+        .layout-table { --bs-table-bg: transparent; font-size: 0.8rem; margin-bottom: 0.25rem; }
+        .layout-table th { color: #8b949e; font-weight: 500; }
+        .layout-table td.range, .layout-table td.size {
+            font-family: 'Courier New', monospace;
+            white-space: nowrap;
+        }
+        .layout-table td.size { text-align: right; }
+        .layout-table td.name { color: #58a6ff; white-space: nowrap; }
+        .layout-table tr.dim td { color: #6e7681; }
+        .layout-meta { font-size: 0.8rem; color: #8b949e; }
+        .layout-note { font-size: 0.8rem; color: darkorange; }
         .device-info { font-size: 0.9rem; }
         .device-info .label { color: #8b949e; }
         .device-info .value { color: #58a6ff !important; font-family: monospace; }
@@ -137,6 +150,18 @@
                     </div>
                 </div>
             </div>
+            <div class="d-flex flex-wrap align-items-center gap-2 mt-1">
+                <div class="form-check form-check-inline mb-0" data-bs-toggle="tooltip"
+                    title="Read Flash: save the dump only up to its last non-0xFF byte (flash_dump_trimmed.bin). Nothing is lost for Write, which erases the whole chip first; keep full dumps as backups">
+                    <input class="form-check-input" type="checkbox" id="trim-tail">
+                    <label class="form-check-label small" for="trim-tail">Trim 0xFF tail</label>
+                </div>
+                <div class="form-check form-check-inline mb-0" data-bs-toggle="tooltip"
+                    title="Read Flash: read the chip twice and save the dump only if both reads match, like the CLI's -R. Takes twice as long">
+                    <input class="form-check-input" type="checkbox" id="read-twice">
+                    <label class="form-check-label small" for="read-twice">Read twice</label>
+                </div>
+            </div>
             <div class="file-info mt-1" id="file-info"></div>
             <button id="btn-start-write" class="btn btn-warning btn-sm mt-1 d-none" onclick="doWrite()"
                 data-bs-toggle="tooltip" title="Erase, write, and verify the flash with the selected firmware">
@@ -196,6 +221,29 @@
         </div>
     </div>
 
+    <!-- Partitions: the layout of the last flash read or loaded image -->
+    <div id="layout-card" class="card mb-3 d-none">
+        <div class="card-header d-flex align-items-center gap-2">
+            <h2 class="card-title mb-0 fs-6 text-nowrap">
+                <i class="bi bi-diagram-3 me-1"></i> Partitions
+            </h2>
+            <span id="layout-image" class="small text-secondary ms-auto text-truncate"></span>
+        </div>
+        <div class="card-body p-2">
+            <div id="layout-note" class="layout-note mb-1 d-none"></div>
+            <div id="layout-source" class="layout-meta mb-1"></div>
+            <div class="table-responsive">
+                <table class="table table-sm layout-table">
+                    <thead>
+                        <tr><th>Range</th><th class="text-end">Size</th><th>Name</th><th>Contents</th></tr>
+                    </thead>
+                    <tbody id="layout-rows"></tbody>
+                </table>
+            </div>
+            <div id="layout-extent" class="layout-meta"></div>
+        </div>
+    </div>
+
     <!-- Log -->
     <div class="card">
         <div class="card-header d-flex align-items-center gap-2">
@@ -218,7 +266,7 @@
 </div>
 
 <p class="mt-2 small text-center" id="version-text">
-    <a href="https://github.com/wltechblog/scriba" target="_blank" class="text-secondary text-decoration-none">scriba</a>
+    <a href="https://github.com/themactep/scriba" target="_blank" class="text-secondary text-decoration-none">scriba</a>
     web-wasm
 </p>
 

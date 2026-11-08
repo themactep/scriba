@@ -72,17 +72,25 @@ programmer was already plugged in, unplug and replug it after installation.
 Scriba also runs in the browser via WebAssembly and WebUSB — no driver
 installation needed. Requires a Chromium-based browser (Chrome, Edge, Opera).
 
+**Read twice** reads the chip a second time and saves the dump only if both
+reads match, as `-R` does on the command line. **Trim 0xFF tail** saves a
+read only up to its last data byte, as `flash_dump_trimmed.bin`; writing that
+back loses nothing, because Write erases the whole chip first. Every saved
+read ends with its SHA-256 in the log. The **Partitions** card shows the
+layout of a read or a loaded image, with where the data ends; blank
+partitions are dimmed. The CH347 clock selector and **Fast CS** appear once a
+CH347 is connected.
+
 ### Build
 
 ```bash
-cd web
-npm install
-cd build && emcmake cmake .. && emmake make
+make web          # builds web/public/wasm/scriba.js and scriba.wasm
 ```
 
-The build outputs `scriba.js` and `scriba.wasm` to `web/public/wasm/`.
+The first build initialises the `emsdk` submodule and installs Emscripten.
 
-**Prerequisites:** Emscripten (`emcc`), CMake, Node.js
+**Prerequisites:** Node.js for the frontend; Emscripten is fetched by the
+build.
 
 ### Development
 
@@ -93,8 +101,7 @@ npm run dev      # starts Vite dev server on http://localhost:5173
 ```
 
 Vite serves static files from `web/` including `web/public/wasm/` where the
-Emscripten build places its output. After rebuilding (`emmake make`), just
-reload the browser.
+Emscripten build places its output. After `make web`, just reload the browser.
 
 ### Production
 

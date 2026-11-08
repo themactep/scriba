@@ -526,4 +526,94 @@ mergeInto(LibraryManager.library, {
             });
         });
     },
+
+    /* ------------------------------------------------------------------ */
+    /*  Pipelined bulk stream (one OUT, many INs in flight)                */
+    /* ------------------------------------------------------------------ */
+
+    /* Send out_len bytes as one OUT transfer while keeping up to `depth` IN
+     * transfers of at most in_pkt bytes in flight, until in_len bytes have
+     * arrived at data_in, in order. For devices that answer each OUT packet
+     * with one short IN packet, such as the CH341A (31 bytes per 32-byte SPI
+     * stream packet): its native driver does the same with libusb's async
+     * API, while awaiting each packet in turn costs a WebUSB round trip per
+     * 32 bytes. Every IN must return exactly the bytes asked for, or the
+     * data after it would land at the wrong offset. One timeout covers the
+     * whole stream. Returns 0 or a LIBUSB_ERROR code. */
+    usb_bulk_stream__deps: ['$webusb_state'],
+    usb_bulk_stream__async: true,
+    usb_bulk_stream: function(handle_ptr, ep_out, data_out_ptr, out_len,
+                              ep_in, data_in_ptr, in_len, in_pkt, depth, timeout) {
+        var device = webusb_state.handles[handle_ptr];
+        if (!device) return -4;
+        if (in_pkt <= 0 || depth <= 0) return -2;
+
+        var epOutNum = ep_out & 0x0F;
+        var epInNum = ep_in & 0x0F;
+        var timeoutMs = (timeout && timeout > 0) ? timeout : 30000;
+
+        return Asyncify.handleAsync(function() {
+            function fail(code, what) {
+                return Promise.reject({name: 'StreamError', code: code, what: what});
+            }
+
+            var outDone = out_len <= 0 ? Promise.resolve() :
+                device.transferOut(epOutNum, HEAPU8.slice(data_out_ptr, data_out_ptr + out_len))
+                    .then(function(r) {
+                        if (r.status !== 'ok' || r.bytesWritten !== out_len)
+                            return fail(-9, 'OUT ' + r.status + ', ' + r.bytesWritten +
+                                ' of ' + out_len + ' bytes');
+                    });
+
+            var posted = 0, queue = [];
+            function post() {
+                while (posted < in_len && queue.length < depth) {
+                    var n = Math.min(in_pkt, in_len - posted);
+                    var p = device.transferIn(epInNum, n);
+                    p.catch(function() {});   /* left pending if the stream fails */
+                    queue.push({off: posted, n: n, p: p});
+                    posted += n;
+                }
+            }
+            function drain() {
+                if (!queue.length) return outDone;
+                var t = queue.shift();
+                return t.p.then(function(r) {
+                    if (r.status !== 'ok')
+                        return fail(r.status === 'babble' ? -8 : -9, 'IN ' + r.status);
+                    if (r.data.byteLength !== t.n)
+                        return fail(-1, 'IN got ' + r.data.byteLength + ' of ' + t.n +
+                            ' bytes at +' + t.off);
+                    HEAPU8.set(new Uint8Array(r.data.buffer, r.data.byteOffset, t.n),
+                        data_in_ptr + t.off);
+                    post();
+                    return drain();
+                });
+            }
+            post();
+
+            var timer;
+            var timeoutP = new Promise(function(_, reject) {
+                timer = setTimeout(function() { reject({name: 'TimeoutError'}); }, timeoutMs);
+            });
+            return Promise.race([Promise.all([outDone, drain()]), timeoutP]).then(function() {
+                clearTimeout(timer);
+                return 0;
+            }, function(e) {
+                clearTimeout(timer);
+                if (e.name === 'TimeoutError') {
+                    console.error('usb_bulk_stream TIMEOUT after ' + timeoutMs + 'ms (' +
+                        out_len + ' bytes out, ' + in_len + ' in)');
+                    return -7;
+                }
+                if (e.name === 'StreamError') {
+                    console.error('usb_bulk_stream: ' + e.what);
+                    return e.code;
+                }
+                if (e.name === 'NotFoundError') return -4;
+                console.error('usb_bulk_stream error:', e);
+                return -1;
+            });
+        });
+    },
 });

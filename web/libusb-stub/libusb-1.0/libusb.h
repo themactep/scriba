@@ -141,4 +141,12 @@ int usb_bulk_pair(libusb_device_handle *handle,
     unsigned char ep_in, unsigned char *data_in, int in_len,
     unsigned int timeout);
 
+/* Pipelined bulk stream: data_out as one OUT transfer, with up to `depth`
+ * IN transfers of in_pkt bytes in flight until in_len bytes are read. For
+ * devices that answer every OUT packet with a short IN packet (CH341A). */
+int usb_bulk_stream(libusb_device_handle *handle,
+    unsigned char ep_out, const unsigned char *data_out, int out_len,
+    unsigned char ep_in, unsigned char *data_in, int in_len,
+    int in_pkt, int depth, unsigned int timeout);
+
 #endif /* LIBUSB_STUB_H */

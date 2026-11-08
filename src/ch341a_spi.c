@@ -202,49 +202,23 @@ static int32_t usb_transfer(const char *func, unsigned int writecnt, unsigned in
 #ifdef __EMSCRIPTEN__
 #define EM_USB_TIMEOUT 5000
 
-	if (writecnt > 0 && readcnt > 0)
+	if (writecnt > CH341_PACKET_LENGTH && readcnt > 0)
 	{
-		unsigned int off_out = CH341_PACKET_LENGTH;
-		unsigned int off_in = 0;
-		unsigned int rem_out = writecnt - CH341_PACKET_LENGTH;
-
-		while (rem_out > 0)
+		/* writearr starts with an all-zero packet, which only the native
+		 * path sends. SPI stream packets follow: a command byte and up to
+		 * 31 data bytes each, which the CH341A answers with one IN packet
+		 * holding a byte per data byte. Send them as one OUT transfer with
+		 * reads in flight, as the native path does, instead of a WebUSB
+		 * round trip per packet. */
+		int ret = usb_bulk_stream(handle, WRITE_EP,
+			writearr + CH341_PACKET_LENGTH, writecnt - CH341_PACKET_LENGTH,
+			READ_EP, readarr, readcnt,
+			CH341_PACKET_LENGTH - 1, USB_IN_TRANSFERS, EM_USB_TIMEOUT);
+		if (ret)
 		{
-			unsigned int row_avail = rem_out;
-			if (row_avail > CH341_PACKET_LENGTH)
-				row_avail = CH341_PACKET_LENGTH;
-
-			int sent = 0;
-			int ret = libusb_bulk_transfer(handle, WRITE_EP,
-				(unsigned char *)writearr + off_out,
-				row_avail, &sent, EM_USB_TIMEOUT);
-			if (ret)
-			{
-				fprintf(stderr, "%s: row OUT failed (%u): %s\n",
-					func, row_avail, libusb_error_name(ret));
-				return -1;
-			}
-
-			unsigned int chunk_in = (row_avail > 1) ? row_avail - 1 : 0;
-			if (chunk_in > 0 && off_in < readcnt)
-			{
-				if (chunk_in > readcnt - off_in)
-					chunk_in = readcnt - off_in;
-				int received = 0;
-				ret = libusb_bulk_transfer(handle, READ_EP,
-					readarr + off_in, chunk_in,
-					&received, EM_USB_TIMEOUT);
-				if (ret)
-				{
-					fprintf(stderr, "%s: row IN failed (%u): %s\n",
-						func, chunk_in, libusb_error_name(ret));
-					return -1;
-				}
-				off_in += chunk_in;
-			}
-
-			off_out += row_avail;
-			rem_out -= row_avail;
+			fprintf(stderr, "%s: stream failed (%u bytes out, %u in): %s\n",
+				func, writecnt - CH341_PACKET_LENGTH, readcnt, libusb_error_name(ret));
+			return -1;
 		}
 	}
 	else if (writecnt > 0)
@@ -565,39 +539,8 @@ static int ch341a_spi_send_stream(unsigned int writecnt, unsigned int readcnt, c
 		write_left -= write_now;
 	}
 
-#ifdef __EMSCRIPTEN__
-	if (readcnt == 0 && writecnt > 0) {
-		unsigned int total = packets + writecnt;
-		unsigned int off = 0;
-		unsigned int rem = total;
-		uint8_t *spi_data = ((uint8_t*)wbuf) + CH341_PACKET_LENGTH;
-
-		while (rem > 0) {
-			unsigned int chunk = rem;
-			if (chunk > CH341_PACKET_LENGTH)
-				chunk = CH341_PACKET_LENGTH;
-
-			int sent = 0;
-			ret = libusb_bulk_transfer(handle, WRITE_EP,
-				spi_data + off, chunk, &sent, EM_USB_TIMEOUT);
-			if (ret) {
-				fprintf(stderr, "%s: OUT transfer failed: %s\n",
-					__func__, libusb_error_name(ret));
-				return -1;
-			}
-			off += chunk;
-			rem -= chunk;
-
-			unsigned int drain_n = chunk > 1 ? chunk - 1 : 0;
-			if (drain_n > 0) {
-				int drained = 0;
-				libusb_bulk_transfer(handle, READ_EP,
-					rbuf, drain_n, &drained, 100);
-			}
-		}
-		ret = 0;
-	} else
-#endif
+	/* Writes are answered too (a byte per byte clocked out); the stream
+	 * reads them into rbuf, so a write-only command needs no special path. */
 	ret = usb_transfer(__func__, CH341_PACKET_LENGTH + packets + writecnt + readcnt,
 			   writecnt + readcnt, wbuf[0], rbuf);
 

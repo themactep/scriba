@@ -4,6 +4,8 @@
  * Copyright (C) 2025-2026 Paul Philippov <paul@themactep.com>
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
+#include <errno.h>
+#include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -191,8 +193,9 @@ int main(int argc, char *argv[])
 			if (strcmp(lname, "spi-speed") == 0)
 			{
 				char *end = NULL;
+				errno = 0;
 				long khz = strtol(optarg, &end, 10);
-				if (!end || *end || khz <= 0)
+				if (!end || *end || errno == ERANGE || khz <= 0 || khz > INT_MAX)
 				{
 					fprintf(stderr, "Invalid --spi-speed value: %s (kHz, e.g. 30000)\n", optarg);
 					exit(1);
@@ -629,7 +632,7 @@ if (op == 'R')
  			fclose(fp);
 
  			printf("Read Status: OK - Verified data saved to %s\n", op_arg);
- 			if (addr == 0 && len == flen && !eepromsize && !mw_eepromsize && !seepromsize)
+ 			if (addr == 0 && len == flen && flash_cmd_type() == FLASH_TYPE_NOR)
  				flash_layout_report(buf1, len, flen);
  			free(buf1);
  			free(buf2);
@@ -724,7 +727,7 @@ if (op == 'R')
 		}
 		fclose(fp);
 		printf("Status: OK\n");
-		if (addr == 0 && len == flen && !eepromsize && !mw_eepromsize && !seepromsize)
+		if (addr == 0 && len == flen && flash_cmd_type() == FLASH_TYPE_NOR)
 			flash_layout_report(buf, len, flen);
 		free(buf);
 		goto okout;

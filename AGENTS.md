@@ -177,7 +177,7 @@ web/
 │   ├── web_main.c             C entry for WASM (flat API)
 │   └── libusb-webusb.js       JS reimplementation of libusb API over WebUSB
 ├── libusb-stub/libusb-1.0/    Stub libusb headers for WASM build
-├── CMakeLists.txt             Emscripten build
+├── Makefile                   Emscripten build
 ├── build.sh                   One-shot build script
 ├── package.json               Vite + Bootstrap
 └── vite.config.js             Outputs to web/dist/
@@ -220,7 +220,7 @@ are inherently async.
 
 Exported WASM functions: `scriba_init`, `scriba_detect_chip`, `scriba_read_flash`,
 `scriba_write_flash`, `scriba_erase_flash`, `scriba_shutdown`, `scriba_get_version`,
-etc. See CMakeLists.txt `EXPORTED_FUNCTIONS` for the full list.
+etc. See the `EXPORTS` list in `web/Makefile` for the full set.
 
 ---
 
@@ -316,7 +316,7 @@ Adding threading or reentrancy would require gutting `programmer_type`,
 ### WEB: ASYNCIFY means synchronous-looking C code
 The WebUSB shim (`libusb-webusb.js`) returns Promises, but Emscripten's
 ASYNCIFY makes the C code wait synchronously. If you change the shim, you
-must keep `ASYNCIFY_IMPORTS` in CMakeLists.txt in sync with all async
+must keep `ASYNCIFY_IMPORTS` in `web/Makefile` in sync with all async
 functions. Missing one = runtime hang.
 
 ### WEB: libusb-stub headers
@@ -328,7 +328,7 @@ signatures. libusb version skew here will cause silent failures.
 ### EEPROM support is compile-time conditional
 `#ifdef EEPROM_SUPPORT` guards EEPROM files. `Makefile` sets
 `EEPROM_SUPPORT = yes` and adds the source files + `-DEEPROM_SUPPORT`.
-The web `CMakeLists.txt` does NOT include EEPROM source files — WASM build
+The web `Makefile` does NOT include EEPROM source files — WASM build
 is SPI NOR/NAND only.
 
 ### `memcmp` is used for verification now

@@ -14,6 +14,7 @@
  * and compressed streams. Without an mtdparts string, the headers alone give
  * the boundaries.
  */
+#include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -81,6 +82,12 @@ static int is_blank(const unsigned char *p, unsigned long n)
 		if (*p++ != 0xFF)
 			return 0;
 	return 1;
+}
+
+/* a + b, saturated instead of wrapping: partition sizes come from the image */
+static unsigned long add_sat(unsigned long a, unsigned long b)
+{
+	return b > ULONG_MAX - a ? ULONG_MAX : a + b;
 }
 
 /* Bytes from s up to and including the last non-0xFF byte before e */
@@ -203,17 +210,22 @@ struct mtd_spec {
 static int parse_size(const char **s, unsigned long *v)
 {
 	char *end;
+	unsigned long mul = 1;
 	unsigned long x = strtoul(*s, &end, 0);
 
 	if (end == *s)
 		return 0;
 	switch (*end) {
-	case 'k': case 'K': x *= 1024; end++; break;
-	case 'm': case 'M': x *= 1024UL * 1024; end++; break;
-	case 'g': case 'G': x *= 1024UL * 1024 * 1024; end++; break;
+	case 'k': case 'K': mul = 1024; end++; break;
+	case 'm': case 'M': mul = 1024UL * 1024; end++; break;
+	case 'g': case 'G': mul = 1024UL * 1024 * 1024; end++; break;
 	}
+	/* A size that does not fit in unsigned long cannot describe a real
+	 * partition and would overflow the arithmetic that uses it. */
+	if (x > ULONG_MAX / mul)
+		return 0;
 	*s = end;
-	*v = x;
+	*v = x * mul;
 	return 1;
 }
 
@@ -503,22 +515,23 @@ static void identify(const unsigned char *img, unsigned long len, unsigned long 
 		     unsigned long size, const struct env_info *envs, int nenv,
 		     char *what, size_t n)
 {
-	unsigned long e = s + size, span;
+	unsigned long e, span;
 	char u[32], hdr[128];
 
 	if (s >= len) {
 		snprintf(what, n, "not in this image (it ends at 0x%06lX)", len);
 		return;
 	}
-	if (e > len)
-		e = len;
+	/* s + size may overflow for a corrupt or hostile mtdparts string:
+	 * clamp before the end is used as a scan bound. */
+	e = size > len - s ? len : s + size;
 	if (is_blank(img + s, e - s)) {
 		snprintf(what, n, "blank");
 		return;
 	}
 	if (is_jffs2(img + s, e - s)) {
 		describe_jffs2(img, s, e, what, n);
-		if (s + size > len)
+		if (size > len - s)
 			snprintf(what + strlen(what), n - strlen(what), " (image ends inside)");
 		return;
 	}
@@ -534,12 +547,12 @@ static void identify(const unsigned char *img, unsigned long len, unsigned long 
 			fmt_used(u, sizeof(u), used_bytes(img, s, e));
 			snprintf(what + strlen(what), n - strlen(what), ", %s used", u);
 		}
-		if (s + size > len)
+		if (size > len - s)
 			snprintf(what + strlen(what), n - strlen(what), " (image ends inside)");
 		return;
 	}
 	fmt_used(u, sizeof(u), used_bytes(img, s, e));
-	snprintf(what, n, "data, %s used%s", u, s + size > len ? " (image ends inside)" : "");
+	snprintf(what, n, "data, %s used%s", u, size > len - s ? " (image ends inside)" : "");
 }
 
 /* ------------------------------------------------------------------ */
@@ -627,7 +640,7 @@ int flash_layout_analyze(const unsigned char *img, unsigned long len,
 			p->size = m.p[i].size;
 			snprintf(p->name, sizeof(p->name), "%s", m.p[i].name);
 			identify(img, len, p->start, p->size, envs, nenv, p->what, sizeof(p->what));
-			end = p->start + p->size;
+			end = add_sat(p->start, p->size);
 		}
 		if (distinct > 1)
 			snprintf(out->source + strlen(out->source),
@@ -673,7 +686,7 @@ void flash_layout_print(const struct fl_layout *l)
 		const struct fl_part *p = &l->parts[i];
 
 		fmt_part(sz, sizeof(sz), p->size);
-		printf("  0x%06lX-0x%06lX %*s %-*s %s\n", p->start, p->start + p->size - 1,
+		printf("  0x%06lX-0x%06lX %*s %-*s %s\n", p->start, add_sat(p->start, p->size - 1),
 		       szw, sz, namew, p->name[0] ? p->name : "-", p->what);
 	}
 }

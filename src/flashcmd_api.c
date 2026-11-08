@@ -15,9 +15,13 @@
 
 #define __EEPROM___ "or EEPROM"
 
+static enum flash_type last_type = FLASH_TYPE_NONE;
+
 long flash_cmd_init(struct flash_cmd *cmd)
 {
 	long flen = -1;
+
+	last_type = FLASH_TYPE_NONE;
 
 #ifdef EEPROM_SUPPORT
 	extern int eepromsize;
@@ -32,12 +36,14 @@ long flash_cmd_init(struct flash_cmd *cmd)
 			cmd->flash_erase = snor_erase;
 			cmd->flash_write = snor_write;
 			cmd->flash_read = snor_read;
+			last_type = FLASH_TYPE_NOR;
 		}
 		else if ((flen = snand_init()) > 0)
 		{
 			cmd->flash_erase = snand_erase;
 			cmd->flash_write = snand_write;
 			cmd->flash_read = snand_read;
+			last_type = FLASH_TYPE_NAND;
 		}
 #ifdef EEPROM_SUPPORT
 	}
@@ -48,18 +54,21 @@ long flash_cmd_init(struct flash_cmd *cmd)
 			cmd->flash_erase = i2c_eeprom_erase;
 			cmd->flash_write = i2c_eeprom_write;
 			cmd->flash_read = i2c_eeprom_read;
+			last_type = FLASH_TYPE_EEPROM;
 		}
 		else if ((mw_eepromsize > 0) && (flen = mw_init()) > 0)
 		{
 			cmd->flash_erase = mw_eeprom_erase;
 			cmd->flash_write = mw_eeprom_write;
 			cmd->flash_read = mw_eeprom_read;
+			last_type = FLASH_TYPE_EEPROM;
 		}
 		else if ((seepromsize > 0) && (flen = spi_eeprom_init()) > 0)
 		{
 			cmd->flash_erase = spi_eeprom_erase;
 			cmd->flash_write = spi_eeprom_write;
 			cmd->flash_read = spi_eeprom_read;
+			last_type = FLASH_TYPE_EEPROM;
 		}
 	}
 	else
@@ -67,6 +76,11 @@ long flash_cmd_init(struct flash_cmd *cmd)
 #endif
 
 	return flen;
+}
+
+enum flash_type flash_cmd_type(void)
+{
+	return last_type;
 }
 
 int flashcmd_verify(struct flash_cmd *cmd, const unsigned char *expected,

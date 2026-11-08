@@ -137,6 +137,15 @@ else
     fail "--layout missing file" "no error"
 fi
 
+# A partition size that overflows s + size must not read past the image.
+head -c 8192 /dev/zero | tr '\0' '\377' > "$IMG"
+printf 'mtdparts=x:0x1000(a),18446744073709551615(b)' | dd of="$IMG" bs=1 conv=notrunc 2>/dev/null
+if "$BIN" --layout "$IMG" >/dev/null 2>&1; then
+    ok "--layout survives an overflowing partition size"
+else
+    fail "--layout overflow" "crash or error on a wrapped partition size"
+fi
+
 # --- conflicting options ---
 echo "[conflicting options]"
 if "$BIN" -i -e 2>&1 | grep -qi "conflicting\|only one option"; then

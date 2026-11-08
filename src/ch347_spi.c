@@ -359,8 +359,10 @@ static int ch347_firmware_version(void)
 		return -1;
 	int len = ch347_reply_header(CH347_CMD_INFO_RD, 4);
 	if (len < 2 || ch347_in_take(info, 2, (unsigned int)len) < 0 ||
-	    ch347_in_take(NULL, (unsigned int)len - 2, (unsigned int)len - 2) < 0)
+	    ch347_in_take(NULL, (unsigned int)len - 2, (unsigned int)len - 2) < 0) {
+		ch347_in_reset();       /* do not leave a partial reply buffered */
 		return -1;
+	}
 	return info[0] | (info[1] << 8);
 }
 
@@ -549,6 +551,8 @@ static unsigned int ch347_divisor_for(unsigned int khz)
 
 	if (khz == 0)
 		return CH347_DEFAULT_DIV;
+	if (khz > 60000)
+		fprintf(stderr, "CH347: %u kHz is above the fastest clock, using 60 MHz\n", khz);
 	while (div < 7 && (60000u >> div) > khz)
 		div++;
 	if ((60000u >> div) > khz)

@@ -21,7 +21,16 @@ struct flash_cmd
  	int (*flash_write)(unsigned char *buf, unsigned long to, unsigned long len);
 };
 
+/* What the last flash_cmd_init() probe selected */
+enum flash_type {
+	FLASH_TYPE_NONE = 0,
+	FLASH_TYPE_NOR,
+	FLASH_TYPE_NAND,
+	FLASH_TYPE_EEPROM
+};
+
 long flash_cmd_init(struct flash_cmd *cmd);
+enum flash_type flash_cmd_type(void);
 void support_flash_list(void);
 int flashcmd_verify(struct flash_cmd *cmd, const unsigned char *expected,
 		    unsigned long addr, unsigned long len);

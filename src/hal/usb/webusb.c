@@ -27,6 +27,7 @@
 #define CH341_PACKET_LENGTH 0x20
 #define CH341_MAX_PACKETS 256
 #define CH341_MAX_PACKET_LEN (CH341_PACKET_LENGTH * CH341_MAX_PACKETS)
+#define CH341_STREAM_DEPTH 32 /* IN transfers kept in flight */
 #define EM_USB_TIMEOUT 5000
 
 struct usb_hal {
@@ -145,7 +146,17 @@ int usb_hal_ch341_transfer(struct usb_hal *hal, unsigned int writecnt,
   if (!hal->handle)
     return -1;
 
-  if (writecnt > 0 && readcnt > 0) {
+  if (writecnt > CH341_PACKET_LENGTH && readcnt > 0) {
+    /* SPI stream. writearr starts with an all-zero packet, which only the
+     * native path sends; the stream packets follow, each answered with one
+     * short IN packet. Send them as one OUT transfer with reads in flight,
+     * as native does, instead of a WebUSB round trip per packet. */
+    return usb_bulk_stream(hal->handle, WRITE_EP,
+                           writearr + CH341_PACKET_LENGTH,
+                           writecnt - CH341_PACKET_LENGTH, READ_EP, readarr,
+                           readcnt, CH341_PACKET_LENGTH - 1, CH341_STREAM_DEPTH,
+                           EM_USB_TIMEOUT);
+  } else if (writecnt > 0 && readcnt > 0) {
     unsigned int off_out = CH341_PACKET_LENGTH;
     unsigned int off_in = 0;
     unsigned int rem_out = writecnt - CH341_PACKET_LENGTH;

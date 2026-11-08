@@ -207,7 +207,7 @@ check-emsdk: $(EMCC)
 
 $(WEB_ASYNCIFY_JSON):
 	@mkdir -p $(WEB_BUILD_DIR)
-	@printf '["emscripten_sleep","libusb_get_device_list","libusb_open","libusb_open_device_with_vid_pid","libusb_set_configuration","libusb_claim_interface","libusb_release_interface","libusb_control_transfer","libusb_bulk_transfer","libusb_interrupt_transfer","libusb_reset_device","usb_clear_halt"]' > $@
+	@printf '["emscripten_sleep","libusb_get_device_list","libusb_open","libusb_open_device_with_vid_pid","libusb_set_configuration","libusb_claim_interface","libusb_release_interface","libusb_control_transfer","libusb_bulk_transfer","libusb_interrupt_transfer","libusb_reset_device","usb_clear_halt","usb_bulk_stream"]' > $@
 
 $(WEB_OUT_JS) $(WEB_OUT_WASM): $(WEB_SRCS) $(WEB_JS_LIB) $(WEB_ASYNCIFY_JSON) | check-emsdk
 	@echo "Building scriba WASM module..."

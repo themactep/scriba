@@ -418,7 +418,7 @@ static SPI_NAND_FLASH_RTN_T spi_nand_erase_internal(u32 addr, u32 len)
 			erase_len += _current_flash_info_t.erase_size;
 	timer_progress("Erase", erase_len, len);
 		}
-	printf("\rErase 100%% [%u] of [%u] bytes      \n", erase_len, len);
+	timer_done("Erase", erase_len, len);
 	}
 	else
 	{
@@ -673,7 +673,7 @@ static SPI_NAND_FLASH_RTN_T spi_nand_write_internal(u32 dst_addr, u32 len, u32 *
 		ptr_rtn_len += data_len;
 		timer_progress("Written", len - remain_len, len);
 	}
-	printf("\rWritten 100%% [%u] of [%u] bytes      \n", len - remain_len, len);
+	timer_done("Written", len - remain_len, len);
 
 	return (rtn_status);
 }
@@ -736,7 +736,7 @@ static SPI_NAND_FLASH_RTN_T spi_nand_read_internal(u32 addr, u32 len, u8 *ptr_rt
 		}
 		timer_progress("Read", len - remain_len, len);
 	}
-	printf("\rRead 100%% [%u] of [%u] bytes      \n", len - remain_len, len);
+	timer_done("Read", len - remain_len, len);
 
 	return (rtn_status);
 }

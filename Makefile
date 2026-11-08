@@ -29,12 +29,14 @@ LIBS      ?= -lusb-1.0
 EEPROM_SUPPORT = yes
 
 SRCS  = src/flashcmd_api.c \
+	src/flash_layout.c \
 	src/spi_controller.c \
 	src/spi_nand_flash.c \
 	src/spi_nand_flash_protocol.c \
 	src/spi_nand_flash_tables.c \
 	src/spi_nor_flash.c \
 	src/ch341a_spi.c \
+	src/ch347_spi.c \
 	src/ezp2019_spi.c \
 	src/timer.c \
 	src/main.c
@@ -115,6 +117,7 @@ install: $(TARGET_BIN) install-rules
 
 install-rules:
 	$(INSTALL) -m 0664 -D $(SRC_DIR)/40-persistent-ch341a.rules $(DESTDIR)/etc/udev/rules.d/40-persistent-ch341a.rules
+	$(INSTALL) -m 0664 -D $(SRC_DIR)/40-persistent-ch347.rules $(DESTDIR)/etc/udev/rules.d/40-persistent-ch347.rules
 	$(INSTALL) -m 0664 -D $(SRC_DIR)/40-persistent-ezp2019.rules $(DESTDIR)/etc/udev/rules.d/40-persistent-ezp2019.rules
 	@if [ -z "$(DESTDIR)" ]; then \
 		echo "Reloading udev rules..."; \

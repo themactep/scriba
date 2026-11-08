@@ -20,10 +20,43 @@
 #endif
 
 #include "flashcmd_api.h"
+#include "flash_layout.h"
 #include "spi_controller.h"
 #include "spi_nand_flash.h"
 
 struct flash_cmd prog;
+
+/* --layout <file>: print the partition layout of an image file; needs no
+ * programmer */
+static int report_file_layout(const char *path)
+{
+	FILE *f = fopen(path, "rb");
+	unsigned char *buf;
+	long len;
+
+	if (!f) {
+		fprintf(stderr, "Couldn't open file %s for reading.\n", path);
+		return 1;
+	}
+	if (fseek(f, 0, SEEK_END) || (len = ftell(f)) < 0 || fseek(f, 0, SEEK_SET)) {
+		fprintf(stderr, "Couldn't size file %s.\n", path);
+		fclose(f);
+		return 1;
+	}
+	buf = malloc(len ? len : 1);
+	if (!buf || fread(buf, 1, len, f) != (size_t)len) {
+		fprintf(stderr, "Couldn't read file %s.\n", path);
+		free(buf);
+		fclose(f);
+		return 1;
+	}
+	fclose(f);
+	printf("%s: %ld bytes\n", path, len);
+	flash_layout_report(buf, len, 0);
+	free(buf);
+	return 0;
+}
+
 extern unsigned int bsize;
 
 /* Global debug/trace flags */
@@ -69,7 +102,7 @@ static int do_verify(const unsigned char *expected, unsigned long addr, unsigned
 
 void usage(const char *program_name)
 {
-	char use[1024];
+	char use[2048];
 	snprintf(use, sizeof(use), "Usage: %s [options]\n"
 				   "Automation:\n"
 				   "  -R <file>    Read chip (read twice and compare)\n"
@@ -101,7 +134,10 @@ void usage(const char *program_name)
 				   "General:\n"
 				   "  -h           Display help\n"
 				   "  -L           List supported chips\n"
-				   "  -P <prog>    Programmer type: ch341a, ezp2019, auto (default: auto)\n"
+				   "  -P <prog>    Programmer type: ch341a, ch347, ezp2019, auto (default: auto)\n"
+				   "  --spi-speed <kHz>  SPI clock limit (CH347 only; default 15000)\n"
+				   "  --no-cs-flags  CH347: separate chip-select commands even on firmware 0341+\n"
+				   "  --layout <file> Show the partitions of an image file (no programmer)\n"
 				   "  -V, --version  Show version and exit\n"
 			   "  --debug      Enable debug messages for USB communication\n"
 				   "  --trace      Dump SPI commands and data (implies --debug)\n",
@@ -125,6 +161,9 @@ int main(int argc, char *argv[])
 	static struct option long_options[] = {
 		{"debug", no_argument, NULL, 0},
 		{"trace", no_argument, NULL, 0},
+		{"spi-speed", required_argument, NULL, 0},
+		{"no-cs-flags", no_argument, NULL, 0},
+		{"layout", required_argument, NULL, 0},
 		{"version", no_argument, NULL, 'V'},
 		{0, 0, 0, 0}
 	};
@@ -149,6 +188,25 @@ int main(int argc, char *argv[])
 				printf("Trace mode enabled (debug forced on)\n");
 				continue;
 			}
+			if (strcmp(lname, "spi-speed") == 0)
+			{
+				char *end = NULL;
+				long khz = strtol(optarg, &end, 10);
+				if (!end || *end || khz <= 0)
+				{
+					fprintf(stderr, "Invalid --spi-speed value: %s (kHz, e.g. 30000)\n", optarg);
+					exit(1);
+				}
+				spi_controller_set_speed_khz((unsigned int)khz);
+				continue;
+			}
+			if (strcmp(lname, "no-cs-flags") == 0)
+			{
+				spi_controller_set_options(spi_controller_get_options() | SPI_OPT_NO_CS_FLAGS);
+				continue;
+			}
+			if (strcmp(lname, "layout") == 0)
+				return report_file_layout(optarg);
 		}
 		switch (c)
 		{
@@ -260,10 +318,12 @@ int main(int argc, char *argv[])
 				prog_type = PROGRAMMER_EZP2019;
 			else if (strcmp(optarg, "ch341a") == 0 || strcmp(optarg, "ch341") == 0)
 				prog_type = PROGRAMMER_CH341A;
+			else if (strcmp(optarg, "ch347") == 0)
+				prog_type = PROGRAMMER_CH347;
 			else if (strcmp(optarg, "auto") == 0)
 				prog_type = PROGRAMMER_AUTO;
 			else {
-				fprintf(stderr, "Unknown programmer type: %s (use ch341a, ezp2019, or auto)\n", optarg);
+				fprintf(stderr, "Unknown programmer type: %s (use ch341a, ch347, ezp2019, or auto)\n", optarg);
 				exit(1);
 			}
 			break;
@@ -299,9 +359,19 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "EZP2019 programmer device not found!\n\n");
 		else if (prog_type == PROGRAMMER_CH341A)
 			fprintf(stderr, "CH341A programmer device not found!\n\n");
+		else if (prog_type == PROGRAMMER_CH347)
+			fprintf(stderr, "CH347 programmer device not found (CH347T must be in mode 1)!\n\n");
 		else
 			fprintf(stderr, "No supported programmer device found!\n\n");
 		return 1;
+	}
+
+	/* I2C and Microwire EEPROMs are driven through CH341A-specific code
+	 * that uses the CH341A's USB handle directly. */
+	if ((eepromsize > 0 || mw_eepromsize > 0) && spi_controller_type() == PROGRAMMER_CH347)
+	{
+		fprintf(stderr, "I2C and Microwire EEPROMs are not supported on the CH347 yet; use a CH341A.\n\n");
+		goto out;
 	}
 
 	if ((flen = flash_cmd_init(&prog)) <= 0)
@@ -559,6 +629,8 @@ if (op == 'R')
  			fclose(fp);
 
  			printf("Read Status: OK - Verified data saved to %s\n", op_arg);
+ 			if (addr == 0 && len == flen && !eepromsize && !mw_eepromsize && !seepromsize)
+ 				flash_layout_report(buf1, len, flen);
  			free(buf1);
  			free(buf2);
  			goto okout;
@@ -651,8 +723,10 @@ if (op == 'R')
 			goto out;
 		}
 		fclose(fp);
-		free(buf);
 		printf("Status: OK\n");
+		if (addr == 0 && len == flen && !eepromsize && !mw_eepromsize && !seepromsize)
+			flash_layout_report(buf, len, flen);
+		free(buf);
 		goto okout;
 	}
 

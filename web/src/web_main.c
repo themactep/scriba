@@ -15,6 +15,7 @@
 #include <string.h>
 
 #include "flashcmd_api.h"
+#include "flash_layout.h"
 #include "spi_controller.h"
 #include "spi_nand_flash.h"
 #include "spi_nor_flash.h"
@@ -47,6 +48,35 @@ int scriba_init(void) {
 
     fprintf(stderr, "*** Scriba WASM build: %s ***\n", build_info);
     return spi_controller_init(PROGRAMMER_AUTO);
+}
+
+/* Requested SPI clock in kHz (0 = driver default). Applied at the next
+ * init, or immediately via scriba_reinit(). Only the CH347 honors it. */
+void scriba_set_spi_speed_khz(unsigned int khz) {
+    spi_controller_set_speed_khz(khz);
+}
+
+/* SPI_OPT_* flags (e.g. SPI_OPT_NO_CS_FLAGS). Applied at the next init, or
+ * immediately via scriba_reinit(). */
+void scriba_set_options(unsigned int opts) {
+    spi_controller_set_options(opts);
+}
+
+/* The partition layout of an image in WASM memory (a flash read or a loaded
+ * file) as JSON in out (see flash_layout_json). flash_size is the chip size,
+ * 0 if unknown. Returns the JSON length, or -1 if it does not fit in outlen
+ * bytes or memory runs out. */
+int scriba_layout_json(const unsigned char *buf, unsigned long len,
+                       unsigned long flash_size, char *out, unsigned long outlen) {
+    struct fl_layout *l = malloc(sizeof(*l));
+    int r;
+
+    if (!l)
+        return -1;
+    flash_layout_analyze(buf, len, flash_size, l);
+    r = flash_layout_json(l, out, outlen);
+    free(l);
+    return r;
 }
 
 int scriba_init_programmer(int type) {
@@ -118,10 +148,9 @@ void scriba_shutdown(void) {
 }
 
 #ifdef __EMSCRIPTEN__
-/* CH341A USB reinit after disconnect/reconnect (WASM only) */
-extern int ch341a_spi_reinit(void);
+/* USB reinit of the active programmer after disconnect/reconnect (WASM only) */
 int scriba_reinit(void) {
-	return ch341a_spi_reinit();
+	return spi_controller_reinit();
 }
 #endif
 

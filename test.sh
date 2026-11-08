@@ -82,6 +82,61 @@ else
     fail "-i" "unexpected output"
 fi
 
+# --- programmer selection ---
+echo "[programmer selection]"
+if "$BIN" -h 2>&1 | grep -q "ch347"; then
+    ok "-h lists the ch347 programmer"
+else
+    fail "-h" "ch347 not listed"
+fi
+
+if "$BIN" -P bogus -i 2>&1 | grep -q "use ch341a, ch347, ezp2019, or auto"; then
+    ok "-P rejects an unknown programmer"
+else
+    fail "-P bogus" "no error listing valid programmers"
+fi
+
+# -P ch347 -i either finds the CH347 or names it in the not-found error
+if "$BIN" -P ch347 -i 2>&1 | grep -qE "CH347 programmer device not found|Found programmer device: WinChipHead \(WCH\) - CH347"; then
+    ok "-P ch347 selects only the CH347 driver"
+else
+    fail "-P ch347" "unexpected output"
+fi
+
+if "$BIN" --spi-speed fast -i 2>&1 | grep -q "Invalid --spi-speed"; then
+    ok "--spi-speed rejects a non-numeric value"
+else
+    fail "--spi-speed fast" "no error"
+fi
+
+if "$BIN" --spi-speed 0 -i 2>&1 | grep -q "Invalid --spi-speed"; then
+    ok "--spi-speed rejects zero"
+else
+    fail "--spi-speed 0" "no error"
+fi
+
+# --- partition layout (no programmer needed) ---
+echo "[layout]"
+IMG=$(mktemp)
+trap 'rm -f "$IMG"' EXIT
+head -c 262144 /dev/zero | tr '\0' '\377' > "$IMG"
+printf 'mtdparts=test:64k(boot),64k(env),-(rootfs)' | dd of="$IMG" bs=1 seek=256 conv=notrunc 2>/dev/null
+LAYOUT=$("$BIN" --layout "$IMG" 2>&1)
+if echo "$LAYOUT" | grep -q "mtdparts (test)" &&
+   echo "$LAYOUT" | grep -qE "0x000000-0x00FFFF +64 KB +boot +data" &&
+   echo "$LAYOUT" | grep -qE "0x010000-0x01FFFF +64 KB +env +blank" &&
+   echo "$LAYOUT" | grep -qE "0x020000-0x03FFFF +128 KB +rootfs +blank"; then
+    ok "--layout parses mtdparts and identifies partitions"
+else
+    fail "--layout" "unexpected output: $LAYOUT"
+fi
+
+if "$BIN" --layout /nonexistent/image.bin 2>&1 | grep -q "Couldn't open file"; then
+    ok "--layout reports a missing file"
+else
+    fail "--layout missing file" "no error"
+fi
+
 # --- conflicting options ---
 echo "[conflicting options]"
 if "$BIN" -i -e 2>&1 | grep -qi "conflicting\|only one option"; then

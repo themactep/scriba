@@ -36,14 +36,201 @@ async function wasmCall(name, returnType, argTypes, args) {
 /*  Logging                                                            */
 /* ------------------------------------------------------------------ */
 
+/* Wall-clock HH:MM:SS.mmm, so operation times can be read off the log */
+function timestamp() {
+    var d = new Date();
+    function pad(n, w) { return String(n).padStart(w || 2, '0'); }
+    return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' +
+        pad(d.getSeconds()) + '.' + pad(d.getMilliseconds(), 3);
+}
+
+/* Columns of text after the timestamp; index.html sizes the page to fit
+ * them (--log-cols there is this plus the 14-column timestamp and one
+ * spare). Longer messages are broken at spaces into continuation lines. */
+var LOG_COLS = 80;
+
+function wrapLogText(msg) {
+    var lines = [], indent = msg.match(/^ */)[0] + '  ';
+    while (msg.length > LOG_COLS) {
+        var cut = msg.lastIndexOf(' ', LOG_COLS);
+        if (cut <= indent.length) break;     /* one long word: the page wraps it */
+        lines.push(msg.slice(0, cut));
+        msg = indent + msg.slice(cut + 1).replace(/^ +/, '');
+    }
+    lines.push(msg);
+    return lines;
+}
+
 function log(msg, level) {
     level = level || 'info';
     var el = document.getElementById('log');
-    var line = document.createElement('div');
-    line.className = level;
-    line.textContent = msg;
-    el.appendChild(line);
+    var ts = timestamp() + '  ';
+    msg = String(msg).replace(/^\r+/, '');   /* C progress lines start with \r */
+    msg.split('\n').forEach(function(part) {
+        (part.trim() ? wrapLogText(part) : [part]).forEach(function(text) {
+            var line = document.createElement('div');
+            line.className = level;
+            if (text.trim()) {
+                var span = document.createElement('span');
+                span.className = 'ts';
+                span.textContent = ts;
+                line.appendChild(span);
+            }
+            line.appendChild(document.createTextNode(text));
+            el.appendChild(line);
+        });
+    });
     el.scrollTop = el.scrollHeight;
+}
+
+/* Log overall progress at every 10% step. The C flash layers only see one
+ * 64 KB chunk per call, so their own completion lines are suppressed in the
+ * WASM build; with timestamps these lines also show the transfer rate. */
+function hexAddr(n) {
+    return '0x' + n.toString(16).toUpperCase().padStart(6, '0');
+}
+
+/* Where the data in an image is, by 256-byte page: the ranges of pages that
+ * are not all 0xFF, how many pages are blank, and where the last non-0xFF
+ * byte is. The NOR layer skips programming exactly these blank pages
+ * (programming 0xFF changes nothing). */
+var PAGE_SIZE = 256;
+
+function imageExtent(data) {
+    var pages = Math.ceil(data.length / PAGE_SIZE), blank = 0, ranges = [], start = -1;
+    for (var p = 0; p < pages; p++) {
+        var s = p * PAGE_SIZE, e = Math.min(s + PAGE_SIZE, data.length), isBlank = true;
+        for (var i = s; i < e; i++) {
+            if (data[i] !== 0xFF) { isBlank = false; break; }
+        }
+        if (isBlank) {
+            blank++;
+            if (start >= 0) { ranges.push([start, s]); start = -1; }
+        } else if (start < 0) {
+            start = s;
+        }
+    }
+    if (start >= 0) ranges.push([start, data.length]);
+    var dataEnd = 0;
+    for (var j = data.length - 1; j >= 0; j--) {
+        if (data[j] !== 0xFF) { dataEnd = j + 1; break; }
+    }
+    return { pages: pages, blank: blank, ranges: ranges, dataEnd: dataEnd };
+}
+
+function rangeText(r) {
+    return hexAddr(r[0]) + '-' + hexAddr(r[1] - 1);
+}
+
+/* "7.3 MB of data in 29881 of 65536 pages" */
+function extentAmount(x) {
+    var used = x.pages - x.blank;
+    return formatSize(used * PAGE_SIZE) + ' of data in ' + used + ' of ' + x.pages + ' pages';
+}
+
+/* "last data byte at 0xFF000B, then a 64.0 KB blank (0xFF) tail" */
+function extentTail(x, len) {
+    return 'last data byte at ' + hexAddr(x.dataEnd - 1) + (x.dataEnd < len ?
+        ', then a ' + formatSize(len - x.dataEnd) + ' blank (0xFF) tail' : '');
+}
+
+/* Log where an image holds data, in lines that fit the log's width: the
+ * amount, the ranges (three per line, or first to last when fragmented)
+ * and where the blank tail starts. */
+function logImageExtent(label, data) {
+    var x = imageExtent(data), n = x.ranges.length;
+    if (!n) {
+        log(label + ' is entirely blank (0xFF)');
+        return x;
+    }
+    log(label + ': ' + extentAmount(x) + ', in ' + n + (n === 1 ? ' range' : ' ranges'));
+    if (n <= 6) {
+        for (var i = 0; i < n; i += 3)
+            log('  ' + x.ranges.slice(i, i + 3).map(rangeText).join(', '));
+    } else {
+        log('  from ' + hexAddr(x.ranges[0][0]) + ' to ' + hexAddr(x.ranges[n - 1][1] - 1));
+    }
+    log('  ' + extentTail(x, data.length));
+    return x;
+}
+
+/* Partition sizes as mtdparts writes them */
+function partSize(v) {
+    return v % 1024 ? v + ' B' : (v / 1024) + ' KB';
+}
+
+/* Fill the Partitions card from the layout showLayout got from C, and the
+ * image's data extent. */
+function renderLayout(title, layout, extent, len) {
+    document.getElementById('layout-image').textContent = title;
+    var note = document.getElementById('layout-note');
+    note.textContent = layout.note ? 'Note: ' + layout.note : '';
+    note.classList.toggle('d-none', !layout.note);
+    document.getElementById('layout-source').textContent = layout.parts.length ?
+        'Layout from ' + layout.source : 'No partitions found (' + layout.source + ')';
+
+    var rows = document.getElementById('layout-rows');
+    rows.textContent = '';
+    layout.parts.forEach(function(p) {
+        var tr = document.createElement('tr');
+        if (/^(blank|not in this image)/.test(p.what)) tr.className = 'dim';
+        [['range', hexAddr(p.start) + '-' + hexAddr(p.start + p.size - 1)],
+         ['size', partSize(p.size)],
+         ['name', p.name || '-'],
+         ['what', p.what]].forEach(function(c) {
+            var td = document.createElement('td');
+            td.className = c[0];
+            td.textContent = c[1];
+            tr.appendChild(td);
+        });
+        rows.appendChild(tr);
+    });
+
+    document.getElementById('layout-extent').textContent = !extent.ranges.length ?
+        'Entirely blank (0xFF)' :
+        extentAmount(extent) + ' (' + extent.ranges.length +
+        (extent.ranges.length === 1 ? ' range); ' : ' ranges); ') + extentTail(extent, len);
+    document.getElementById('layout-card').classList.remove('d-none');
+}
+
+/* Show the partition layout of an image in the Partitions card, from
+ * src/flash_layout.c as JSON. ptr: the image already in WASM memory, or 0
+ * to copy `data` in. Skipped while a USB call is suspended, and on an older
+ * cached WASM build. */
+function showLayout(title, ptr, len, data, extent) {
+    if (typeof Module['_scriba_layout_json'] !== 'function' || wasmBusy || !len) return;
+    var own = !ptr, outLen = 32768, out = Module._malloc(outLen), layout = null;
+    if (!out) return;
+    try {
+        if (own) {
+            ptr = Module._malloc(len);
+            if (!ptr) return;
+            Module.HEAPU8.set(data, ptr);
+        }
+        var n = Module.ccall('scriba_layout_json', 'number',
+            ['number', 'number', 'number', 'number', 'number'],
+            [ptr, len, flashSize > 0 ? flashSize : 0, out, outLen]);
+        if (n > 0) layout = JSON.parse(Module.UTF8ToString(out, n));
+    } finally {
+        if (own && ptr) Module._free(ptr);
+        Module._free(out);
+    }
+    if (!layout) return;
+    renderLayout(title, layout, extent, len);
+    log('Layout: ' + layout.parts.length + (layout.parts.length === 1 ? ' partition' : ' partitions') +
+        ' from ' + layout.source);
+    if (layout.note) log('Layout note: ' + layout.note, 'warn');
+}
+
+function progressLogger(label, total) {
+    var lastStep = 0;
+    return function(done) {
+        var step = Math.floor(done * 10 / total);
+        if (step > lastStep) {
+            lastStep = step;
+            log(label + ' ' + (step * 10) + '% (' + formatSize(done) + ' / ' + formatSize(total) + ')');
+        }
+    };
 }
 
 function toggleEraseDebug() {
@@ -61,6 +248,87 @@ function toggleEraseDebug() {
 }
 
 Object.assign(window, { toggleEraseDebug: toggleEraseDebug });
+
+/* ------------------------------------------------------------------ */
+/*  CH347 SPI clock                                                    */
+/* ------------------------------------------------------------------ */
+
+var lastSpiSpeed = '15000';
+
+function spiSpeedKhz() {
+    return parseInt(document.getElementById('spi-speed').value, 10) || 0;
+}
+
+/* wasm/scriba.js keeps one name across builds, so a browser can pair this
+ * script with a cached older WASM build that lacks the export; ccall would
+ * then abort the whole page. Warn and carry on at the default clock. */
+function applySpiSpeed() {
+    if (typeof Module['_scriba_set_spi_speed_khz'] !== 'function') {
+        log('Old cached WASM build without SPI clock control: reload with Ctrl+Shift+R', 'warn');
+        return false;
+    }
+    Module.ccall('scriba_set_spi_speed_khz', null, ['number'], [spiSpeedKhz()]);
+    return true;
+}
+
+/* Sent before Connect; while a CH347 is connected it is applied at once. */
+async function spiSpeedChanged(sel) {
+    if (!scribaReady) return;
+    var busy = ['connecting', 'detecting', 'reading', 'writing', 'erasing'];
+    if (busy.indexOf(currentState) !== -1) {
+        sel.value = lastSpiSpeed;
+        log('Wait for the current operation to finish before changing the SPI clock', 'warn');
+        return;
+    }
+    lastSpiSpeed = sel.value;
+    if (!applySpiSpeed()) return;
+    if (currentState === 'idle') return;
+    if (Module.ccall('scriba_get_programmer_type', 'number', [], []) !== 3) return;
+    var r = await wasmCall('scriba_reinit', 'number', [], []);
+    if (r !== 0)
+        log('Failed to apply the new SPI clock', 'error');
+    else
+        log('Click Detect to re-detect at the new clock');
+}
+
+/* CH347 chip-select flags: on by default (used when the firmware supports
+ * them); unchecking sets SPI_OPT_NO_CS_FLAGS = 1. Sent before Connect; while
+ * a CH347 is connected, a change re-runs the driver setup. */
+function applyOptions() {
+    if (typeof Module['_scriba_set_options'] !== 'function') {
+        log('Old cached WASM build without CH347 options: reload with Ctrl+Shift+R', 'warn');
+        return false;
+    }
+    var fast = document.getElementById('ch347-csflags').checked;
+    Module.ccall('scriba_set_options', null, ['number'], [fast ? 0 : 1]);
+    return true;
+}
+
+async function csFlagsChanged(box) {
+    if (!scribaReady) return;
+    var busy = ['connecting', 'detecting', 'reading', 'writing', 'erasing'];
+    if (busy.indexOf(currentState) !== -1) {
+        box.checked = !box.checked;
+        log('Wait for the current operation to finish before changing Fast CS', 'warn');
+        return;
+    }
+    if (!applyOptions()) return;
+    if (currentState === 'idle') return;
+    if (Module.ccall('scriba_get_programmer_type', 'number', [], []) !== 3) return;
+    var r = await wasmCall('scriba_reinit', 'number', [], []);
+    if (r !== 0)
+        log('Failed to apply the Fast CS change - reconnect the programmer', 'error');
+}
+
+Object.assign(window, { spiSpeedChanged: spiSpeedChanged, csFlagsChanged: csFlagsChanged });
+
+/* The clock selector and Fast CS only apply to a CH347: show them once one
+ * is connected (before chip detection, so a clock too fast for the wiring
+ * can still be lowered), hide them otherwise. Their values are still sent
+ * at every Connect. */
+function showCh347Controls(show) {
+    document.getElementById('ch347-controls').hidden = !show;
+}
 
 /* ------------------------------------------------------------------ */
 /*  Progress                                                           */
@@ -116,7 +384,7 @@ function showChipInfo(name, size, programmer) {
     document.getElementById('chip-info').classList.remove('d-none');
     document.getElementById('info-chip').textContent = name || 'Unknown';
     document.getElementById('info-size').textContent = size ? formatSize(size) : 'Unknown';
-    var progNames = {0: 'CH341A', 1: 'EZP2019', 2: 'Auto'};
+    var progNames = {0: 'CH341A', 1: 'EZP2019', 2: 'Auto', 3: 'CH347'};
     document.getElementById('info-programmer').textContent = progNames[programmer] || 'Unknown';
 }
 
@@ -176,6 +444,8 @@ async function connectDevice() {
     try {
         var filters = [
             { vendorId: 0x1A86, productId: 0x5512 },
+            { vendorId: 0x1A86, productId: 0x55DB },  // CH347T, mode 1
+            { vendorId: 0x1A86, productId: 0x55DE },  // CH347F
             { vendorId: 0x1FC8, productId: 0x310B },
             { vendorId: 0x1FC8, productId: 0x310C },
             { vendorId: 0x1FC8, productId: 0x310D },
@@ -198,6 +468,8 @@ async function connectDevice() {
             ' PID=0x' + device.productId.toString(16));
 
         log('Connecting to programmer...');
+        applySpiSpeed();
+        applyOptions();
         var result = await wasmCall('scriba_init', 'number', [], []);
         if (result !== 0) {
             log('Failed to connect to programmer', 'error');
@@ -206,6 +478,7 @@ async function connectDevice() {
         }
 
         log('Programmer connected');
+        showCh347Controls(Module.ccall('scriba_get_programmer_type', 'number', [], []) === 3);
 
         setState('detecting');
         showProgress(50, 'Detecting flash chip...');
@@ -296,6 +569,7 @@ async function doRead() {
 
         var chunkSize = 65536;
         var offset = 0;
+        var readProgress = progressLogger('Read', flashSize);
 
         while (offset < flashSize) {
             var len = Math.min(chunkSize, flashSize - offset);
@@ -314,23 +588,37 @@ async function doRead() {
                 return;
             }
             offset += len;
+            readProgress(offset);
         }
 
         showProgress(95, 'Preparing download...');
 
         var data = Module.HEAPU8.slice(bufPtr, bufPtr + flashSize);
+
+        /* Trimming the blank tail loses nothing for a later write: the
+         * page's write erases the whole chip first, which leaves the tail
+         * blank again. Offsets are unchanged; blank gaps inside stay. */
+        var extent = logImageExtent('Flash', data);
+        showLayout('Flash read at ' + timestamp().slice(0, 8), bufPtr, flashSize, null, extent);
         Module._free(bufPtr);
+        var name = 'flash_dump.bin';
+        if (document.getElementById('trim-tail').checked && extent.dataEnd > 0 &&
+            extent.dataEnd < data.length) {
+            data = data.slice(0, extent.dataEnd);
+            name = 'flash_dump_trimmed.bin';
+        }
 
         var blob = new Blob([data], { type: 'application/octet-stream' });
         var url = URL.createObjectURL(blob);
         var a = document.createElement('a');
         a.href = url;
-        a.download = 'flash_dump.bin';
+        a.download = name;
         a.click();
         URL.revokeObjectURL(url);
 
         showProgress(100, 'Read complete');
-        log('Flash read complete - downloaded as flash_dump.bin (' + formatSize(flashSize) + ')');
+        log('Flash read complete - downloaded as ' + name + ' (' + formatSize(data.length) +
+            (data.length < flashSize ? ', blank tail trimmed' : '') + ')');
         setTimeout(hideProgress, 1500);
         setState('done');
     } catch (e) {
@@ -362,6 +650,8 @@ function firmwareSelected(input) {
         document.getElementById('file-info').textContent =
             firmwareFileName + ' (' + sizeMB + ' MB)';
         log('Firmware loaded: ' + firmwareFileName + ' (' + sizeMB + ' MB)');
+        var extent = logImageExtent('Image', firmwareData);
+        showLayout(firmwareFileName, 0, firmwareData.length, firmwareData, extent);
 
         if (firmwareData.length > flashSize) {
             log('Warning: firmware (' + formatSize(firmwareData.length) +
@@ -404,7 +694,12 @@ async function doWrite() {
         log('Erase complete');
 
         setState('writing');
+        var writeExtent = imageExtent(firmwareData.subarray(0, writeLen));
+        var isNor = document.getElementById('info-chip').textContent.indexOf('NOR') === 0;
         log('Writing ' + firmwareFileName + ' (' + formatSize(writeLen) + ')...');
+        if (isNor && writeExtent.blank)
+            log('  programming ' + (writeExtent.pages - writeExtent.blank) + ' pages, skipping ' +
+                writeExtent.blank + ' blank (0xFF) pages');
 
         var dataPtr = Module._malloc(writeLen);
         if (!dataPtr) {
@@ -417,6 +712,7 @@ async function doWrite() {
 
         var writeChunk = 65536;
         var writeOffset = 0;
+        var writeProgress = progressLogger('Written', writeLen);
 
         while (writeOffset < writeLen) {
             var len = Math.min(writeChunk, writeLen - writeOffset);
@@ -435,6 +731,7 @@ async function doWrite() {
                 return;
             }
             writeOffset += len;
+            writeProgress(writeOffset);
             await new Promise(function(r) { setTimeout(r, 10); });
         }
 
@@ -449,6 +746,7 @@ async function doWrite() {
             var verifyOk = true;
             var verifyChunk = 65536;
             var verifyOffset = 0;
+            var verifyProgress = progressLogger('Verified', writeLen);
 
             while (verifyOffset < writeLen) {
                 var len = Math.min(verifyChunk, writeLen - verifyOffset);
@@ -474,6 +772,7 @@ async function doWrite() {
                     break;
                 }
                 verifyOffset += len;
+                verifyProgress(verifyOffset);
             }
 
             Module._free(verifyBuf);
@@ -522,9 +821,9 @@ async function doErase() {
 
         if (eraseSec < 3) {
             log('WARNING: Erase completed in ' + eraseSec.toFixed(1) +
-                's which is too fast for this chip.' +
-                ' The command may not have been accepted.' +
-                ' Try re-seating the flash chip and reloading the page.', 'error');
+                's which is too fast for this chip.', 'error');
+            log('  The command may not have been accepted.', 'error');
+            log('  Try re-seating the flash chip and reloading the page.', 'error');
             hideProgress();
             setState('error');
             return;
@@ -596,6 +895,7 @@ Object.assign(window, {
     navigator.usb.addEventListener('disconnect', function(e) {
         console.log('USB device disconnected');
         wasmBusy = false;
+        showCh347Controls(false);
         setState('idle');
     });
 

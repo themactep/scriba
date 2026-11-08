@@ -9,6 +9,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <limits.h>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 extern int debug_enabled;
 
@@ -79,17 +83,25 @@ static void snor_clear_status(void)
 
 // Function implementations
 int snor_wait_ready(int sleep_ms) {
-    int count;
+    int count, limit;
     u8 sr = 0;
     last_wait_error_was_epe = false;
 #ifdef __EMSCRIPTEN__
-    if (sleep_ms < 100) {
-        usleep(sleep_ms > 0 ? sleep_ms * 1000 : 1000);
-    }
-    for (count = 0; count < (sleep_ms < 100 ? 10 : sleep_ms * 5 + 5); count++) {
+    /* In the browser every status read is a full WebUSB round trip, which
+     * already paces the loop. Short waits (page program, register writes)
+     * poll back to back until the same wall-clock limit as the native loop
+     * ((sleep_ms + 1) * 1000 polls of 0.5 ms): the chip is normally done by
+     * the first read, so the old fixed sleep_ms pre-sleep only added latency
+     * (3 ms per 256-byte page). Long waits (erase) still poll every 100 ms.
+     * The limit never drops below the old ~1 s browser budget. */
+    const int short_wait = sleep_ms < 100;
+    const double budget_ms = (sleep_ms + 1) * 500.0 > 1000.0 ? (sleep_ms + 1) * 500.0 : 1000.0;
+    const double deadline = emscripten_get_now() + budget_ms;
+    limit = short_wait ? INT_MAX : sleep_ms * 5 + 5;
 #else
-    for (count = 0; count < ((sleep_ms + 1) * 1000); count++) {
+    limit = (sleep_ms + 1) * 1000;
 #endif
+    for (count = 0; count < limit; count++) {
 		if ((snor_read_sr(&sr)) < 0)
 			break;
 		if (sr & SR_EPE) {
@@ -103,12 +115,14 @@ int snor_wait_ready(int sleep_ms) {
             return 0;
         }
 #ifdef __EMSCRIPTEN__
-        usleep(100000);
-    }
+        if (!short_wait)
+            usleep(100000);
+        else if (emscripten_get_now() > deadline)
+            break;
 #else
         usleep(500); // Use usleep instead of udelay
-    }
 #endif
+    }
     printf("%s: read_sr fail: %x\n", __func__, sr);
     return -1;
 }
@@ -511,8 +525,7 @@ int full_erase_chip(void) {
 		u8 sr;
 		if (snor_read_sr(&sr) == 0 && !(sr & 0x02)) {
 			fprintf(stderr, "[WARN] WEL not set after WREN (SR=0x%02x), retrying with reinit\n", sr);
-			extern int ch341a_spi_reinit(void);
-			ch341a_spi_reinit();
+			spi_controller_reinit();
 			snor_write_enable();
 			snor_read_sr(&sr);
 			fprintf(stderr, "[WARN] WEL after retry: SR=0x%02x\n", sr);
@@ -1037,7 +1050,7 @@ int snor_erase(unsigned long offs, unsigned long len)
 		len -= spi_chip_info->sector_size;
 		timer_progress("Erase", plen - len, plen);
 	}
-	printf("\rErase 100%% [%lu] of [%lu] bytes      \n", plen - len, plen);
+	timer_done("Erase", plen - len, plen);
 	timer_end();
 
 	return 0;
@@ -1117,10 +1130,18 @@ int snor_read(unsigned char *buf, unsigned long from, unsigned long len)
 		return -1;
 	}
 
-	printf("\rRead 100%% [%lu] of [%lu] bytes      \n", len - remain_len, len);
+	timer_done("Read", len - remain_len, len);
 	timer_end();
 
 	return len;
+}
+
+static int snor_is_blank(const unsigned char *p, u32 n)
+{
+	while (n--)
+		if (*p++ != 0xFF)
+			return 0;
+	return 1;
 }
 
 int snor_write(unsigned char *buf, unsigned long to, unsigned long len)
@@ -1129,6 +1150,7 @@ int snor_write(unsigned char *buf, unsigned long to, unsigned long len)
 	int rc = 0, retlen = 0;
 	int err = 0;
 	unsigned long plen = len;
+	unsigned long skipped = 0;
 
 	// snor_dbg("%s: to:%x len:%x \n", __func__, to, len); // Commented out missing function
 
@@ -1155,15 +1177,32 @@ int snor_write(unsigned char *buf, unsigned long to, unsigned long len)
 	if (spi_chip_info->addr4b)
 		snor_4byte_mode(1);
 
+	/* Clear write protection once per write, not before every page: the
+	 * protection bits and block locks it clears stay cleared until the
+	 * chip is power-cycled, and the per-page check cost 1-3 status-register
+	 * reads (several USB round trips) for each 256-byte page. */
+	if (snor_unprotect())
+		err = -1;
+
 	/* write everything in PAGESIZE chunks */
-	while (len > 0) {
+	while (!err && len > 0) {
 		page_size = min(len, FLASH_PAGESIZE - page_offset);
 		page_offset = 0;
-		/* write the next page to flash */
-		if (snor_unprotect()) {
-			err = -1;
-			break;
+
+		/* Programming only clears bits (1 -> 0), so a page of all 0xFF
+		 * changes nothing, erased or not: skip it. Images with blank
+		 * areas (unused partitions, padding) then cost nothing there. */
+		if (snor_is_blank(buf, page_size)) {
+			skipped++;
+			retlen += page_size;
+			len -= page_size;
+			to += page_size;
+			buf += page_size;
+			timer_progress("Written", plen - len, plen);
+			continue;
 		}
+
+		/* write the next page to flash */
 		snor_set_progress("PP", to);
 		snor_write_enable();
 
@@ -1219,7 +1258,14 @@ int snor_write(unsigned char *buf, unsigned long to, unsigned long len)
 	snor_write_disable();
 	snor_clear_progress();
 
-	printf("\rWritten 100%% [%ld] of [%ld] bytes      \n", plen - len, plen);
+	timer_done("Written", plen - len, plen);
+#ifndef __EMSCRIPTEN__
+	/* The web UI reports this itself, from the whole image */
+	if (skipped)
+		printf("Skipped %lu blank (all 0xFF) page%s\n", skipped, skipped == 1 ? "" : "s");
+#else
+	(void)skipped;
+#endif
 	timer_end();
 
 	if (err) {

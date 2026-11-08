@@ -18,4 +18,12 @@ void timer_end(void);
  */
 void timer_progress(const char *msg, unsigned long current, unsigned long total);
 
+/*
+ * Print the final "<msg> 100% [current] of [total] bytes" line of an
+ * operation. Suppressed in WASM builds: the web UI calls the flash layers once
+ * per 64 KB chunk, so a per-call completion line would print once per chunk;
+ * the UI logs overall progress itself.
+ */
+void timer_done(const char *msg, unsigned long current, unsigned long total);
+
 #endif /* __TIMER_H__ */

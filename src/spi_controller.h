@@ -11,7 +11,8 @@
 typedef enum {
 	PROGRAMMER_CH341A = 0,
 	PROGRAMMER_EZP2019,
-	PROGRAMMER_AUTO
+	PROGRAMMER_AUTO,
+	PROGRAMMER_CH347   /* appended so the existing values stay stable */
 } PROGRAMMER_TYPE_T;
 
 /* SPI speed modes */
@@ -41,15 +42,32 @@ struct spi_programmer {
 	int (*cs_select)(void);   /* CS low — select flash */
 	int (*cs_deselect)(void); /* CS high — deselect flash */
 	const char *(*libusb_version)(void);
+	int (*reinit)(void);      /* optional: recover after a USB stall/reconnect */
 };
 
-/* Init: pass PROGRAMMER_AUTO, PROGRAMMER_CH341A, or PROGRAMMER_EZP2019.
+/* Options for spi_controller_set_options() */
+#define SPI_OPT_NO_CS_FLAGS (1u << 0)   /* CH347: drive CS with separate
+					 * commands even on firmware that
+					 * takes CS flags in data frames */
+
+/* Init: pass PROGRAMMER_AUTO or a specific PROGRAMMER_* type.
  * Returns 0 on success, -1 if no programmer found. */
 int spi_controller_init(int type);
 void spi_controller_shutdown(void);
 const char *spi_controller_name(void);
 const char *spi_controller_libusb_version(void);
-int spi_controller_type(void);  /* Returns PROGRAMMER_CH341A, _EZP2019, or _AUTO */
+int spi_controller_type(void);  /* Active PROGRAMMER_* type, or PROGRAMMER_AUTO if none */
+int spi_controller_reinit(void); /* -1 if the active driver has no reinit */
+
+/* Requested SPI clock in kHz; 0 = driver default. Set before init. Only
+ * drivers with a configurable clock (currently the CH347) honor it. */
+void spi_controller_set_speed_khz(unsigned int khz);
+unsigned int spi_controller_get_speed_khz(void);
+
+/* SPI_OPT_* flags. Set before init, or apply to a connected programmer with
+ * spi_controller_reinit(). */
+void spi_controller_set_options(unsigned int opts);
+unsigned int spi_controller_get_options(void);
 
 /* Thin wrappers — dispatch through the active vtable */
 SPI_CONTROLLER_RTN_T SPI_CONTROLLER_Enable_Manual_Mode(void);

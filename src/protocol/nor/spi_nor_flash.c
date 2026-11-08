@@ -10,11 +10,15 @@
 #include "spi_controller.h"
 #include "spi_nor_flash_tables.h"
 #include "types.h"
+#include <limits.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 
 extern int debug_enabled;
 
@@ -88,11 +92,19 @@ int snor_wait_ready(int sleep_ms) {
   uint8_t sr = 0;
   last_wait_error_was_epe = false;
 #ifdef __EMSCRIPTEN__
-  int count;
-  if (sleep_ms < 100) {
-    usleep(sleep_ms > 0 ? sleep_ms * 1000 : 1000);
-  }
-  for (count = 0; count < (sleep_ms + 1) * 5; count++) {
+  /* In the browser every status read is a full WebUSB round trip, which
+   * already paces the loop. Short waits (page program, register writes)
+   * poll back to back until the same wall-clock limit as the native loop
+   * ((sleep_ms + 1) * 500 ms, never under 1 s): the chip is normally ready
+   * by the first read, so the old fixed pre-sleep only added latency (3 ms
+   * per 256-byte page). Long waits (erase) keep polling every 100 ms. */
+  const int short_wait = sleep_ms < 100;
+  const double budget_ms =
+      (sleep_ms + 1) * 500.0 > 1000.0 ? (sleep_ms + 1) * 500.0 : 1000.0;
+  const double deadline = emscripten_get_now() + budget_ms;
+  int count, limit = short_wait ? INT_MAX : (sleep_ms + 1) * 5;
+
+  for (count = 0; count < limit; count++) {
     if ((snor_read_sr(&sr)) < 0)
       break;
     if (sr & SR_EPE) {
@@ -102,7 +114,10 @@ int snor_wait_ready(int sleep_ms) {
     if (!(sr & (SR_WIP | SR_EPE))) {
       return 0;
     }
-    usleep(100000);
+    if (!short_wait)
+      usleep(100000);
+    else if (emscripten_get_now() > deadline)
+      break;
   }
 #else
   int delay_us = 500;

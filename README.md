@@ -31,6 +31,7 @@ Scriba auto-detects the connected programmer — no configuration needed.
 | **EZP2019** / **EZP2019+** | `1fc8:310b` / `310c` | Works out of the box |
 | **EZP2023** | `1fc8:310d` | |
 | **CH347T** / **CH347F** | `1a86:55db` / `55de` | Put a CH347T board in mode 1 (UART + SPI + I2C); the other modes have no usable SPI interface. SPI flash and SPI EEPROM only, no I2C or Microwire EEPROM yet. Hardware SPI clock, 15 MHz by default; change it with `--spi-speed` |
+| **serprog over TCP** | network | A [thingino backpack](https://github.com/thingino/thingino-backpack), or any serprog programmer reachable over TCP: `--host`. SPI flash and SPI EEPROM |
 
 Force a specific programmer with `-P`:
 
@@ -57,6 +58,28 @@ chip-select inside the SPI data frames, as WCH's own Linux driver does,
 which saves USB round trips on every flash command. The connect log shows the
 firmware version and whether this is on. `--no-cs-flags` (web: untick
 **Fast CS**) uses separate chip-select commands instead.
+
+### Over the network: serprog
+
+`--host` reaches a programmer that speaks flashrom's serprog protocol over TCP,
+such as a [thingino backpack](https://github.com/thingino/thingino-backpack)
+with a clip on the camera's flash. The port defaults to 8888; host names,
+`.local` names and IPv6 addresses work:
+
+```bash
+scriba --host thingino-backpack-xxxx.local -i
+scriba --host 192.0.2.10:8888 -R backup.bin
+scriba --host '[2001:db8::10]' --spi-speed 8000 -W firmware.bin
+```
+
+The programmer takes the chip when scriba connects and lets go of it when
+scriba exits: a backpack powers the chip, or parks the camera in its bootrom,
+as its status page is set. If it cannot, scriba says so and stops.
+
+Every SPI transaction is a network round trip, which reads do not notice (a
+16 MB chip reads in about a minute over Wi-Fi) and writes do: each 256-byte
+page takes a few. Writing a whole 16 MB chip that way takes about 40 minutes;
+blank pages are skipped.
 
 ## Build & Install
 

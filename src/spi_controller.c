@@ -10,6 +10,9 @@
 extern const struct spi_programmer ch341a_programmer;
 extern const struct spi_programmer ch347_programmer;
 extern const struct spi_programmer ezp2019_programmer;
+#ifndef __EMSCRIPTEN__
+extern const struct spi_programmer serprog_net_programmer;
+#endif
 
 /* PROGRAMMER_AUTO probes in this order */
 static const struct {
@@ -19,6 +22,10 @@ static const struct {
 	{ PROGRAMMER_EZP2019, &ezp2019_programmer },
 	{ PROGRAMMER_CH347,   &ch347_programmer },
 	{ PROGRAMMER_CH341A,  &ch341a_programmer },
+#ifndef __EMSCRIPTEN__
+	/* Only with --host: without it, its init finds nothing. */
+	{ PROGRAMMER_SERPROG, &serprog_net_programmer },
+#endif
 };
 
 static const struct spi_programmer *active = NULL;

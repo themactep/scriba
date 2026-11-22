@@ -24,6 +24,7 @@
 #include "flashcmd_api.h"
 #include "flash_layout.h"
 #include "spi_controller.h"
+#include "serprog_net.h"
 #include "spi_nand_flash.h"
 
 struct flash_cmd prog;
@@ -136,8 +137,9 @@ void usage(const char *program_name)
 				   "General:\n"
 				   "  -h           Display help\n"
 				   "  -L           List supported chips\n"
-				   "  -P <prog>    Programmer type: ch341a, ch347, ezp2019, auto (default: auto)\n"
-				   "  --spi-speed <kHz>  SPI clock limit (CH347 only; default 15000)\n"
+				   "  -P <prog>    Programmer type: ch341a, ch347, ezp2019, serprog, auto (default: auto)\n"
+				   "  --host <host[:port]>  serprog over TCP, e.g. a thingino backpack (port 8888)\n"
+				   "  --spi-speed <kHz>  SPI clock limit (CH347 and serprog; CH347 default 15000)\n"
 				   "  --no-cs-flags  CH347: separate chip-select commands even on firmware 0341+\n"
 				   "  --layout <file> Show the partitions of an image file (no programmer)\n"
 				   "  -V, --version  Show version and exit\n"
@@ -166,6 +168,7 @@ int main(int argc, char *argv[])
 		{"spi-speed", required_argument, NULL, 0},
 		{"no-cs-flags", no_argument, NULL, 0},
 		{"layout", required_argument, NULL, 0},
+		{"host", required_argument, NULL, 0},
 		{"version", no_argument, NULL, 'V'},
 		{0, 0, 0, 0}
 	};
@@ -210,6 +213,15 @@ int main(int argc, char *argv[])
 			}
 			if (strcmp(lname, "layout") == 0)
 				return report_file_layout(optarg);
+			if (strcmp(lname, "host") == 0)
+			{
+				if (serprog_net_set_host(optarg))
+				{
+					fprintf(stderr, "Invalid --host value: %s (host, host:port or [IPv6]:port)\n", optarg);
+					exit(1);
+				}
+				continue;
+			}
 		}
 		switch (c)
 		{
@@ -323,10 +335,12 @@ int main(int argc, char *argv[])
 				prog_type = PROGRAMMER_CH341A;
 			else if (strcmp(optarg, "ch347") == 0)
 				prog_type = PROGRAMMER_CH347;
+			else if (strcmp(optarg, "serprog") == 0 || strcmp(optarg, "backpack") == 0)
+				prog_type = PROGRAMMER_SERPROG;
 			else if (strcmp(optarg, "auto") == 0)
 				prog_type = PROGRAMMER_AUTO;
 			else {
-				fprintf(stderr, "Unknown programmer type: %s (use ch341a, ch347, ezp2019, or auto)\n", optarg);
+				fprintf(stderr, "Unknown programmer type: %s (use ch341a, ch347, ezp2019, serprog, or auto)\n", optarg);
 				exit(1);
 			}
 			break;
@@ -357,6 +371,14 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	/* A host names the programmer; serprog needs one. */
+	if (serprog_net_has_host() && prog_type == PROGRAMMER_AUTO)
+		prog_type = PROGRAMMER_SERPROG;
+	if (prog_type == PROGRAMMER_SERPROG && !serprog_net_has_host()) {
+		fprintf(stderr, "serprog needs --host <host[:port]>\n\n");
+		return 1;
+	}
+
 	if (spi_controller_init(prog_type) < 0) {
 		if (prog_type == PROGRAMMER_EZP2019)
 			fprintf(stderr, "EZP2019 programmer device not found!\n\n");
@@ -364,6 +386,8 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "CH341A programmer device not found!\n\n");
 		else if (prog_type == PROGRAMMER_CH347)
 			fprintf(stderr, "CH347 programmer device not found (CH347T must be in mode 1)!\n\n");
+		else if (prog_type == PROGRAMMER_SERPROG)
+			fprintf(stderr, "serprog programmer not ready!\n\n");
 		else
 			fprintf(stderr, "No supported programmer device found!\n\n");
 		return 1;
@@ -371,9 +395,10 @@ int main(int argc, char *argv[])
 
 	/* I2C and Microwire EEPROMs are driven through CH341A-specific code
 	 * that uses the CH341A's USB handle directly. */
-	if ((eepromsize > 0 || mw_eepromsize > 0) && spi_controller_type() == PROGRAMMER_CH347)
+	if ((eepromsize > 0 || mw_eepromsize > 0) &&
+	    (spi_controller_type() == PROGRAMMER_CH347 || spi_controller_type() == PROGRAMMER_SERPROG))
 	{
-		fprintf(stderr, "I2C and Microwire EEPROMs are not supported on the CH347 yet; use a CH341A.\n\n");
+		fprintf(stderr, "I2C and Microwire EEPROMs are not supported on the %s yet; use a CH341A.\n\n", spi_controller_name());
 		goto out;
 	}
 

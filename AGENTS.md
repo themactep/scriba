@@ -5,7 +5,8 @@ A direct reference for AI coding agents working on Scriba. No fluff. No hedging.
 ## What Is This
 
 Scriba is a **flash programming tool for IP camera chips**. It talks SPI NOR, SPI NAND,
-and EEPROM through cheap USB programmers (CH341A, CH347, EZP2019). Two targets:
+and EEPROM through cheap USB programmers (CH341A, CH347, EZP2019), or a serprog
+programmer on the network (a thingino backpack). Two targets:
 
 - **CLI** — native C binary, `gcc` + `libusb-1.0`, runs on Linux.
 - **Web** — same C code compiled to WASM via Emscripten, WebUSB bridge in JS,
@@ -78,6 +79,8 @@ one, and every `SPI_CONTROLLER_*` call goes through the active vtable. Types:
 - `PROGRAMMER_EZP2019 = 1`
 - `PROGRAMMER_AUTO = 2` (probes EZP2019, then CH347, then CH341A)
 - `PROGRAMMER_CH347 = 3` (appended so the older values stay stable)
+- `PROGRAMMER_SERPROG = 4` (CLI only; `--host` selects it, and AUTO finds it
+  only with `--host` given)
 
 The flash layers call `SPI_CONTROLLER_*` functions, never the driver
 functions directly. CS is separate from `send_command`: one flash command is
@@ -120,6 +123,16 @@ Sending several commands in one USB transfer does NOT work: CH347T firmware
   (`main.c` refuses `-E` for those on a CH347).
 - **ezp2019_spi.c** (22 KB): packet protocol over bulk USB endpoints for the
   EZP2019/2023 programmer family. Simpler than CH341A — dedicated SPI commands.
+
+### Network Driver
+
+- **serprog_net.c** (CLI only, not in the WASM build): flashrom's serprog
+  protocol over TCP, `--host <host[:port]>`, port 8888 by default, as a
+  thingino backpack serves it. serprog has no CS command: `O_SPIOP` is a whole
+  transaction, so writes after `cs_select` are held and go out with the next
+  read, or alone at `cs_deselect`; a second read in one select is refused.
+  `S_PIN_STATE` on at init is where the programmer takes the chip (a backpack
+  powers it or parks the camera), off at shutdown gives it back.
 
 ### Global State
 

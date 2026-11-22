@@ -90,10 +90,32 @@ else
     fail "-h" "ch347 not listed"
 fi
 
-if "$BIN" -P bogus -i 2>&1 | grep -q "use ch341a, ch347, ezp2019, or auto"; then
+if "$BIN" -P bogus -i 2>&1 | grep -q "use ch341a, ch347, ezp2019, serprog, or auto"; then
     ok "-P rejects an unknown programmer"
 else
     fail "-P bogus" "no error listing valid programmers"
+fi
+
+# serprog over TCP: the options, and the errors that need no programmer
+if "$BIN" -h 2>&1 | grep -q -- "--host <host\[:port\]>"; then
+    ok "-h lists --host"
+else
+    fail "-h" "does not list --host"
+fi
+if "$BIN" -P serprog -i 2>&1 | grep -q "serprog needs --host"; then
+    ok "-P serprog without --host is refused"
+else
+    fail "-P serprog" "no error without --host"
+fi
+if "$BIN" --host '[::1' -i 2>&1 | grep -q "Invalid --host value"; then
+    ok "--host rejects a malformed address"
+else
+    fail "--host '[::1'" "not rejected"
+fi
+if "$BIN" --host 127.0.0.1:1 -i 2>&1 | grep -q "serprog: cannot connect to 127.0.0.1 port 1"; then
+    ok "--host reports a refused connection"
+else
+    fail "--host 127.0.0.1:1" "no connection error"
 fi
 
 # -P ch347 -i either finds the CH347 or names it in the not-found error

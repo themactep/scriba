@@ -12,7 +12,8 @@ typedef enum {
 	PROGRAMMER_CH341A = 0,
 	PROGRAMMER_EZP2019,
 	PROGRAMMER_AUTO,
-	PROGRAMMER_CH347   /* appended so the existing values stay stable */
+	PROGRAMMER_CH347,  /* appended so the existing values stay stable */
+	PROGRAMMER_SERPROG /* serprog over TCP: the thingino backpack */
 } PROGRAMMER_TYPE_T;
 
 /* SPI speed modes */

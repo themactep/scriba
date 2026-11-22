@@ -10,6 +10,10 @@
 extern const struct spi_programmer ch341a_programmer;
 extern const struct spi_programmer ch347_programmer;
 extern const struct spi_programmer ezp2019_programmer;
+#ifndef __EMSCRIPTEN__
+/* Not const: its page programming hook depends on the programmer. */
+extern struct spi_programmer serprog_net_programmer;
+#endif
 
 /* PROGRAMMER_AUTO probes in this order */
 static const struct {
@@ -19,6 +23,10 @@ static const struct {
 	{ PROGRAMMER_EZP2019, &ezp2019_programmer },
 	{ PROGRAMMER_CH347,   &ch347_programmer },
 	{ PROGRAMMER_CH341A,  &ch341a_programmer },
+#ifndef __EMSCRIPTEN__
+	/* Only with --host: without it, its init finds nothing. */
+	{ PROGRAMMER_SERPROG, &serprog_net_programmer },
+#endif
 };
 
 static const struct spi_programmer *active = NULL;
@@ -44,6 +52,19 @@ int spi_controller_reinit(void)
 	if (!active || !active->reinit)
 		return -1;
 	return active->reinit();
+}
+
+int spi_controller_can_program(void)
+{
+	return active && active->program;
+}
+
+int spi_controller_program(const unsigned char *buf, unsigned long addr,
+			   unsigned long len, int addr_bytes, unsigned int page)
+{
+	if (!spi_controller_can_program())
+		return -2;
+	return active->program(buf, addr, len, addr_bytes, page);
 }
 
 void spi_controller_set_speed_khz(unsigned int khz)

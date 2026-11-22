@@ -38,6 +38,7 @@ SRCS  = src/flashcmd_api.c \
 	src/ch341a_spi.c \
 	src/ch347_spi.c \
 	src/ezp2019_spi.c \
+	src/serprog_net.c \
 	src/timer.c \
 	src/main.c
 

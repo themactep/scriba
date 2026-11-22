@@ -12,7 +12,8 @@ typedef enum {
 	PROGRAMMER_CH341A = 0,
 	PROGRAMMER_EZP2019,
 	PROGRAMMER_AUTO,
-	PROGRAMMER_CH347   /* appended so the existing values stay stable */
+	PROGRAMMER_CH347,  /* appended so the existing values stay stable */
+	PROGRAMMER_SERPROG /* serprog over TCP: the thingino backpack */
 } PROGRAMMER_TYPE_T;
 
 /* SPI speed modes */
@@ -43,6 +44,10 @@ struct spi_programmer {
 	int (*cs_deselect)(void); /* CS high — deselect flash */
 	const char *(*libusb_version)(void);
 	int (*reinit)(void);      /* optional: recover after a USB stall/reconnect */
+	/* optional: program `len` bytes at `addr`, a page at a time, each with
+	 * write enable and status polling done by the programmer. 0 on success. */
+	int (*program)(const unsigned char *buf, unsigned long addr,
+		       unsigned long len, int addr_bytes, unsigned int page);
 };
 
 /* Options for spi_controller_set_options() */
@@ -58,6 +63,10 @@ const char *spi_controller_name(void);
 const char *spi_controller_libusb_version(void);
 int spi_controller_type(void);  /* Active PROGRAMMER_* type, or PROGRAMMER_AUTO if none */
 int spi_controller_reinit(void); /* -1 if the active driver has no reinit */
+/* The active driver's program(); -2 when it has none. */
+int spi_controller_program(const unsigned char *buf, unsigned long addr,
+			   unsigned long len, int addr_bytes, unsigned int page);
+int spi_controller_can_program(void);
 
 /* Requested SPI clock in kHz; 0 = driver default. Set before init. Only
  * drivers with a configurable clock (currently the CH347) honor it. */

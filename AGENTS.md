@@ -71,8 +71,12 @@ which flash type is underneath.
 
 Each driver exports one `const struct spi_programmer` (in `spi_controller.h`):
 `init`, `shutdown`, `send_command`, `cs_select`, `cs_deselect`,
-`libusb_version`, and an optional `reinit` (WASM recovery after a stall, and
-re-applying clock/options).
+`libusb_version`, an optional `reinit` (WASM recovery after a stall, and
+re-applying clock/options), and an optional `program` (page programming done
+by the programmer: `snor_write` hands it runs of non-blank pages, up to 64 KB,
+instead of a write enable, page program and status polls per page). The
+serprog driver's table is not `const`: it sets `program` at init, only when
+the programmer offers the command.
 `spi_controller.c` keeps a table of them; `spi_controller_init(type)` picks
 one, and every `SPI_CONTROLLER_*` call goes through the active vtable. Types:
 - `PROGRAMMER_CH341A = 0`
@@ -132,7 +136,9 @@ Sending several commands in one USB transfer does NOT work: CH347T firmware
   transaction, so writes after `cs_select` are held and go out with the next
   read, or alone at `cs_deselect`; a second read in one select is refused.
   `S_PIN_STATE` on at init is where the programmer takes the chip (a backpack
-  powers it or parks the camera), off at shutdown gives it back.
+  powers it or parks the camera), off at shutdown gives it back. A backpack
+  also offers `O_PROGRAM` (0x30), page programming with the polling done on
+  the unit, behind the `program` hook: one round trip per run of pages.
 
 ### Global State
 

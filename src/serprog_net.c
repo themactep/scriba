@@ -53,6 +53,9 @@ extern int trace_enabled;
 #define S_CMD_O_SPIOP  0x13
 #define S_CMD_S_SPI_FREQ 0x14
 #define S_CMD_S_PIN_STATE 0x15
+/* The thingino backpack's own: page programming with the polling done on
+ * the programmer, one round trip per run of pages. */
+#define S_CMD_O_PROGRAM 0x30
 
 #define S_BUS_SPI      (1 << 3)
 
@@ -158,6 +161,10 @@ static int recv_all(unsigned char *buf, size_t len)
 	}
 	return 0;
 }
+
+static int serprog_program(const unsigned char *buf, unsigned long addr,
+			   unsigned long len, int addr_bytes, unsigned int page);
+extern struct spi_programmer serprog_net_programmer;
 
 static int supports(unsigned char cmd)
 {
@@ -308,6 +315,8 @@ static int serprog_init(void)
 	}
 	if (command(S_CMD_Q_CMDMAP, NULL, 0, cmdmap, sizeof(cmdmap)))
 		goto fail;
+	/* The page programming hook, only for a programmer that has it. */
+	serprog_net_programmer.program = supports(S_CMD_O_PROGRAM) ? serprog_program : NULL;
 	if (!supports(S_CMD_O_SPIOP)) {
 		fprintf(stderr, "serprog: %s has no SPI operation\n", host);
 		goto fail;
@@ -425,12 +434,40 @@ static int serprog_send_command(unsigned int writecnt, unsigned int readcnt,
 	return 0;
 }
 
+/* O_PROGRAM: [address bytes, address (4, LE), length (3, LE), page size
+ * (2, LE)], then the data; ACK once every page is programmed. */
+static int serprog_program(const unsigned char *buf, unsigned long addr,
+			   unsigned long len, int addr_bytes, unsigned int page)
+{
+	unsigned char head[11] = {
+		S_CMD_O_PROGRAM, (unsigned char)addr_bytes,
+		addr & 0xff, (addr >> 8) & 0xff, (addr >> 16) & 0xff, (addr >> 24) & 0xff,
+		len & 0xff, (len >> 8) & 0xff, (len >> 16) & 0xff,
+		page & 0xff, (page >> 8) & 0xff,
+	};
+	struct iovec iov[2] = {
+		{ .iov_base = head, .iov_len = sizeof(head) },
+		{ .iov_base = out_buf(buf), .iov_len = len },
+	};
+	unsigned char status;
+
+	if (sock < 0 || !supports(S_CMD_O_PROGRAM) || len >= 1ul << 24)
+		return -1;
+	if (send_all(iov, 2) || recv_all(&status, 1))
+		return -1;
+	if (status != S_ACK) {
+		fprintf(stderr, "serprog: programming failed at or after 0x%08lx\n", addr);
+		return -1;
+	}
+	return 0;
+}
+
 static const char *serprog_libusb_version(void)
 {
 	return "none (network)";
 }
 
-const struct spi_programmer serprog_net_programmer = {
+struct spi_programmer serprog_net_programmer = {
 	.name           = "serprog",
 	.init           = serprog_init,
 	.shutdown       = serprog_shutdown,

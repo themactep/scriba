@@ -77,9 +77,11 @@ scriba exits: a backpack powers the chip, or parks the camera in its bootrom,
 as its status page is set. If it cannot, scriba says so and stops.
 
 Every SPI transaction is a network round trip, which reads do not notice (a
-16 MB chip reads in about a minute over Wi-Fi) and writes do: each 256-byte
-page takes a few. Writing a whole 16 MB chip that way takes about 40 minutes;
-blank pages are skipped.
+16 MB chip reads in about a minute over Wi-Fi). Writes would: a page takes
+several. A thingino backpack programs runs of pages itself, with its own
+command for it, so a whole 16 MB chip erases, writes and verifies in under
+three minutes over Wi-Fi. Other serprog programmers get the plain path,
+about 7 KB/s over Wi-Fi; blank pages are skipped either way.
 
 ## Build & Install
 

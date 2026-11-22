@@ -1202,6 +1202,29 @@ int snor_write(unsigned char *buf, unsigned long to, unsigned long len)
 			continue;
 		}
 
+		/* A programmer that programs pages itself takes a run of them in
+		 * one go: as many non-blank pages as follow, up to 64 KB. */
+		if (spi_controller_can_program()) {
+			u32 run = page_size;
+			while (run < len && run < 0x10000) {
+				u32 next = (u32)min(len - run, (unsigned long)FLASH_PAGESIZE);
+				if (snor_is_blank(buf + run, next))
+					break;
+				run += next;
+			}
+			snor_set_progress("PP", to);
+			if (spi_controller_program(buf, to, run, spi_chip_info->addr4b ? 4 : 3, FLASH_PAGESIZE)) {
+				err = -1;
+				break;
+			}
+			retlen += (int)run;
+			len -= run;
+			to += run;
+			buf += run;
+			timer_progress("Written", plen - len, plen);
+			continue;
+		}
+
 		/* write the next page to flash */
 		snor_set_progress("PP", to);
 		snor_write_enable();
